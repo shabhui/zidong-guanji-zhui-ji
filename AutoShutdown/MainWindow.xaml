@@ -160,6 +160,23 @@
                         </StackPanel>
                     </Border>
 
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="任务中心" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
+                            <TextBlock Text="保存多个常用计划，系统会从启用任务里运行最近的一条。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <Button Content="保存当前为任务" Style="{StaticResource SecondaryButton}" Click="SaveCurrentTask_Click"/>
+                                <Button Grid.Column="2" Content="运行最近启用任务" Style="{StaticResource PrimaryButton}" Click="RunNearestTask_Click"/>
+                            </Grid>
+                            <StackPanel x:Name="TaskListPanel"/>
+                        </StackPanel>
+                    </Border>
+
                     <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,18">
                         <StackPanel>
                             <Grid Margin="0,0,0,18">

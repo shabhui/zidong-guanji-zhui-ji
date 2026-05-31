@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private readonly SettingsService _settingsService;
     private readonly TrayIconService _tray;
     private readonly AppSettings _settings;
+    private SavedTask? _activeTask;
     private ReminderWindow? _reminderWindow;
 
     public MainWindow(ShutdownService shutdown, SettingsService settingsService, TrayIconService tray)
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
         _shutdown.SetRepeatRule(_settings.DefaultRepeatRule);
         UpdatePowerActionUI();
         UpdateRepeatRuleUI();
+        RefreshTaskList();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
     }
@@ -131,8 +133,257 @@ public partial class MainWindow : Window
 
     private void CancelShutdown_Click(object sender, RoutedEventArgs e)
     {
+        _activeTask = null;
         _shutdown.Cancel();
         _reminderWindow?.Close();
+    }
+
+    // === Task Center ===
+
+    private SavedTask CreateTaskFromCurrentSettings()
+    {
+        var mode = CountdownPanel.Visibility == Visibility.Visible ? TimerMode.Countdown : TimerMode.FixedTime;
+        return new SavedTask
+        {
+            Name = $"{GetActionLabel(_settings.SelectedPowerAction)} · {DateTime.Now:HH:mm:ss}",
+            Enabled = true,
+            Mode = mode,
+            Action = _settings.SelectedPowerAction,
+            RepeatRule = mode == TimerMode.Countdown ? RepeatRule.Once : _settings.DefaultRepeatRule,
+            Hours = mode == TimerMode.Countdown ? ParseInt(HoursInput.Text) : ParseInt(FixedHourInput.Text),
+            Minutes = mode == TimerMode.Countdown ? ParseInt(MinutesInput.Text) : ParseInt(FixedMinuteInput.Text),
+            Seconds = mode == TimerMode.Countdown ? ParseInt(SecondsInput.Text) : 0,
+            ForceCloseApps = _settings.ForceCloseApps
+        };
+    }
+
+    private DateTime GetNextTaskTime(SavedTask task)
+    {
+        if (task.Mode == TimerMode.Countdown)
+            return DateTime.Now + new TimeSpan(task.Hours, task.Minutes, task.Seconds);
+
+        var now = DateTime.Now;
+        var target = new DateTime(now.Year, now.Month, now.Day, Math.Clamp(task.Hours, 0, 23), Math.Clamp(task.Minutes, 0, 59), 0);
+        if (target <= now)
+            target = target.AddDays(1);
+
+        return task.RepeatRule switch
+        {
+            RepeatRule.Workdays => MoveToMatchingDay(target, day => day is >= DayOfWeek.Monday and <= DayOfWeek.Friday),
+            RepeatRule.Weekends => MoveToMatchingDay(target, day => day is DayOfWeek.Saturday or DayOfWeek.Sunday),
+            _ => target
+        };
+    }
+
+    private static DateTime MoveToMatchingDay(DateTime date, Func<DayOfWeek, bool> matches)
+    {
+        while (!matches(date.DayOfWeek))
+            date = date.AddDays(1);
+        return date;
+    }
+
+    private bool ScheduleNearestEnabledTask()
+    {
+        var next = _settings.SavedTasks
+            .Where(task => task.Enabled)
+            .Select(task => new { Task = task, Time = GetNextTaskTime(task) })
+            .OrderBy(item => item.Time)
+            .FirstOrDefault();
+
+        if (next == null)
+            return false;
+
+        ApplyTaskToInputs(next.Task);
+        _activeTask = next.Task;
+        _settings.SelectedPowerAction = next.Task.Action;
+        _settings.ForceCloseApps = next.Task.ForceCloseApps;
+        _settings.DefaultRepeatRule = next.Task.RepeatRule;
+        _shutdown.SetPowerAction(next.Task.Action);
+        _shutdown.SetForceCloseApps(next.Task.ForceCloseApps);
+        _shutdown.SetRepeatRule(next.Task.Mode == TimerMode.Countdown ? RepeatRule.Once : next.Task.RepeatRule);
+        _shutdown.ResetReminderFlag();
+
+        if (next.Task.Mode == TimerMode.Countdown)
+            _shutdown.ScheduleCountdown(new TimeSpan(next.Task.Hours, next.Task.Minutes, next.Task.Seconds));
+        else
+            _shutdown.ScheduleFixedTime(next.Time);
+
+        UpdatePowerActionUI();
+        UpdateRepeatRuleUI();
+        UpdateForceCloseUI();
+        UpdateStatusUI();
+        return true;
+    }
+
+    private void ApplyTaskToInputs(SavedTask task)
+    {
+        _settings.SelectedPowerAction = task.Action;
+        _settings.ForceCloseApps = task.ForceCloseApps;
+        _settings.DefaultRepeatRule = task.RepeatRule;
+        _shutdown.SetPowerAction(task.Action);
+        _shutdown.SetForceCloseApps(task.ForceCloseApps);
+        _shutdown.SetRepeatRule(task.RepeatRule);
+
+        if (task.Mode == TimerMode.Countdown)
+        {
+            CountdownMode_Click(BtnCountdown, new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left));
+            HoursInput.Text = task.Hours.ToString();
+            MinutesInput.Text = task.Minutes.ToString();
+            SecondsInput.Text = task.Seconds.ToString();
+        }
+        else
+        {
+            FixedMode_Click(BtnFixed, new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left));
+            FixedHourInput.Text = Math.Clamp(task.Hours, 0, 23).ToString();
+            FixedMinuteInput.Text = Math.Clamp(task.Minutes, 0, 59).ToString("00");
+        }
+
+        UpdatePowerActionUI();
+        UpdateRepeatRuleUI();
+        UpdateForceCloseUI();
+    }
+
+    private string GetTaskSummary(SavedTask task)
+    {
+        var time = task.Mode == TimerMode.Countdown
+            ? $"{task.Hours:D2}:{task.Minutes:D2}:{task.Seconds:D2} 后"
+            : $"{task.Hours:D2}:{task.Minutes:D2} · {GetRepeatLabel(task.RepeatRule)}";
+        return $"{GetActionVerb(task.Action)} · {time}";
+    }
+
+    private void SaveCurrentTask_Click(object sender, RoutedEventArgs e)
+    {
+        var task = CreateTaskFromCurrentSettings();
+        if (task.Mode == TimerMode.Countdown && task.Hours == 0 && task.Minutes == 0 && task.Seconds == 0)
+            return;
+
+        _settings.SavedTasks.Add(task);
+        _settingsService.Save(_settings);
+        RefreshTaskList();
+    }
+
+    private void RunNearestTask_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ScheduleNearestEnabledTask())
+            _tray.ShowBalloon("智能定时关机", "没有启用的任务");
+    }
+
+    private void TaskApply_Click(object sender, RoutedEventArgs e)
+    {
+        var task = GetTaskFromButton(sender);
+        if (task == null) return;
+        ApplyTaskToInputs(task);
+        _settingsService.Save(_settings);
+    }
+
+    private void TaskToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var task = GetTaskFromButton(sender);
+        if (task == null) return;
+        task.Enabled = !task.Enabled;
+        _settingsService.Save(_settings);
+        RefreshTaskList();
+    }
+
+    private void TaskDelete_Click(object sender, RoutedEventArgs e)
+    {
+        var task = GetTaskFromButton(sender);
+        if (task == null) return;
+        _settings.SavedTasks.Remove(task);
+        if (_activeTask?.Id == task.Id)
+            _activeTask = null;
+        _settingsService.Save(_settings);
+        RefreshTaskList();
+    }
+
+    private SavedTask? GetTaskFromButton(object sender)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not string id)
+            return null;
+        return _settings.SavedTasks.FirstOrDefault(task => task.Id == id);
+    }
+
+    private void RefreshTaskList()
+    {
+        TaskListPanel.Children.Clear();
+        if (_settings.SavedTasks.Count == 0)
+        {
+            TaskListPanel.Children.Add(new TextBlock
+            {
+                Text = "还没有保存的任务。先设置动作和时间，再点击“保存当前为任务”。",
+                Foreground = FindResource("TextSecondaryBrush") as Brush,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            return;
+        }
+
+        foreach (var task in _settings.SavedTasks.OrderBy(GetNextTaskTime))
+        {
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(16),
+                Padding = new Thickness(14),
+                Margin = new Thickness(0, 0, 0, 10),
+                Background = new SolidColorBrush(Color.FromArgb(112, 17, 24, 43)),
+                BorderBrush = task.Enabled ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191)),
+                BorderThickness = new Thickness(1),
+                Opacity = task.Enabled ? 1 : 0.55
+            };
+
+            var root = new Grid();
+            root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var text = new StackPanel();
+            text.Children.Add(new TextBlock
+            {
+                Text = task.Name,
+                FontWeight = FontWeights.Bold,
+                Foreground = FindResource("TextPrimaryBrush") as Brush,
+                FontSize = 14
+            });
+            text.Children.Add(new TextBlock
+            {
+                Text = GetTaskSummary(task),
+                Foreground = FindResource("TextSecondaryBrush") as Brush,
+                FontSize = 12,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            text.Children.Add(new TextBlock
+            {
+                Text = $"下次：{GetNextTaskTime(task):yyyy-MM-dd HH:mm:ss}",
+                Foreground = FindResource("AccentBrush") as Brush,
+                FontSize = 12,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            root.Children.Add(text);
+
+            var actions = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            actions.Children.Add(CreateTaskButton(task, task.Enabled ? "禁用" : "启用", TaskToggle_Click));
+            actions.Children.Add(CreateTaskButton(task, "应用", TaskApply_Click));
+            actions.Children.Add(CreateTaskButton(task, "删除", TaskDelete_Click));
+            Grid.SetColumn(actions, 1);
+            root.Children.Add(actions);
+
+            card.Child = root;
+            TaskListPanel.Children.Add(card);
+        }
+    }
+
+    private System.Windows.Controls.Button CreateTaskButton(SavedTask task, string text, RoutedEventHandler click)
+    {
+        var button = new System.Windows.Controls.Button
+        {
+            Content = text,
+            Tag = task.Id,
+            Style = FindResource("SecondaryButton") as Style,
+            Padding = new Thickness(10, 7, 10, 7),
+            Margin = new Thickness(8, 0, 0, 0),
+            FontSize = 12
+        };
+        button.Click += click;
+        return button;
     }
 
     // === Status Updates ===
