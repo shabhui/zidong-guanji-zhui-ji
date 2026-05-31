@@ -3,6 +3,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using AutoShutdown.Models;
 using AutoShutdown.Services;
 
 namespace AutoShutdown;
@@ -11,15 +12,20 @@ public partial class ReminderWindow : Window
 {
     private readonly ShutdownService _shutdown;
     private readonly MainWindow _mainWindow;
+    private readonly PowerAction _action;
     private readonly DispatcherTimer _timer;
     private int _remainingSeconds;
 
-    public ReminderWindow(int seconds, ShutdownService shutdown, MainWindow mainWindow)
+    public ReminderWindow(int seconds, ShutdownService shutdown, MainWindow mainWindow, PowerAction action)
     {
         InitializeComponent();
         _shutdown = shutdown;
         _mainWindow = mainWindow;
+        _action = action;
         _remainingSeconds = seconds;
+        TitleLabel.Text = $"即将{GetActionLabel(_action)}";
+        WarningLabel.Text = $"{GetActionWarning(_action)} WARNING";
+        ExecuteNowButton.Content = $"立即{GetActionLabel(_action)}";
 
         UpdateDisplay();
         Loaded += (_, _) => StartEntranceAnimation();
@@ -43,7 +49,7 @@ public partial class ReminderWindow : Window
     private void UpdateDisplay()
     {
         CountdownLabel.Text = $"{_remainingSeconds}s";
-        MessageLabel.Text = $"电脑将在 {_remainingSeconds} 秒后自动关机";
+        MessageLabel.Text = $"电脑将在 {_remainingSeconds} 秒后{GetActionLabel(_action)}";
         PulseElement(CountdownLabel, 1.08);
     }
 
@@ -120,6 +126,28 @@ public partial class ReminderWindow : Window
         _shutdown.ExecuteShutdown();
         Close();
     }
+
+    private static string GetActionLabel(PowerAction action) => action switch
+    {
+        PowerAction.Shutdown => "关机",
+        PowerAction.Sleep => "睡眠",
+        PowerAction.Hibernate => "休眠",
+        PowerAction.Restart => "重启",
+        PowerAction.LogOut => "注销",
+        PowerAction.Lock => "锁定",
+        _ => "关机"
+    };
+
+    private static string GetActionWarning(PowerAction action) => action switch
+    {
+        PowerAction.Shutdown => "SHUTDOWN",
+        PowerAction.Sleep => "SLEEP",
+        PowerAction.Hibernate => "HIBERNATE",
+        PowerAction.Restart => "RESTART",
+        PowerAction.LogOut => "LOG OUT",
+        PowerAction.Lock => "LOCK",
+        _ => "POWER ACTION"
+    };
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

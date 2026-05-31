@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Timers;
+using AutoShutdown.Models;
 
 namespace AutoShutdown.Services;
 
@@ -9,6 +11,7 @@ public class ShutdownService
     private DateTime _targetTime;
     private bool _isScheduled;
     private bool _forceCloseApps;
+    private PowerAction _powerAction = PowerAction.Shutdown;
     private readonly object _lock = new();
 
     public event Action<string>? Tick;
@@ -18,6 +21,8 @@ public class ShutdownService
 
     public bool IsScheduled => _isScheduled;
     public DateTime TargetTime => _targetTime;
+    public PowerAction PowerAction => _powerAction;
+    public bool SupportsForceCloseApps => _powerAction is PowerAction.Shutdown or PowerAction.Restart or PowerAction.LogOut;
 
     public void ScheduleCountdown(TimeSpan duration)
     {
@@ -66,6 +71,8 @@ public class ShutdownService
 
     public void SetForceCloseApps(bool enabled) => _forceCloseApps = enabled;
 
+    public void SetPowerAction(PowerAction action) => _powerAction = action;
+
     public void ExecuteShutdown()
     {
         lock (_lock)
@@ -76,9 +83,39 @@ public class ShutdownService
         _countdownTimer?.Dispose();
         _countdownTimer = null;
         ShutdownTriggered?.Invoke();
-        var arguments = _forceCloseApps ? "/s /f /t 0" : "/s /t 0";
-        Process.Start("shutdown", arguments);
+        ExecutePowerAction();
     }
+
+    private void ExecutePowerAction()
+    {
+        switch (_powerAction)
+        {
+            case PowerAction.Shutdown:
+                Process.Start("shutdown", _forceCloseApps ? "/s /f /t 0" : "/s /t 0");
+                break;
+            case PowerAction.Restart:
+                Process.Start("shutdown", _forceCloseApps ? "/r /f /t 0" : "/r /t 0");
+                break;
+            case PowerAction.LogOut:
+                Process.Start("shutdown", _forceCloseApps ? "/l /f" : "/l");
+                break;
+            case PowerAction.Sleep:
+                SetSuspendState(false, false, false);
+                break;
+            case PowerAction.Hibernate:
+                SetSuspendState(true, false, false);
+                break;
+            case PowerAction.Lock:
+                LockWorkStation();
+                break;
+        }
+    }
+
+    [DllImport("powrprof.dll", SetLastError = true)]
+    private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool LockWorkStation();
 
     private void StartTimer()
     {

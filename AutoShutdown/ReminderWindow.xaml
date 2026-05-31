@@ -5,8 +5,22 @@
         WindowStartupLocation="CenterScreen"
         Topmost="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
 
-    <Grid x:Name="ReminderRoot" Background="{StaticResource AppBackgroundBrush}" ClipToBounds="True">
+    <Grid x:Name="ReminderRoot" ClipToBounds="True">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#080A17" Offset="0"/>
+                <GradientStop Color="#111634" Offset="0.45"/>
+                <GradientStop Color="#27164F" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
         <Ellipse x:Name="AlertGlow" Width="260" Height="260" HorizontalAlignment="Center" VerticalAlignment="Top"
                  Margin="0,-150,0,0" Fill="#FB3B6D" Opacity="0.30" IsHitTestVisible="False">
             <Ellipse.Effect>
@@ -29,9 +43,9 @@
                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
-                <TextBlock Text="即将关机" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center"
+                <TextBlock x:Name="TitleLabel" Text="即将关机" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center"
                            Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
-                <TextBlock Text="SHUTDOWN WARNING" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                <TextBlock x:Name="WarningLabel" Text="POWER ACTION WARNING" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
                            Foreground="{StaticResource WarningBrush}" Margin="0,0,0,10"/>
 
                 <TextBlock x:Name="MessageLabel" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"
@@ -57,7 +71,7 @@
 
                     <Button Content="取消" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" FontSize="13" Padding="8,10"/>
                     <Button Grid.Column="2" Content="延迟 5 分钟" Style="{StaticResource SecondaryButton}" Click="Delay_Click" FontSize="13" Padding="8,10"/>
-                    <Button Grid.Column="4" Content="立即关机" Style="{StaticResource DangerButton}" Click="ShutdownNow_Click" FontSize="13" Padding="8,10"/>
+                    <Button Grid.Column="4" x:Name="ExecuteNowButton" Content="立即关机" Style="{StaticResource DangerButton}" Click="ShutdownNow_Click" FontSize="13" Padding="8,10"/>
                 </Grid>
             </StackPanel>
         </Border>

@@ -43,6 +43,8 @@ public partial class MainWindow : Window
         SecondsInput.Text = _settings.DefaultCountdownSeconds.ToString();
         _shutdown.SetReminderSeconds(_settings.ReminderSeconds);
         _shutdown.SetForceCloseApps(_settings.ForceCloseApps);
+        _shutdown.SetPowerAction(_settings.SelectedPowerAction);
+        UpdatePowerActionUI();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
     }
@@ -125,10 +127,10 @@ public partial class MainWindow : Window
         CountdownStartBtn.IsEnabled = false;
         FixedTimeStartBtn.IsEnabled = false;
         _tray.SetShutdownActive(true);
-        TargetTimeLabel.Text = $"计划关机时间：{_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
-        ShutdownModeLabel.Text = _settings.ForceCloseApps
-            ? "关机方式：强制关闭所有应用（未保存内容可能丢失）"
-            : "关机方式：正常关机（应用可提示保存或阻止关机）";
+        TargetTimeLabel.Text = $"计划执行：{GetActionVerb(_settings.SelectedPowerAction)} · {_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
+        ShutdownModeLabel.Text = _shutdown.SupportsForceCloseApps && _settings.ForceCloseApps
+            ? "执行方式：强制关闭应用（未保存内容可能丢失）"
+            : "执行方式：正常执行";
     }
 
     private void OnTick(string remaining)
@@ -144,7 +146,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            _reminderWindow = new ReminderWindow(_settings.ReminderSeconds, _shutdown, this);
+            _reminderWindow = new ReminderWindow(_settings.ReminderSeconds, _shutdown, this, _settings.SelectedPowerAction);
             _reminderWindow.ShowDialog();
         });
     }
@@ -153,7 +155,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            _tray.ShowBalloon("智能定时关机", "电脑即将关机...");
+            _tray.ShowBalloon("智能定时关机", $"电脑即将{GetActionLabel(_settings.SelectedPowerAction)}...");
         });
     }
 
@@ -203,6 +205,9 @@ public partial class MainWindow : Window
 
     private void ForceCloseToggle_Click(object sender, MouseButtonEventArgs e)
     {
+        if (!_shutdown.SupportsForceCloseApps)
+            return;
+
         _settings.ForceCloseApps = !_settings.ForceCloseApps;
         _shutdown.SetForceCloseApps(_settings.ForceCloseApps);
         _settingsService.Save(_settings);
@@ -211,9 +216,58 @@ public partial class MainWindow : Window
             UpdateStatusUI();
     }
 
+    private void PowerAction_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border border || border.Tag is not string tag || !Enum.TryParse(tag, out PowerAction action))
+            return;
+
+        _settings.SelectedPowerAction = action;
+        _shutdown.SetPowerAction(action);
+        _settingsService.Save(_settings);
+        UpdatePowerActionUI();
+        UpdateForceCloseUI();
+        if (_shutdown.IsScheduled)
+            UpdateStatusUI();
+    }
+
+    private void UpdatePowerActionUI()
+    {
+        var actionButtons = new[]
+        {
+            ActionShutdown,
+            ActionSleep,
+            ActionHibernate,
+            ActionRestart,
+            ActionLogOut,
+            ActionLock
+        };
+
+        foreach (var button in actionButtons)
+        {
+            var isSelected = button.Tag?.ToString() == _settings.SelectedPowerAction.ToString();
+            button.Background = isSelected ? FindResource("HeroBrush") as Brush : Brushes.Transparent;
+            button.BorderBrush = isSelected ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191));
+            button.Effect = isSelected ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+        }
+
+        var label = GetActionLabel(_settings.SelectedPowerAction);
+        var verb = GetActionVerb(_settings.SelectedPowerAction);
+        CountdownPanelTitle.Text = $"倒计时{label}";
+        CountdownPanelSubtitle.Text = $"输入时长后开始计时，到点后{verb}，执行前会按设置弹窗提醒。";
+        FixedTimePanelTitle.Text = $"指定时间{label}";
+        FixedTimePanelSubtitle.Text = $"选择今天或明天的具体时间，到点后{verb}。";
+        ReminderSettingSubtitle.Text = $"{label}前弹窗提醒，可在 10-300 秒之间设置。";
+    }
+
     private void UpdateForceCloseUI()
     {
-        if (_settings.ForceCloseApps)
+        ForceCloseRow.Opacity = _shutdown.SupportsForceCloseApps ? 1 : 0.38;
+        ForceCloseToggle.IsEnabled = _shutdown.SupportsForceCloseApps;
+        ForceCloseHint.Text = _shutdown.SupportsForceCloseApps
+            ? $"开启后{GetActionLabel(_settings.SelectedPowerAction)}会关闭所有应用，未保存内容可能丢失。"
+            : $"{GetActionLabel(_settings.SelectedPowerAction)}不使用强制关闭应用。";
+
+        if (_settings.ForceCloseApps && _shutdown.SupportsForceCloseApps)
         {
             ForceCloseToggle.Background = FindResource("DangerBrush") as Brush;
             ForceCloseToggle.Effect = FindResource("DangerShadow") as System.Windows.Media.Effects.Effect;
@@ -383,6 +437,28 @@ public partial class MainWindow : Window
     {
         return int.TryParse(s, out int v) ? v : 0;
     }
+
+    private static string GetActionLabel(PowerAction action) => action switch
+    {
+        PowerAction.Shutdown => "关机",
+        PowerAction.Sleep => "睡眠",
+        PowerAction.Hibernate => "休眠",
+        PowerAction.Restart => "重启",
+        PowerAction.LogOut => "注销",
+        PowerAction.Lock => "锁定",
+        _ => "关机"
+    };
+
+    private static string GetActionVerb(PowerAction action) => action switch
+    {
+        PowerAction.Shutdown => "自动关机",
+        PowerAction.Sleep => "自动睡眠",
+        PowerAction.Hibernate => "自动休眠",
+        PowerAction.Restart => "自动重启",
+        PowerAction.LogOut => "自动注销",
+        PowerAction.Lock => "自动锁定",
+        _ => "自动关机"
+    };
 
     public void UpdateStatusAfterDelay()
     {

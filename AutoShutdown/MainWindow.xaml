@@ -4,8 +4,22 @@
         Width="600" Height="720"
         WindowStartupLocation="CenterScreen"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
 
-    <Grid x:Name="RootGrid" Background="{StaticResource AppBackgroundBrush}" ClipToBounds="True">
+    <Grid x:Name="RootGrid" ClipToBounds="True">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#080A17" Offset="0"/>
+                <GradientStop Color="#111634" Offset="0.45"/>
+                <GradientStop Color="#27164F" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
         <Ellipse x:Name="GlowPurple" Width="280" Height="280" HorizontalAlignment="Left" VerticalAlignment="Top"
                  Margin="-96,-112,0,0" Fill="#7B2CFF" Opacity="0.28" IsHitTestVisible="False">
             <Ellipse.Effect>
@@ -95,6 +109,57 @@
                         </Grid>
                     </Border>
 
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="执行动作" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
+                            <TextBlock Text="到点后执行所选电源操作，倒计时和指定时间都会使用这里的选择。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+                            <UniformGrid Columns="3" Rows="2">
+                                <Border x:Name="ActionShutdown" Tag="Shutdown" CornerRadius="16" Padding="14,12" Margin="0,0,8,8"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="关机" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="SHUTDOWN" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ActionSleep" Tag="Sleep" CornerRadius="16" Padding="14,12" Margin="0,0,8,8"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="睡眠" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="SLEEP" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ActionHibernate" Tag="Hibernate" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="休眠" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="HIBERNATE" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ActionRestart" Tag="Restart" CornerRadius="16" Padding="14,12" Margin="0,0,8,0"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="重启" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="RESTART" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ActionLogOut" Tag="LogOut" CornerRadius="16" Padding="14,12" Margin="0,0,8,0"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="注销" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="LOG OUT" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ActionLock" Tag="Lock" CornerRadius="16" Padding="14,12"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="锁定" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="LOCK" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
                     <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,18">
                         <StackPanel>
                             <Grid Margin="0,0,0,18">
@@ -103,8 +168,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="倒计时关机" Style="{StaticResource TitleText}"/>
-                                    <TextBlock Text="输入时长后开始计时，关机前会按设置弹窗提醒。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="CountdownPanelTitle" Text="倒计时关机" Style="{StaticResource TitleText}"/>
+                                    <TextBlock x:Name="CountdownPanelSubtitle" Text="输入时长后开始计时，关机前会按设置弹窗提醒。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
                                 </StackPanel>
                                 <Border Grid.Column="1" CornerRadius="18" Background="#1D22D3EE" BorderBrush="#6622D3EE" BorderThickness="1" Padding="12,8" VerticalAlignment="Center">
                                     <TextBlock Text="COUNTDOWN" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
@@ -164,8 +229,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="指定时间关机" Style="{StaticResource TitleText}"/>
-                                    <TextBlock Text="选择今天或明天的具体时间，到点自动关机。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="FixedTimePanelTitle" Text="指定时间关机" Style="{StaticResource TitleText}"/>
+                                    <TextBlock x:Name="FixedTimePanelSubtitle" Text="选择今天或明天的具体时间，到点自动关机。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
                                 </StackPanel>
                                 <Border Grid.Column="1" CornerRadius="18" Background="#1D8B5CF6" BorderBrush="#668B5CF6" BorderThickness="1" Padding="12,8" VerticalAlignment="Center">
                                     <TextBlock Text="SCHEDULE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryHoverBrush}"/>
@@ -219,8 +284,8 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock x:Name="StatusTitle" Text="关机计划运行中" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
-                                    <TextBlock x:Name="RemainingLabel" Text="距离关机还有" FontSize="12" Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock x:Name="StatusTitle" Text="任务计划运行中" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
+                                    <TextBlock x:Name="RemainingLabel" Text="距离执行还有" FontSize="12" Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
                                     <TextBlock x:Name="RemainingTime" Text="00:30:00" FontSize="36" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
                                 </StackPanel>
                             </Grid>
@@ -232,7 +297,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Button Content="取消关机计划" Style="{StaticResource DangerButton}" Margin="0,18,0,0" Click="CancelShutdown_Click"/>
+                            <Button x:Name="CancelPlanButton" Content="取消任务计划" Style="{StaticResource DangerButton}" Margin="0,18,0,0" Click="CancelShutdown_Click"/>
                         </StackPanel>
                     </Border>
 
@@ -246,8 +311,8 @@
                                     <ColumnDefinition Width="150"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="提醒提前时间" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="关机前弹窗提醒，可在 10-300 秒之间设置。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock x:Name="ReminderSettingTitle" Text="提醒提前时间" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock x:Name="ReminderSettingSubtitle" Text="关机前弹窗提醒，可在 10-300 秒之间设置。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button x:Name="ReminderMinus" Content="-" Width="36" Height="36" Style="{StaticResource SecondaryButton}" Padding="0" Click="ReminderMinus_Click"/>
@@ -259,14 +324,14 @@
 
                             <Border Height="1" Background="#334D5BFF" Margin="0,0,0,16"/>
 
-                            <Grid Margin="0,0,0,16">
+                            <Grid x:Name="ForceCloseRow" Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,20,0">
                                     <TextBlock Text="强制关闭应用" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="开启后关机会关闭所有应用，未保存内容可能丢失。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="ForceCloseHint" Text="开启后会关闭所有应用，未保存内容可能丢失。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Border x:Name="ForceCloseToggle" Grid.Column="1" Width="56" Height="30" CornerRadius="15" Cursor="Hand"
                                         MouseLeftButtonDown="ForceCloseToggle_Click" BorderBrush="#5536E8FF" BorderThickness="1">
