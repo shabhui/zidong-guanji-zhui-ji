@@ -10,6 +10,12 @@ public class AppSettings
     public bool ForceCloseApps { get; set; } = false;
     public PowerAction SelectedPowerAction { get; set; } = PowerAction.Shutdown;
     public RepeatRule DefaultRepeatRule { get; set; } = RepeatRule.Once;
+    public int NetworkDownloadThresholdKb { get; set; } = 100;
+    public int NetworkUploadThresholdKb { get; set; } = 50;
+    public int NetworkIdleMinutes { get; set; } = 5;
+    public bool PreActionScriptEnabled { get; set; } = false;
+    public string PreActionScriptPath { get; set; } = string.Empty;
+    public int PreActionScriptTimeoutSeconds { get; set; } = 60;
     public List<SavedTask> SavedTasks { get; set; } = new();
 }
 

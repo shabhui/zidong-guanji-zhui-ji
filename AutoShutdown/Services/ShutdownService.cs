@@ -35,6 +35,7 @@ public class ShutdownService
     public PowerAction PowerAction => _powerAction;
     public RepeatRule RepeatRule => _repeatRule;
     public bool SupportsForceCloseApps => _powerAction is PowerAction.Shutdown or PowerAction.Restart or PowerAction.LogOut;
+    public Func<Task<bool>>? BeforePowerActionAsync { get; set; }
 
     public void ScheduleCountdown(TimeSpan duration)
     {
@@ -170,6 +171,21 @@ public class ShutdownService
         if (repeat)
             StartTimer();
         ShutdownTriggered?.Invoke();
+        _ = ExecutePowerActionAsync();
+    }
+
+    private async Task ExecutePowerActionAsync()
+    {
+        if (BeforePowerActionAsync != null)
+        {
+            var shouldContinue = await BeforePowerActionAsync();
+            if (!shouldContinue)
+            {
+                Cancelled?.Invoke();
+                return;
+            }
+        }
+
         ExecutePowerAction();
     }
 

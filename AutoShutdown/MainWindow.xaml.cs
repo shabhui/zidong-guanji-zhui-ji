@@ -15,6 +15,9 @@ public partial class MainWindow : Window
     private readonly ShutdownService _shutdown;
     private readonly SettingsService _settingsService;
     private readonly TrayIconService _tray;
+    private readonly NetworkIdleService _networkIdle = new();
+    private readonly ProcessExitService _processExit = new();
+    private readonly PreActionScriptService _preActionScript = new();
     private readonly AppSettings _settings;
     private SavedTask? _activeTask;
     private ReminderWindow? _reminderWindow;
@@ -32,6 +35,11 @@ public partial class MainWindow : Window
         _shutdown.ShutdownTriggered += OnShutdownTriggered;
         _shutdown.Cancelled += OnCancelled;
         _shutdown.PauseStateChanged += OnPauseStateChanged;
+        _networkIdle.Tick += OnNetworkIdleTick;
+        _networkIdle.IdleReached += OnNetworkIdleReached;
+        _processExit.Tick += OnProcessExitTick;
+        _processExit.ProcessExited += OnProcessExited;
+        _shutdown.BeforePowerActionAsync = RunPreActionScriptAsync;
 
         LoadSettings();
         Loaded += (_, _) => StartEntranceAnimations();
@@ -43,6 +51,12 @@ public partial class MainWindow : Window
         HoursInput.Text = _settings.DefaultCountdownHours.ToString();
         MinutesInput.Text = _settings.DefaultCountdownMinutes.ToString();
         SecondsInput.Text = _settings.DefaultCountdownSeconds.ToString();
+        NetworkDownloadThresholdInput.Text = _settings.NetworkDownloadThresholdKb.ToString();
+        NetworkUploadThresholdInput.Text = _settings.NetworkUploadThresholdKb.ToString();
+        NetworkIdleMinutesInput.Text = _settings.NetworkIdleMinutes.ToString();
+        PreActionScriptPathInput.Text = _settings.PreActionScriptPath;
+        PreActionScriptTimeoutInput.Text = _settings.PreActionScriptTimeoutSeconds.ToString();
+        UpdatePreActionScriptUI();
         _shutdown.SetReminderSeconds(_settings.ReminderSeconds);
         _shutdown.SetForceCloseApps(_settings.ForceCloseApps);
         _shutdown.SetPowerAction(_settings.SelectedPowerAction);
@@ -50,6 +64,7 @@ public partial class MainWindow : Window
         UpdatePowerActionUI();
         UpdateRepeatRuleUI();
         RefreshTaskList();
+        RefreshProcessList();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
     }
@@ -469,6 +484,213 @@ public partial class MainWindow : Window
         PauseResumeButton.Content = _shutdown.IsPaused ? "恢复任务" : "暂停 1 小时";
         StatusTitle.Text = _shutdown.IsPaused ? "任务已暂停" : "任务计划运行中";
         RemainingLabel.Text = _shutdown.IsPaused ? "恢复后剩余时间" : "距离执行还有";
+    }
+
+    // === Network Idle ===
+
+    private void StartNetworkIdle_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.NetworkDownloadThresholdKb = Math.Clamp(ParseInt(NetworkDownloadThresholdInput.Text), 0, 102400);
+        _settings.NetworkUploadThresholdKb = Math.Clamp(ParseInt(NetworkUploadThresholdInput.Text), 0, 102400);
+        _settings.NetworkIdleMinutes = Math.Clamp(ParseInt(NetworkIdleMinutesInput.Text), 1, 1440);
+        NetworkDownloadThresholdInput.Text = _settings.NetworkDownloadThresholdKb.ToString();
+        NetworkUploadThresholdInput.Text = _settings.NetworkUploadThresholdKb.ToString();
+        NetworkIdleMinutesInput.Text = _settings.NetworkIdleMinutes.ToString();
+        _settingsService.Save(_settings);
+
+        _networkIdle.Start(_settings.NetworkDownloadThresholdKb, _settings.NetworkUploadThresholdKb, _settings.NetworkIdleMinutes);
+        StartNetworkIdleButton.IsEnabled = false;
+        StopNetworkIdleButton.IsEnabled = true;
+        NetworkIdleProgressLabel.Text = "闲置进度：监控中...";
+    }
+
+    private void StopNetworkIdle_Click(object sender, RoutedEventArgs e)
+    {
+        StopNetworkIdleMonitoring("当前速度：已停止监控", "闲置进度：0/0 秒");
+    }
+
+    private void OnNetworkIdleTick(double downloadKb, double uploadKb, int idleSeconds, int requiredSeconds)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            NetworkSpeedLabel.Text = $"当前速度：下载 {downloadKb:F1} KB/s · 上传 {uploadKb:F1} KB/s";
+            NetworkIdleProgressLabel.Text = $"闲置进度：{idleSeconds}/{requiredSeconds} 秒";
+        });
+    }
+
+    private void OnNetworkIdleReached()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            StopNetworkIdleMonitoring("当前速度：已达到闲置条件", "闲置进度：已触发");
+            _shutdown.SetRepeatRule(RepeatRule.Once);
+            _shutdown.ResetReminderFlag();
+            _shutdown.ScheduleCountdown(TimeSpan.FromSeconds(_settings.ReminderSeconds));
+            UpdateStatusUI();
+        });
+    }
+
+    private void StopNetworkIdleMonitoring(string speedText, string progressText)
+    {
+        _networkIdle.Stop();
+        StartNetworkIdleButton.IsEnabled = true;
+        StopNetworkIdleButton.IsEnabled = false;
+        NetworkSpeedLabel.Text = speedText;
+        NetworkIdleProgressLabel.Text = progressText;
+    }
+
+    // === Process Exit Trigger ===
+
+    private void RefreshProcessList_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshProcessList();
+    }
+
+    private void RefreshProcessList()
+    {
+        var selected = ProcessListCombo.SelectedValue?.ToString();
+        var processes = System.Diagnostics.Process.GetProcesses()
+            .Where(process => !string.IsNullOrWhiteSpace(process.ProcessName))
+            .GroupBy(process => process.ProcessName)
+            .Select(group => new ProcessListItem(group.Key, group.Count()))
+            .OrderBy(item => item.Name)
+            .ToList();
+
+        ProcessListCombo.ItemsSource = processes;
+        ProcessListCombo.DisplayMemberPath = nameof(ProcessListItem.Display);
+        ProcessListCombo.SelectedValuePath = nameof(ProcessListItem.Name);
+
+        if (!string.IsNullOrWhiteSpace(selected))
+            ProcessListCombo.SelectedValue = selected;
+        else if (processes.Count > 0)
+            ProcessListCombo.SelectedIndex = 0;
+    }
+
+    private void StartProcessTrigger_Click(object sender, RoutedEventArgs e)
+    {
+        var processName = ProcessListCombo.SelectedValue?.ToString();
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            ProcessTriggerStatusLabel.Text = "进程状态：请先刷新并选择进程";
+            return;
+        }
+
+        _processExit.Start(processName);
+        StartProcessTriggerButton.IsEnabled = false;
+        StopProcessTriggerButton.IsEnabled = true;
+        RefreshProcessListButton.IsEnabled = false;
+        ProcessTriggerStatusLabel.Text = $"进程状态：正在监控 {processName}";
+    }
+
+    private void StopProcessTrigger_Click(object sender, RoutedEventArgs e)
+    {
+        StopProcessMonitoring("进程状态：已停止监控");
+    }
+
+    private void OnProcessExitTick(string processName, int count, bool hasSeenProcess)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ProcessTriggerStatusLabel.Text = hasSeenProcess
+                ? $"进程状态：{processName} 正在运行 {count} 个实例"
+                : $"进程状态：等待 {processName} 启动/出现";
+        });
+    }
+
+    private void OnProcessExited(string processName)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            StopProcessMonitoring($"进程状态：{processName} 已退出，已触发任务");
+            _shutdown.SetRepeatRule(RepeatRule.Once);
+            _shutdown.ResetReminderFlag();
+            _shutdown.ScheduleCountdown(TimeSpan.FromSeconds(_settings.ReminderSeconds));
+            UpdateStatusUI();
+        });
+    }
+
+    private void StopProcessMonitoring(string statusText)
+    {
+        _processExit.Stop();
+        StartProcessTriggerButton.IsEnabled = true;
+        StopProcessTriggerButton.IsEnabled = false;
+        RefreshProcessListButton.IsEnabled = true;
+        ProcessTriggerStatusLabel.Text = statusText;
+    }
+
+    private sealed record ProcessListItem(string Name, int Count)
+    {
+        public string Display => $"{Name} ({Count})";
+    }
+
+    // === Pre-Action Script ===
+
+    private void BrowsePreActionScript_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "脚本文件 (*.bat;*.cmd;*.ps1)|*.bat;*.cmd;*.ps1|所有文件 (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        _settings.PreActionScriptPath = dialog.FileName;
+        PreActionScriptPathInput.Text = dialog.FileName;
+        _settingsService.Save(_settings);
+        UpdatePreActionScriptUI();
+    }
+
+    private void TogglePreActionScript_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.PreActionScriptPath = PreActionScriptPathInput.Text.Trim();
+        _settings.PreActionScriptEnabled = !_settings.PreActionScriptEnabled;
+        SavePreActionScriptTimeout();
+        _settingsService.Save(_settings);
+        UpdatePreActionScriptUI();
+    }
+
+    private void PreActionScriptTimeoutInput_LostFocus(object sender, RoutedEventArgs e)
+    {
+        SavePreActionScriptTimeout();
+        _settings.PreActionScriptPath = PreActionScriptPathInput.Text.Trim();
+        _settingsService.Save(_settings);
+        UpdatePreActionScriptUI();
+    }
+
+    private void SavePreActionScriptTimeout()
+    {
+        _settings.PreActionScriptTimeoutSeconds = Math.Clamp(ParseInt(PreActionScriptTimeoutInput.Text), 1, 3600);
+        PreActionScriptTimeoutInput.Text = _settings.PreActionScriptTimeoutSeconds.ToString();
+    }
+
+    private void UpdatePreActionScriptUI()
+    {
+        PreActionScriptToggleButton.Content = _settings.PreActionScriptEnabled ? "关闭脚本" : "启用脚本";
+        PreActionScriptToggleButton.Background = _settings.PreActionScriptEnabled ? FindResource("HeroBrush") as Brush : FindResource("BgInputBrush") as Brush;
+        PreActionScriptStatusLabel.Text = _settings.PreActionScriptEnabled
+            ? $"脚本状态：已启用 · 超时 {_settings.PreActionScriptTimeoutSeconds} 秒"
+            : "脚本状态：未启用";
+    }
+
+    private async Task<bool> RunPreActionScriptAsync()
+    {
+        _settings.PreActionScriptPath = PreActionScriptPathInput.Text.Trim();
+        SavePreActionScriptTimeout();
+        _settingsService.Save(_settings);
+
+        if (!_settings.PreActionScriptEnabled)
+            return true;
+
+        Dispatcher.Invoke(() => PreActionScriptStatusLabel.Text = "脚本状态：执行中...");
+        var result = await _preActionScript.RunAsync(_settings.PreActionScriptPath, _settings.PreActionScriptTimeoutSeconds);
+        Dispatcher.Invoke(() =>
+        {
+            PreActionScriptStatusLabel.Text = $"脚本状态：{result.Message}";
+            if (!result.Success)
+                _tray.ShowBalloon("智能定时关机", $"执行前脚本失败，已取消动作：{result.Message}");
+        });
+        return result.Success;
     }
 
     // === Settings ===

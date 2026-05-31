@@ -177,6 +177,100 @@
                         </StackPanel>
                     </Border>
 
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="网络闲置触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
+                            <TextBlock Text="上传和下载速度持续低于阈值后，自动执行当前选择的电源动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="下载阈值 KB/s" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="NetworkDownloadThresholdInput" Text="100" TextAlignment="Center" PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="上传阈值 KB/s" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="NetworkUploadThresholdInput" Text="50" TextAlignment="Center" PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="持续分钟" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="NetworkIdleMinutesInput" Text="5" TextAlignment="Center" PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="StartNetworkIdleButton" Content="开始监控网络闲置" Style="{StaticResource PrimaryButton}" Click="StartNetworkIdle_Click"/>
+                                <Button Grid.Column="2" x:Name="StopNetworkIdleButton" Content="停止监控" Style="{StaticResource SecondaryButton}" Click="StopNetworkIdle_Click" IsEnabled="False"/>
+                            </Grid>
+                            <TextBlock x:Name="NetworkSpeedLabel" Text="当前速度：等待开始监控" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,14,0,0"/>
+                            <TextBlock x:Name="NetworkIdleProgressLabel" Text="闲置进度：0/0 秒" FontSize="13" Foreground="{StaticResource AccentBrush}" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="进程退出触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
+                            <TextBlock Text="从当前运行进程中选择一个，等它全部退出后执行当前电源动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="ProcessListCombo" Height="42" FontSize="14"/>
+                                <Button Grid.Column="2" x:Name="RefreshProcessListButton" Content="刷新进程" Style="{StaticResource SecondaryButton}" Click="RefreshProcessList_Click"/>
+                            </Grid>
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="StartProcessTriggerButton" Content="开始监控进程退出" Style="{StaticResource PrimaryButton}" Click="StartProcessTrigger_Click"/>
+                                <Button Grid.Column="2" x:Name="StopProcessTriggerButton" Content="停止监控" Style="{StaticResource SecondaryButton}" Click="StopProcessTrigger_Click" IsEnabled="False"/>
+                            </Grid>
+                            <TextBlock x:Name="ProcessTriggerStatusLabel" Text="进程状态：等待选择" FontSize="13" Foreground="{StaticResource AccentBrush}" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="执行前脚本" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
+                            <TextBlock Text="执行电源动作前先运行 bat/cmd/ps1 脚本；失败或超时会自动取消动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="PreActionScriptPathInput" Text="" FontSize="13"/>
+                                <Button Grid.Column="2" Content="选择脚本" Style="{StaticResource SecondaryButton}" Click="BrowsePreActionScript_Click"/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PreActionScriptToggleButton" Content="启用脚本" Style="{StaticResource SecondaryButton}" Click="TogglePreActionScript_Click"/>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="超时秒数" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="PreActionScriptTimeoutInput" Text="60" TextAlignment="Center" PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus" LostFocus="PreActionScriptTimeoutInput_LostFocus"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="PreActionScriptStatusLabel" Text="脚本状态：未启用" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
                     <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,18">
                         <StackPanel>
                             <Grid Margin="0,0,0,18">
