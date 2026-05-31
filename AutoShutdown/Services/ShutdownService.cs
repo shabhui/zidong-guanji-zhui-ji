@@ -8,9 +8,15 @@ namespace AutoShutdown.Services;
 public class ShutdownService
 {
     private System.Timers.Timer? _countdownTimer;
+    private System.Timers.Timer? _pauseTimer;
     private DateTime _targetTime;
+    private DateTime _pauseUntil;
+    private TimeSpan _pausedRemaining;
     private bool _isScheduled;
+    private bool _isPaused;
     private bool _forceCloseApps;
+    private bool _reminderFired;
+    private int _reminderSeconds = 60;
     private PowerAction _powerAction = PowerAction.Shutdown;
     private readonly object _lock = new();
 
@@ -18,9 +24,13 @@ public class ShutdownService
     public event Action? ReminderTimeReached;
     public event Action? ShutdownTriggered;
     public event Action? Cancelled;
+    public event Action? PauseStateChanged;
 
     public bool IsScheduled => _isScheduled;
+    public bool IsPaused => _isPaused;
     public DateTime TargetTime => _targetTime;
+    public DateTime PauseUntil => _pauseUntil;
+    public TimeSpan PausedRemaining => _pausedRemaining;
     public PowerAction PowerAction => _powerAction;
     public bool SupportsForceCloseApps => _powerAction is PowerAction.Shutdown or PowerAction.Restart or PowerAction.LogOut;
 
@@ -31,6 +41,10 @@ public class ShutdownService
         {
             _targetTime = DateTime.Now + duration;
             _isScheduled = true;
+            _isPaused = false;
+            _pausedRemaining = TimeSpan.Zero;
+            _pauseUntil = DateTime.MinValue;
+            _reminderFired = false;
         }
         StartTimer();
     }
@@ -44,6 +58,10 @@ public class ShutdownService
             if (_targetTime <= DateTime.Now)
                 _targetTime = _targetTime.AddDays(1);
             _isScheduled = true;
+            _isPaused = false;
+            _pausedRemaining = TimeSpan.Zero;
+            _pauseUntil = DateTime.MinValue;
+            _reminderFired = false;
         }
         StartTimer();
     }
@@ -52,9 +70,53 @@ public class ShutdownService
     {
         lock (_lock)
         {
+            if (_isPaused)
+                return _pausedRemaining;
+
             var remaining = _targetTime - DateTime.Now;
             return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
+    }
+
+    public void PauseFor(TimeSpan duration)
+    {
+        TimeSpan remaining;
+        lock (_lock)
+        {
+            if (!_isScheduled || _isPaused)
+                return;
+
+            remaining = _targetTime - DateTime.Now;
+            if (remaining <= TimeSpan.Zero)
+                return;
+
+            _pausedRemaining = remaining;
+            _pauseUntil = DateTime.Now + duration;
+            _isPaused = true;
+        }
+
+        StopCountdownTimer();
+        StartPauseTimer(duration);
+        PauseStateChanged?.Invoke();
+    }
+
+    public void Resume()
+    {
+        lock (_lock)
+        {
+            if (!_isScheduled || !_isPaused)
+                return;
+
+            _targetTime = DateTime.Now + _pausedRemaining;
+            _isPaused = false;
+            _pauseUntil = DateTime.MinValue;
+            _pausedRemaining = TimeSpan.Zero;
+            _reminderFired = false;
+        }
+
+        StopPauseTimer();
+        StartTimer();
+        PauseStateChanged?.Invoke();
     }
 
     public void Cancel()
@@ -62,10 +124,12 @@ public class ShutdownService
         lock (_lock)
         {
             _isScheduled = false;
+            _isPaused = false;
+            _pausedRemaining = TimeSpan.Zero;
+            _pauseUntil = DateTime.MinValue;
         }
-        _countdownTimer?.Stop();
-        _countdownTimer?.Dispose();
-        _countdownTimer = null;
+        StopCountdownTimer();
+        StopPauseTimer();
         Cancelled?.Invoke();
     }
 
@@ -78,10 +142,12 @@ public class ShutdownService
         lock (_lock)
         {
             _isScheduled = false;
+            _isPaused = false;
+            _pausedRemaining = TimeSpan.Zero;
+            _pauseUntil = DateTime.MinValue;
         }
-        _countdownTimer?.Stop();
-        _countdownTimer?.Dispose();
-        _countdownTimer = null;
+        StopCountdownTimer();
+        StopPauseTimer();
         ShutdownTriggered?.Invoke();
         ExecutePowerAction();
     }
@@ -119,20 +185,49 @@ public class ShutdownService
 
     private void StartTimer()
     {
-        _countdownTimer?.Dispose();
+        StopCountdownTimer();
         _countdownTimer = new System.Timers.Timer(1000);
         _countdownTimer.Elapsed += OnTimerElapsed;
         _countdownTimer.AutoReset = true;
         _countdownTimer.Start();
     }
 
-    private bool _reminderFired;
-    private int _reminderSeconds = 60;
+    private void StartPauseTimer(TimeSpan duration)
+    {
+        StopPauseTimer();
+        _pauseTimer = new System.Timers.Timer(duration.TotalMilliseconds);
+        _pauseTimer.Elapsed += (_, _) => Resume();
+        _pauseTimer.AutoReset = false;
+        _pauseTimer.Start();
+    }
+
+    private void StopCountdownTimer()
+    {
+        _countdownTimer?.Stop();
+        _countdownTimer?.Dispose();
+        _countdownTimer = null;
+    }
+
+    private void StopPauseTimer()
+    {
+        _pauseTimer?.Stop();
+        _pauseTimer?.Dispose();
+        _pauseTimer = null;
+    }
 
     public void SetReminderSeconds(int seconds) => _reminderSeconds = seconds;
 
     private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
     {
+        bool isPaused;
+        lock (_lock)
+        {
+            isPaused = _isPaused;
+        }
+
+        if (isPaused)
+            return;
+
         var remaining = GetRemaining();
 
         if (remaining <= TimeSpan.Zero)

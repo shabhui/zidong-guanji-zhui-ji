@@ -7,9 +7,15 @@ public class TrayIconService : IDisposable
 {
     private readonly NotifyIcon _icon;
     private ToolStripItem? _cancelItem;
+    private ToolStripItem? _pauseItem;
+    private ToolStripItem? _resumeItem;
+
+    private bool _hasActiveTask;
 
     public event Action? ShowWindow;
     public event Action? CancelShutdown;
+    public event Action? PauseTasks;
+    public event Action? ResumeTasks;
     public event Action? ExitApp;
 
     public TrayIconService()
@@ -24,9 +30,15 @@ public class TrayIconService : IDisposable
         var menu = new ContextMenuStrip();
         var showItem = menu.Items.Add("显示主窗口");
         showItem.Click += (_, _) => ShowWindow?.Invoke();
-        _cancelItem = menu.Items.Add("取消关机");
+        _cancelItem = menu.Items.Add("取消任务");
         _cancelItem.Click += (_, _) => CancelShutdown?.Invoke();
         _cancelItem.Enabled = false;
+        _pauseItem = menu.Items.Add("暂停1小时");
+        _pauseItem.Click += (_, _) => PauseTasks?.Invoke();
+        _pauseItem.Enabled = false;
+        _resumeItem = menu.Items.Add("恢复任务");
+        _resumeItem.Click += (_, _) => ResumeTasks?.Invoke();
+        _resumeItem.Enabled = false;
         menu.Items.Add(new ToolStripSeparator());
         var exitItem = menu.Items.Add("退出");
         exitItem.Click += (_, _) =>
@@ -41,8 +53,21 @@ public class TrayIconService : IDisposable
 
     public void SetShutdownActive(bool active)
     {
+        _hasActiveTask = active;
         if (_cancelItem != null)
             _cancelItem.Enabled = active;
+        if (_pauseItem != null)
+            _pauseItem.Enabled = active;
+        if (_resumeItem != null)
+            _resumeItem.Enabled = false;
+    }
+
+    public void SetPaused(bool paused)
+    {
+        if (_pauseItem != null)
+            _pauseItem.Enabled = _hasActiveTask && !paused;
+        if (_resumeItem != null)
+            _resumeItem.Enabled = _hasActiveTask && paused;
     }
 
     public void ShowBalloon(string title, string text)

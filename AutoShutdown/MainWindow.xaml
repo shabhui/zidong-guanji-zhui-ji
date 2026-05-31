@@ -297,7 +297,15 @@
                                 </StackPanel>
                             </Border>
 
-                            <Button x:Name="CancelPlanButton" Content="取消任务计划" Style="{StaticResource DangerButton}" Margin="0,18,0,0" Click="CancelShutdown_Click"/>
+                            <Grid Margin="0,18,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PauseResumeButton" Content="暂停 1 小时" Style="{StaticResource SecondaryButton}" Click="PauseResume_Click"/>
+                                <Button Grid.Column="2" x:Name="CancelPlanButton" Content="取消任务计划" Style="{StaticResource DangerButton}" Click="CancelShutdown_Click"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 

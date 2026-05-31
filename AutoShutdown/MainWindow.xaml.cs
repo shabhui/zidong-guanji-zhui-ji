@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         _shutdown.ReminderTimeReached += OnReminderReached;
         _shutdown.ShutdownTriggered += OnShutdownTriggered;
         _shutdown.Cancelled += OnCancelled;
+        _shutdown.PauseStateChanged += OnPauseStateChanged;
 
         LoadSettings();
         Loaded += (_, _) => StartEntranceAnimations();
@@ -127,7 +128,10 @@ public partial class MainWindow : Window
         CountdownStartBtn.IsEnabled = false;
         FixedTimeStartBtn.IsEnabled = false;
         _tray.SetShutdownActive(true);
-        TargetTimeLabel.Text = $"计划执行：{GetActionVerb(_settings.SelectedPowerAction)} · {_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
+        UpdatePauseUI();
+        TargetTimeLabel.Text = _shutdown.IsPaused
+            ? $"已暂停：{GetActionVerb(_settings.SelectedPowerAction)} · 将于 {_shutdown.PauseUntil:HH:mm} 自动恢复"
+            : $"计划执行：{GetActionVerb(_settings.SelectedPowerAction)} · {_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
         ShutdownModeLabel.Text = _shutdown.SupportsForceCloseApps && _settings.ForceCloseApps
             ? "执行方式：强制关闭应用（未保存内容可能丢失）"
             : "执行方式：正常执行";
@@ -167,8 +171,36 @@ public partial class MainWindow : Window
             CountdownStartBtn.IsEnabled = true;
             FixedTimeStartBtn.IsEnabled = true;
             _tray.SetShutdownActive(false);
-            _tray.ShowBalloon("智能定时关机", "已取消定时关机");
+            _tray.SetPaused(false);
+            _tray.ShowBalloon("智能定时关机", "已取消任务计划");
         });
+    }
+
+    private void OnPauseStateChanged()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _reminderWindow?.Close();
+            UpdatePauseUI();
+            UpdateStatusUI();
+            _tray.SetPaused(_shutdown.IsPaused);
+            _tray.ShowBalloon("智能定时关机", _shutdown.IsPaused ? "任务已暂停 1 小时" : "任务已恢复");
+        });
+    }
+
+    private void PauseResume_Click(object sender, RoutedEventArgs e)
+    {
+        if (_shutdown.IsPaused)
+            _shutdown.Resume();
+        else
+            _shutdown.PauseFor(TimeSpan.FromHours(1));
+    }
+
+    private void UpdatePauseUI()
+    {
+        PauseResumeButton.Content = _shutdown.IsPaused ? "恢复任务" : "暂停 1 小时";
+        StatusTitle.Text = _shutdown.IsPaused ? "任务已暂停" : "任务计划运行中";
+        RemainingLabel.Text = _shutdown.IsPaused ? "恢复后剩余时间" : "距离执行还有";
     }
 
     // === Settings ===

@@ -33,6 +33,13 @@ public partial class ReminderWindow : Window
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) =>
         {
+            if (_shutdown.IsPaused || !_shutdown.IsScheduled)
+            {
+                _timer.Stop();
+                Close();
+                return;
+            }
+
             _remainingSeconds--;
             if (_remainingSeconds <= 0)
             {
@@ -122,6 +129,13 @@ public partial class ReminderWindow : Window
 
     private void ShutdownNow_Click(object sender, RoutedEventArgs e)
     {
+        if (_shutdown.IsPaused || !_shutdown.IsScheduled)
+        {
+            _timer.Stop();
+            Close();
+            return;
+        }
+
         _timer.Stop();
         _shutdown.ExecuteShutdown();
         Close();

@@ -17,6 +17,8 @@ public partial class App : System.Windows.Application
         _tray = new TrayIconService();
         _tray.ShowWindow += ShowMainWindow;
         _tray.CancelShutdown += CancelShutdown;
+        _tray.PauseTasks += PauseTasks;
+        _tray.ResumeTasks += ResumeTasks;
         _tray.ExitApp += ExitApplication;
 
         _settingsService.Load();
@@ -42,6 +44,16 @@ public partial class App : System.Windows.Application
     private void CancelShutdown()
     {
         _shutdown.Cancel();
+    }
+
+    private void PauseTasks()
+    {
+        _shutdown.PauseFor(TimeSpan.FromHours(1));
+    }
+
+    private void ResumeTasks()
+    {
+        _shutdown.Resume();
     }
 
     private void ExitApplication()
