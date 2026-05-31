@@ -176,6 +176,13 @@
                                 </Border>
                             </Grid>
 
+                            <UniformGrid Columns="4" Margin="0,0,0,18">
+                                <Button Content="15 分钟" Tag="15" Style="{StaticResource SecondaryButton}" Padding="8,9" Margin="0,0,8,0" Click="QuickCountdown_Click"/>
+                                <Button Content="30 分钟" Tag="30" Style="{StaticResource SecondaryButton}" Padding="8,9" Margin="0,0,8,0" Click="QuickCountdown_Click"/>
+                                <Button Content="1 小时" Tag="60" Style="{StaticResource SecondaryButton}" Padding="8,9" Margin="0,0,8,0" Click="QuickCountdown_Click"/>
+                                <Button Content="2 小时" Tag="120" Style="{StaticResource SecondaryButton}" Padding="8,9" Click="QuickCountdown_Click"/>
+                            </UniformGrid>
+
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>

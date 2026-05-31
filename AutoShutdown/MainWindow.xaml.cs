@@ -91,6 +91,18 @@ public partial class MainWindow : Window
         UpdateStatusUI();
     }
 
+    private void QuickCountdown_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not string tag || !int.TryParse(tag, out var minutes))
+            return;
+
+        var duration = TimeSpan.FromMinutes(minutes);
+        HoursInput.Text = ((int)duration.TotalHours).ToString();
+        MinutesInput.Text = duration.Minutes.ToString();
+        SecondsInput.Text = "0";
+        PulseElement(CountdownPanel, 1.01);
+    }
+
     // === Fixed Time ===
 
     private void FixedTimeStart_Click(object sender, RoutedEventArgs e)
