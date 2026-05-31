@@ -1,2 +1,0 @@
-d:\AIRUANJIAN\AutoShutdown\publish\AutoShutdown.pdb
-d:\AIRUANJIAN\AutoShutdown\publish\AutoShutdown.exe

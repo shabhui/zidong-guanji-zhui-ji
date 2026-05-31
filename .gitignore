@@ -1,0 +1,21 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+
+# Publish artifacts
+[Pp]ublish/
+*.zip
+
+# Local Claude settings
+.claude/settings.local.json
+.claude/worktrees/
+
+# IDE/user files
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db
