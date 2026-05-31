@@ -8,6 +8,7 @@ public class ShutdownService
     private System.Timers.Timer? _countdownTimer;
     private DateTime _targetTime;
     private bool _isScheduled;
+    private bool _forceCloseApps;
     private readonly object _lock = new();
 
     public event Action<string>? Tick;
@@ -63,6 +64,8 @@ public class ShutdownService
         Cancelled?.Invoke();
     }
 
+    public void SetForceCloseApps(bool enabled) => _forceCloseApps = enabled;
+
     public void ExecuteShutdown()
     {
         lock (_lock)
@@ -73,7 +76,8 @@ public class ShutdownService
         _countdownTimer?.Dispose();
         _countdownTimer = null;
         ShutdownTriggered?.Invoke();
-        Process.Start("shutdown", "/s /t 0");
+        var arguments = _forceCloseApps ? "/s /f /t 0" : "/s /t 0";
+        Process.Start("shutdown", arguments);
     }
 
     private void StartTimer()

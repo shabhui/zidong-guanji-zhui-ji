@@ -1,33 +1,50 @@
 <Window x:Class="AutoShutdown.ReminderWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="400" Height="320"
+        Width="450" Height="370"
         WindowStartupLocation="CenterScreen"
         Topmost="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <Grid>
-        <Border Background="{StaticResource BgCardBrush}" CornerRadius="20">
-            <StackPanel VerticalAlignment="Center" Margin="32">
-                <!-- Icon -->
-                <Border Width="56" Height="56" CornerRadius="28"
-                        Background="{StaticResource WarningBrush}"
-                        HorizontalAlignment="Center" Margin="0,0,0,16">
-                    <TextBlock Text="⚠" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid x:Name="ReminderRoot" Background="{StaticResource AppBackgroundBrush}" ClipToBounds="True">
+        <Ellipse x:Name="AlertGlow" Width="260" Height="260" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-150,0,0" Fill="#FB3B6D" Opacity="0.30" IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <BlurEffect Radius="72"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Ellipse Width="180" Height="180" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Margin="0,0,-88,-72" Fill="#22D3EE" Opacity="0.18" IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <BlurEffect Radius="58"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Border x:Name="ReminderCard" Style="{StaticResource CardBorder}" Margin="26" Padding="30"
+                BorderBrush="#AAFB3B6D" Effect="{StaticResource DangerShadow}">
+            <StackPanel VerticalAlignment="Center">
+                <Border Width="68" Height="68" CornerRadius="24" Background="{StaticResource DangerBrush}"
+                        Effect="{StaticResource DangerShadow}" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="30"
+                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
-                <TextBlock Text="即将关机" FontSize="22" FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                <TextBlock Text="即将关机" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center"
+                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                <TextBlock Text="SHUTDOWN WARNING" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                           Foreground="{StaticResource WarningBrush}" Margin="0,0,0,10"/>
 
-                <TextBlock x:Name="MessageLabel" FontSize="14"
-                           HorizontalAlignment="Center" TextAlignment="Center"
-                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"
-                           TextWrapping="Wrap"/>
+                <TextBlock x:Name="MessageLabel" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
 
-                <TextBlock x:Name="CountdownLabel" FontSize="36" FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           Foreground="{StaticResource WarningBrush}" Margin="0,8,0,20"/>
+                <Border HorizontalAlignment="Center" CornerRadius="24" Background="#7011182B" BorderBrush="#66FBBF24" BorderThickness="1"
+                        Padding="22,8" Margin="0,4,0,8">
+                    <TextBlock x:Name="CountdownLabel" FontSize="48" FontWeight="Bold" HorizontalAlignment="Center"
+                               Foreground="{StaticResource WarningBrush}"/>
+                </Border>
+
+                <TextBlock Text="请保存正在编辑的内容，或选择延迟/取消。" FontSize="12" HorizontalAlignment="Center"
+                           TextAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,22"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -38,16 +55,9 @@
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Content="取消" Style="{StaticResource SecondaryButton}"
-                            Click="Cancel_Click" FontSize="13" Padding="8,10"/>
-
-                    <Button Grid.Column="2" Content="延迟5分钟"
-                            Style="{StaticResource SecondaryButton}"
-                            Click="Delay_Click" FontSize="13" Padding="8,10"/>
-
-                    <Button Grid.Column="4" Content="立即关机"
-                            Style="{StaticResource DangerButton}"
-                            Click="ShutdownNow_Click" FontSize="13" Padding="8,10"/>
+                    <Button Content="取消" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" FontSize="13" Padding="8,10"/>
+                    <Button Grid.Column="2" Content="延迟 5 分钟" Style="{StaticResource SecondaryButton}" Click="Delay_Click" FontSize="13" Padding="8,10"/>
+                    <Button Grid.Column="4" Content="立即关机" Style="{StaticResource DangerButton}" Click="ShutdownNow_Click" FontSize="13" Padding="8,10"/>
                 </Grid>
             </StackPanel>
         </Border>

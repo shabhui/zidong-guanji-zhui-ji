@@ -1,239 +1,300 @@
 <Window x:Class="AutoShutdown.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="520" Height="640"
+        Width="600" Height="720"
         WindowStartupLocation="CenterScreen"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <Grid x:Name="RootGrid" Background="{StaticResource AppBackgroundBrush}" ClipToBounds="True">
+        <Ellipse x:Name="GlowPurple" Width="280" Height="280" HorizontalAlignment="Left" VerticalAlignment="Top"
+                 Margin="-96,-112,0,0" Fill="#7B2CFF" Opacity="0.28" IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <BlurEffect Radius="70"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Ellipse x:Name="GlowCyan" Width="240" Height="240" HorizontalAlignment="Right" VerticalAlignment="Top"
+                 Margin="0,92,-118,0" Fill="#15D8FF" Opacity="0.22" IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <BlurEffect Radius="62"/>
+            </Ellipse.Effect>
+        </Ellipse>
+        <Ellipse x:Name="GlowPink" Width="240" Height="240" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Margin="0,0,-118,-88" Fill="#FF3AAE" Opacity="0.18" IsHitTestVisible="False">
+            <Ellipse.Effect>
+                <BlurEffect Radius="72"/>
+            </Ellipse.Effect>
+        </Ellipse>
 
-        <!-- Title Bar -->
-        <Border Grid.Row="0" Height="44" Background="#16162A" CornerRadius="16,16,0,0">
-            <Grid>
-                <TextBlock Text="智能定时关机" FontSize="14" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           VerticalAlignment="Center" Margin="20,0,0,0"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,6,0">
-                    <Button Content="&#xE921;" FontFamily="Segoe MDL2 Assets"
-                            Width="36" Height="36" FontSize="12"
-                            Background="Transparent" Foreground="#A0A0B8"
-                            Click="Minimize_Click" Padding="0"/>
-                    <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                            Width="36" Height="36" FontSize="12"
-                            Background="Transparent" Foreground="#EF4444"
-                            Click="Close_Click" Padding="0"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-        <!-- Content -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="32,20,32,32">
+            <Border x:Name="HeroHeader" Grid.Row="0" Height="118" CornerRadius="22,22,0,0" Padding="26,18"
+                    BorderBrush="#5536E8FF" BorderThickness="0,0,0,1">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#8A251449" Offset="0"/>
+                        <GradientStop Color="#66171A3A" Offset="0.55"/>
+                        <GradientStop Color="#55102C42" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Mode Tabs -->
-                <Border Style="{StaticResource CardBorder}" Padding="4" CornerRadius="12" Margin="0,0,0,20">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition/>
-                            <ColumnDefinition/>
-                        </Grid.ColumnDefinitions>
-                        <Border x:Name="BtnCountdown" CornerRadius="10" Padding="8,10"
-                                Background="{StaticResource PrimaryBrush}" MouseLeftButtonDown="CountdownMode_Click" Cursor="Hand">
-                            <TextBlock Text="⏱ 倒计时" FontWeight="SemiBold" FontSize="14"
-                                       Foreground="White" HorizontalAlignment="Center"/>
-                        </Border>
-                        <Border x:Name="BtnFixed" Grid.Column="1" CornerRadius="10" Padding="8,10"
-                                Background="Transparent" MouseLeftButtonDown="FixedMode_Click" Cursor="Hand">
-                            <TextBlock Text="🕐 指定时间" FontWeight="SemiBold" FontSize="14"
-                                       Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                        </Border>
-                    </Grid>
-                </Border>
+                    <Border Width="58" Height="58" CornerRadius="18" Background="{StaticResource HeroBrush}"
+                            Effect="{StaticResource NeonShadow}" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" FontSize="25" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
 
-                <!-- Countdown Panel -->
-                <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,20">
-                    <StackPanel>
-                        <TextBlock Text="设置倒计时" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
-                        <TextBlock Text="设定一段时长，到时间后自动关机" Style="{StaticResource SubtitleText}" Margin="0,0,0,20"/>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Hours -->
-                            <StackPanel>
-                                <TextBlock Text="小时" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"
-                                           HorizontalAlignment="Center"/>
-                                <TextBox x:Name="HoursInput" Text="0" TextAlignment="Center"
-                                         Width="80" HorizontalAlignment="Center" MaxLength="2"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                            </StackPanel>
-
-                            <TextBlock Text=":" FontSize="28" FontWeight="Bold"
-                                       VerticalAlignment="Center" Margin="8,10,8,0"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-
-                            <!-- Minutes -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="分钟" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"
-                                           HorizontalAlignment="Center"/>
-                                <TextBox x:Name="MinutesInput" Text="30" TextAlignment="Center"
-                                         Width="80" HorizontalAlignment="Center" MaxLength="2"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                            </StackPanel>
-
-                            <TextBlock Grid.Column="3" Text=":" FontSize="28" FontWeight="Bold"
-                                       VerticalAlignment="Center" Margin="8,10,8,0"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-
-                            <!-- Seconds -->
-                            <StackPanel Grid.Column="4">
-                                <TextBlock Text="秒" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"
-                                           HorizontalAlignment="Center"/>
-                                <TextBox x:Name="SecondsInput" Text="0" TextAlignment="Center"
-                                         Width="80" HorizontalAlignment="Center" MaxLength="2"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Button x:Name="CountdownStartBtn" Content="▶ 开始倒计时"
-                                Style="{StaticResource PrimaryButton}"
-                                Margin="0,24,0,0" Click="CountdownStart_Click"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- Fixed Time Panel -->
-                <Border x:Name="FixedTimePanel" Style="{StaticResource CardBorder}" Margin="0,0,0,20" Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock Text="指定关机时间" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
-                        <TextBlock Text="设定一个具体的时间点，每天届时自动关机" Style="{StaticResource SubtitleText}" Margin="0,0,0,20"/>
-
-                        <Grid HorizontalAlignment="Center">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel>
-                                <TextBlock Text="时" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"
-                                           HorizontalAlignment="Center"/>
-                                <TextBox x:Name="FixedHourInput" Text="23" TextAlignment="Center"
-                                         Width="100" HorizontalAlignment="Center" MaxLength="2"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                            </StackPanel>
-
-                            <TextBlock Grid.Column="1" Text=":" FontSize="28" FontWeight="Bold"
-                                       VerticalAlignment="Center" Margin="16,10,16,0"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="分" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"
-                                           HorizontalAlignment="Center"/>
-                                <TextBox x:Name="FixedMinuteInput" Text="00" TextAlignment="Center"
-                                         Width="100" HorizontalAlignment="Center" MaxLength="2"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Button x:Name="FixedTimeStartBtn" Content="▶ 开始定时"
-                                Style="{StaticResource PrimaryButton}"
-                                Margin="0,24,0,0" Click="FixedTimeStart_Click"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- Status Card -->
-                <Border x:Name="StatusCard" Style="{StaticResource CardBorder}" Margin="0,0,0,20"
-                        Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock Text="关机计划运行中" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{StaticResource SuccessBrush}" Margin="0,0,0,12"/>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <Border Width="40" Height="40" CornerRadius="20" Background="{StaticResource PrimaryBrush}">
-                                <TextBlock Text="⏳" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-
-                            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="RemainingLabel" Text="剩余时间" FontSize="12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <TextBlock x:Name="RemainingTime" Text="00:30:00" FontSize="28" FontWeight="Bold"
-                                           Foreground="{StaticResource WarningBrush}"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock x:Name="TargetTimeLabel" Margin="0,12,0,0" FontSize="13"
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <TextBlock Text="智能定时关机" FontSize="27" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="NEON AUTO SHUTDOWN CONSOLE" FontSize="11" FontWeight="SemiBold" Margin="0,5,0,0"
+                                   Foreground="{StaticResource AccentBrush}" Opacity="0.9"/>
+                        <TextBlock Text="设置时间、提醒与强制关闭策略，一屏掌控。" FontSize="13" Margin="0,8,0,0"
                                    Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                        <Button Content="✕ 取消关机" Style="{StaticResource DangerButton}"
-                                Margin="0,16,0,0" Click="CancelShutdown_Click"/>
                     </StackPanel>
-                </Border>
 
-                <!-- Settings Card -->
-                <Border Style="{StaticResource CardBorder}">
-                    <StackPanel>
-                        <TextBlock Text="设置" Style="{StaticResource TitleText}" Margin="0,0,0,16"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
+                        <Button Content="&#xE921;" FontFamily="Segoe MDL2 Assets" Width="40" Height="40" FontSize="12"
+                                ToolTip="最小化到托盘" Background="#2215D8FF" BorderBrush="#5522D3EE" BorderThickness="1"
+                                Foreground="{StaticResource TextPrimaryBrush}" Click="Minimize_Click" Padding="0"/>
+                        <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Width="40" Height="40" FontSize="12" Margin="8,0,0,0"
+                                ToolTip="隐藏到托盘" Background="#2AFB3B6D" BorderBrush="#66FB3B6D" BorderThickness="1"
+                                Foreground="#FF8BA8" Click="Close_Click" Padding="0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                        <!-- Reminder seconds -->
-                        <Grid Margin="0,0,0,12">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="ContentPanel" Margin="30,22,30,32" Opacity="0">
+
+                    <Border Style="{StaticResource GlassPanel}" Padding="5" CornerRadius="18" Margin="0,0,0,18">
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="提醒提前时间" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBlock Text="关机前弹窗提醒" FontSize="12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button x:Name="ReminderMinus" Content="-" Width="36" Height="36"
-                                        Style="{StaticResource SecondaryButton}" Padding="0"
-                                        Click="ReminderMinus_Click"/>
-                                <TextBox x:Name="ReminderSecondsInput" Text="60" TextAlignment="Center"
-                                         Width="56" Margin="6,0" MaxLength="4" Padding="4,8"
-                                         PreviewTextInput="NumberPreviewTextInput"/>
-                                <Button x:Name="ReminderPlus" Content="+" Width="36" Height="36"
-                                        Style="{StaticResource SecondaryButton}" Padding="0"
-                                        Click="ReminderPlus_Click"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Auto start toggle -->
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="开机自动启动" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBlock Text="电脑开机时自动运行" FontSize="12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                            <Border x:Name="AutoStartToggle" Grid.Column="1" Width="52" Height="28"
-                                    CornerRadius="14" Cursor="Hand" MouseLeftButtonDown="AutoStartToggle_Click">
-                                <Border x:Name="AutoStartKnob" Width="22" Height="22" CornerRadius="11"
-                                        HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                            <Border x:Name="BtnCountdown" CornerRadius="14" Padding="10,12"
+                                    Background="{StaticResource HeroBrush}" MouseLeftButtonDown="CountdownMode_Click" Cursor="Hand"
+                                    Effect="{StaticResource NeonShadow}">
+                                <TextBlock Text="倒计时模式" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="White" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border x:Name="BtnFixed" Grid.Column="1" CornerRadius="14" Padding="10,12" Margin="6,0,0,0"
+                                    Background="Transparent" MouseLeftButtonDown="FixedMode_Click" Cursor="Hand">
+                                <TextBlock Text="指定时间" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                             </Border>
                         </Grid>
-                    </StackPanel>
-                </Border>
+                    </Border>
 
-            </StackPanel>
-        </ScrollViewer>
+                    <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="倒计时关机" Style="{StaticResource TitleText}"/>
+                                    <TextBlock Text="输入时长后开始计时，关机前会按设置弹窗提醒。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" CornerRadius="18" Background="#1D22D3EE" BorderBrush="#6622D3EE" BorderThickness="1" Padding="12,8" VerticalAlignment="Center">
+                                    <TextBlock Text="COUNTDOWN" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                </Border>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Style="{StaticResource GlassPanel}" Padding="12" CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="小时" Style="{StaticResource SubtitleText}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBox x:Name="HoursInput" Text="0" TextAlignment="Center" Width="92" MaxLength="2"
+                                                 PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Grid.Column="1" Text=":" FontSize="30" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           Foreground="{StaticResource AccentBrush}"/>
+
+                                <Border Grid.Column="2" Style="{StaticResource GlassPanel}" Padding="12" CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="分钟" Style="{StaticResource SubtitleText}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBox x:Name="MinutesInput" Text="30" TextAlignment="Center" Width="92" MaxLength="2"
+                                                 PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Grid.Column="3" Text=":" FontSize="30" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           Foreground="{StaticResource AccentBrush}"/>
+
+                                <Border Grid.Column="4" Style="{StaticResource GlassPanel}" Padding="12" CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="秒" Style="{StaticResource SubtitleText}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBox x:Name="SecondsInput" Text="0" TextAlignment="Center" Width="92" MaxLength="2"
+                                                 PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Button x:Name="CountdownStartBtn" Content="启动倒计时" Style="{StaticResource PrimaryButton}"
+                                    Margin="0,24,0,0" Click="CountdownStart_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="FixedTimePanel" Style="{StaticResource CardBorder}" Margin="0,0,0,18" Visibility="Collapsed">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="指定时间关机" Style="{StaticResource TitleText}"/>
+                                    <TextBlock Text="选择今天或明天的具体时间，到点自动关机。" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" CornerRadius="18" Background="#1D8B5CF6" BorderBrush="#668B5CF6" BorderThickness="1" Padding="12,8" VerticalAlignment="Center">
+                                    <TextBlock Text="SCHEDULE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryHoverBrush}"/>
+                                </Border>
+                            </Grid>
+
+                            <Grid HorizontalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="22"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Style="{StaticResource GlassPanel}" Padding="14" CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="时" Style="{StaticResource SubtitleText}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBox x:Name="FixedHourInput" Text="23" TextAlignment="Center" Width="112" MaxLength="2"
+                                                 PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Grid.Column="1" Text=":" FontSize="32" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           Foreground="{StaticResource AccentBrush}"/>
+
+                                <Border Grid.Column="2" Style="{StaticResource GlassPanel}" Padding="14" CornerRadius="18">
+                                    <StackPanel>
+                                        <TextBlock Text="分" Style="{StaticResource SubtitleText}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBox x:Name="FixedMinuteInput" Text="00" TextAlignment="Center" Width="112" MaxLength="2"
+                                                 PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Button x:Name="FixedTimeStartBtn" Content="启动定时" Style="{StaticResource PrimaryButton}"
+                                    Margin="0,24,0,0" Click="FixedTimeStart_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="StatusCard" Style="{StaticResource CardBorder}" Margin="0,0,0,18" Visibility="Collapsed"
+                            BorderBrush="#AA22D3EE" Effect="{StaticResource CyanShadow}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Width="58" Height="58" CornerRadius="22" Background="{StaticResource HeroBrush}" Effect="{StaticResource NeonShadow}">
+                                    <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="StatusTitle" Text="关机计划运行中" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
+                                    <TextBlock x:Name="RemainingLabel" Text="距离关机还有" FontSize="12" Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock x:Name="RemainingTime" Text="00:30:00" FontSize="36" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Margin="0,16,0,0" Padding="14" CornerRadius="16" Background="#7011182B" BorderBrush="#334D5BFF" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock x:Name="TargetTimeLabel" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock x:Name="ShutdownModeLabel" Margin="0,6,0,0" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Content="取消关机计划" Style="{StaticResource DangerButton}" Margin="0,18,0,0" Click="CancelShutdown_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <StackPanel>
+                            <TextBlock Text="偏好设置" Style="{StaticResource TitleText}" Margin="0,0,0,16"/>
+
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="提醒提前时间" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="关机前弹窗提醒，可在 10-300 秒之间设置。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="ReminderMinus" Content="-" Width="36" Height="36" Style="{StaticResource SecondaryButton}" Padding="0" Click="ReminderMinus_Click"/>
+                                    <TextBox x:Name="ReminderSecondsInput" Text="60" TextAlignment="Center" Width="62" Margin="6,0" MaxLength="4" Padding="4,8"
+                                             PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus" LostFocus="ReminderSecondsInput_LostFocus"/>
+                                    <Button x:Name="ReminderPlus" Content="+" Width="36" Height="36" Style="{StaticResource SecondaryButton}" Padding="0" Click="ReminderPlus_Click"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Height="1" Background="#334D5BFF" Margin="0,0,0,16"/>
+
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,20,0">
+                                    <TextBlock Text="强制关闭应用" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="开启后关机会关闭所有应用，未保存内容可能丢失。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Border x:Name="ForceCloseToggle" Grid.Column="1" Width="56" Height="30" CornerRadius="15" Cursor="Hand"
+                                        MouseLeftButtonDown="ForceCloseToggle_Click" BorderBrush="#5536E8FF" BorderThickness="1">
+                                    <Border x:Name="ForceCloseKnob" Width="24" Height="24" CornerRadius="12" HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                                </Border>
+                            </Grid>
+
+                            <Border Height="1" Background="#334D5BFF" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,20,0">
+                                    <TextBlock Text="开机自动启动" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="电脑开机时自动在托盘运行。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                                <Border x:Name="AutoStartToggle" Grid.Column="1" Width="56" Height="30" CornerRadius="15" Cursor="Hand"
+                                        MouseLeftButtonDown="AutoStartToggle_Click" BorderBrush="#5536E8FF" BorderThickness="1">
+                                    <Border x:Name="AutoStartKnob" Width="24" Height="24" CornerRadius="12" HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </Window>

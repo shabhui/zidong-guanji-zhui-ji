@@ -1,21 +1,25 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Colors -->
-    <Color x:Key="PrimaryColor">#7C3AED</Color>
-    <Color x:Key="PrimaryHoverColor">#6D28D9</Color>
-    <Color x:Key="BgDarkColor">#1E1E2E</Color>
-    <Color x:Key="BgCardColor">#2D2D3F</Color>
-    <Color x:Key="BgInputColor">#3A3A50</Color>
-    <Color x:Key="TextPrimaryColor">#E0E0F0</Color>
-    <Color x:Key="TextSecondaryColor">#A0A0B8</Color>
-    <Color x:Key="DangerColor">#EF4444</Color>
-    <Color x:Key="DangerHoverColor">#DC2626</Color>
-    <Color x:Key="SuccessColor">#10B981</Color>
-    <Color x:Key="WarningColor">#F59E0B</Color>
+    <Color x:Key="PrimaryColor">#8B5CF6</Color>
+    <Color x:Key="PrimaryHoverColor">#A78BFA</Color>
+    <Color x:Key="AccentColor">#22D3EE</Color>
+    <Color x:Key="AccentPinkColor">#EC4899</Color>
+    <Color x:Key="BgDarkColor">#090A18</Color>
+    <Color x:Key="BgCardColor">#24213A</Color>
+    <Color x:Key="BgInputColor">#17182A</Color>
+    <Color x:Key="TextPrimaryColor">#F8FAFC</Color>
+    <Color x:Key="TextSecondaryColor">#A7B0D8</Color>
+    <Color x:Key="DangerColor">#FB3B6D</Color>
+    <Color x:Key="DangerHoverColor">#F43F5E</Color>
+    <Color x:Key="SuccessColor">#34D399</Color>
+    <Color x:Key="WarningColor">#FBBF24</Color>
+    <Color x:Key="StrokeColor">#4B3BA7</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}"/>
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource PrimaryHoverColor}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentPinkBrush" Color="{StaticResource AccentPinkColor}"/>
     <SolidColorBrush x:Key="BgDarkBrush" Color="{StaticResource BgDarkColor}"/>
     <SolidColorBrush x:Key="BgCardBrush" Color="{StaticResource BgCardColor}"/>
     <SolidColorBrush x:Key="BgInputBrush" Color="{StaticResource BgInputColor}"/>
@@ -25,10 +29,38 @@
     <SolidColorBrush x:Key="DangerHoverBrush" Color="{StaticResource DangerHoverColor}"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
     <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}"/>
+    <SolidColorBrush x:Key="StrokeBrush" Color="{StaticResource StrokeColor}"/>
 
-    <!-- Default styles -->
+    <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#080A17" Offset="0"/>
+        <GradientStop Color="#111634" Offset="0.45"/>
+        <GradientStop Color="#27164F" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#B026FF" Offset="0"/>
+        <GradientStop Color="#5B6CFF" Offset="0.52"/>
+        <GradientStop Color="#17E7FF" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="NeonCardBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#352856" Offset="0"/>
+        <GradientStop Color="#1A1D34" Offset="0.58"/>
+        <GradientStop Color="#101729" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="InputGlowBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#211B39" Offset="0"/>
+        <GradientStop Color="#111A31" Offset="1"/>
+    </LinearGradientBrush>
+
+    <DropShadowEffect x:Key="NeonShadow" Color="#8B5CF6" BlurRadius="24" ShadowDepth="0" Opacity="0.42"/>
+    <DropShadowEffect x:Key="CyanShadow" Color="#22D3EE" BlurRadius="18" ShadowDepth="0" Opacity="0.35"/>
+    <DropShadowEffect x:Key="DangerShadow" Color="#FB3B6D" BlurRadius="18" ShadowDepth="0" Opacity="0.42"/>
+    <DropShadowEffect x:Key="SoftShadow" Color="#000000" BlurRadius="24" ShadowDepth="8" Opacity="0.32"/>
+
     <Style TargetType="Window">
-        <Setter Property="Background" Value="{StaticResource BgDarkBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
         <Setter Property="WindowStyle" Value="None"/>
@@ -41,25 +73,42 @@
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Padding" Value="20,10"/>
+        <Setter Property="Padding" Value="20,11"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1" ScaleY="1"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border Name="border"
+                    <Border x:Name="border"
                             Background="{TemplateBinding Background}"
-                            CornerRadius="10"
-                            Padding="{TemplateBinding Padding}">
+                            CornerRadius="13"
+                            Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            <Setter TargetName="border" Property="Effect" Value="{StaticResource CyanShadow}"/>
+                            <Setter Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="1.025" ScaleY="1.025"/>
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            <Setter Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="0.985" ScaleY="0.985"/>
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                            <Setter TargetName="border" Property="Opacity" Value="0.42"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -68,43 +117,62 @@
     </Style>
 
     <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource HeroBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="#88FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Effect" Value="{StaticResource NeonShadow}"/>
+    </Style>
+
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background">
             <Setter.Value>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#7C3AED" Offset="0"/>
-                    <GradientStop Color="#A855F7" Offset="1"/>
+                    <GradientStop Color="#FB3B6D" Offset="0"/>
+                    <GradientStop Color="#FF6B35" Offset="1"/>
                 </LinearGradientBrush>
             </Setter.Value>
         </Setter>
         <Setter Property="Foreground" Value="White"/>
-    </Style>
-
-    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-        <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Effect" Value="{StaticResource DangerShadow}"/>
     </Style>
 
     <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}"/>
+        <Setter Property="Background" Value="#22233C"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="#3F4DA8"/>
+        <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
     <Style TargetType="TextBox">
         <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
-        <Setter Property="FontSize" Value="16"/>
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Background" Value="{StaticResource InputGlowBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="12,8"/>
-        <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="#3F4DA8"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border Background="{TemplateBinding Background}"
-                            CornerRadius="8"
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="12"
                             Padding="{TemplateBinding Padding}">
                         <ScrollViewer x:Name="PART_ContentHost"/>
                     </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="Effect" Value="{StaticResource CyanShadow}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -115,9 +183,17 @@
     </Style>
 
     <Style x:Key="CardBorder" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource BgCardBrush}"/>
-        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Background" Value="{StaticResource NeonCardBrush}"/>
+        <Setter Property="BorderBrush" Value="#4D5BFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="22"/>
         <Setter Property="Padding" Value="24"/>
+        <Setter Property="Effect" Value="{StaticResource SoftShadow}"/>
+    </Style>
+
+    <Style x:Key="GlassPanel" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+        <Setter Property="Background" Value="#AA15172C"/>
+        <Setter Property="BorderBrush" Value="#5522D3EE"/>
     </Style>
 
     <Style x:Key="TitleText" TargetType="TextBlock">
@@ -127,7 +203,7 @@
     </Style>
 
     <Style x:Key="SubtitleText" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontSize" Value="13"/>
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
     </Style>
 

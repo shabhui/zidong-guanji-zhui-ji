@@ -7,6 +7,7 @@ public class AppSettings
     public int DefaultCountdownMinutes { get; set; } = 30;
     public int DefaultCountdownSeconds { get; set; } = 0;
     public bool AutoStartEnabled { get; set; } = false;
+    public bool ForceCloseApps { get; set; } = false;
 }
 
 public enum TimerMode
