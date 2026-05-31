@@ -18,6 +18,7 @@ public class ShutdownService
     private bool _reminderFired;
     private int _reminderSeconds = 60;
     private PowerAction _powerAction = PowerAction.Shutdown;
+    private RepeatRule _repeatRule = RepeatRule.Once;
     private readonly object _lock = new();
 
     public event Action<string>? Tick;
@@ -32,6 +33,7 @@ public class ShutdownService
     public DateTime PauseUntil => _pauseUntil;
     public TimeSpan PausedRemaining => _pausedRemaining;
     public PowerAction PowerAction => _powerAction;
+    public RepeatRule RepeatRule => _repeatRule;
     public bool SupportsForceCloseApps => _powerAction is PowerAction.Shutdown or PowerAction.Restart or PowerAction.LogOut;
 
     public void ScheduleCountdown(TimeSpan duration)
@@ -40,6 +42,7 @@ public class ShutdownService
         lock (_lock)
         {
             _targetTime = DateTime.Now + duration;
+            _repeatRule = RepeatRule.Once;
             _isScheduled = true;
             _isPaused = false;
             _pausedRemaining = TimeSpan.Zero;
@@ -137,19 +140,56 @@ public class ShutdownService
 
     public void SetPowerAction(PowerAction action) => _powerAction = action;
 
+    public void SetRepeatRule(RepeatRule repeatRule) => _repeatRule = repeatRule;
+
     public void ExecuteShutdown()
     {
+        bool repeat;
         lock (_lock)
         {
-            _isScheduled = false;
-            _isPaused = false;
-            _pausedRemaining = TimeSpan.Zero;
-            _pauseUntil = DateTime.MinValue;
+            repeat = _repeatRule != RepeatRule.Once;
+            if (repeat)
+            {
+                _targetTime = GetNextTarget(_targetTime, _repeatRule);
+                _isScheduled = true;
+                _isPaused = false;
+                _pausedRemaining = TimeSpan.Zero;
+                _pauseUntil = DateTime.MinValue;
+                _reminderFired = false;
+            }
+            else
+            {
+                _isScheduled = false;
+                _isPaused = false;
+                _pausedRemaining = TimeSpan.Zero;
+                _pauseUntil = DateTime.MinValue;
+            }
         }
         StopCountdownTimer();
         StopPauseTimer();
+        if (repeat)
+            StartTimer();
         ShutdownTriggered?.Invoke();
         ExecutePowerAction();
+    }
+
+    private static DateTime GetNextTarget(DateTime currentTarget, RepeatRule repeatRule)
+    {
+        var next = currentTarget.AddDays(1);
+        return repeatRule switch
+        {
+            RepeatRule.Daily => next,
+            RepeatRule.Workdays => MoveToMatchingDay(next, day => day is >= DayOfWeek.Monday and <= DayOfWeek.Friday),
+            RepeatRule.Weekends => MoveToMatchingDay(next, day => day is DayOfWeek.Saturday or DayOfWeek.Sunday),
+            _ => next
+        };
+    }
+
+    private static DateTime MoveToMatchingDay(DateTime date, Func<DayOfWeek, bool> matches)
+    {
+        while (!matches(date.DayOfWeek))
+            date = date.AddDays(1);
+        return date;
     }
 
     private void ExecutePowerAction()

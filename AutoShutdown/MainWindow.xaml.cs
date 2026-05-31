@@ -45,7 +45,9 @@ public partial class MainWindow : Window
         _shutdown.SetReminderSeconds(_settings.ReminderSeconds);
         _shutdown.SetForceCloseApps(_settings.ForceCloseApps);
         _shutdown.SetPowerAction(_settings.SelectedPowerAction);
+        _shutdown.SetRepeatRule(_settings.DefaultRepeatRule);
         UpdatePowerActionUI();
+        UpdateRepeatRuleUI();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
     }
@@ -85,6 +87,7 @@ public partial class MainWindow : Window
         if (h == 0 && m == 0 && s == 0) return;
 
         var duration = new TimeSpan(h, m, s);
+        _shutdown.SetRepeatRule(RepeatRule.Once);
         _shutdown.ResetReminderFlag();
         _shutdown.ScheduleCountdown(duration);
 
@@ -117,6 +120,7 @@ public partial class MainWindow : Window
         var target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
         if (target <= now) target = target.AddDays(1);
 
+        _shutdown.SetRepeatRule(_settings.DefaultRepeatRule);
         _shutdown.ResetReminderFlag();
         _shutdown.ScheduleFixedTime(target);
 
@@ -141,9 +145,10 @@ public partial class MainWindow : Window
         FixedTimeStartBtn.IsEnabled = false;
         _tray.SetShutdownActive(true);
         UpdatePauseUI();
+        var repeatText = _shutdown.RepeatRule == RepeatRule.Once ? "单次" : GetRepeatLabel(_shutdown.RepeatRule);
         TargetTimeLabel.Text = _shutdown.IsPaused
-            ? $"已暂停：{GetActionVerb(_settings.SelectedPowerAction)} · 将于 {_shutdown.PauseUntil:HH:mm} 自动恢复"
-            : $"计划执行：{GetActionVerb(_settings.SelectedPowerAction)} · {_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
+            ? $"已暂停：{GetActionVerb(_settings.SelectedPowerAction)} · {repeatText} · 将于 {_shutdown.PauseUntil:HH:mm} 自动恢复"
+            : $"计划执行：{GetActionVerb(_settings.SelectedPowerAction)} · {repeatText} · {_shutdown.TargetTime:yyyy-MM-dd HH:mm:ss}";
         ShutdownModeLabel.Text = _shutdown.SupportsForceCloseApps && _settings.ForceCloseApps
             ? "执行方式：强制关闭应用（未保存内容可能丢失）"
             : "执行方式：正常执行";
@@ -272,6 +277,30 @@ public partial class MainWindow : Window
         UpdateForceCloseUI();
         if (_shutdown.IsScheduled)
             UpdateStatusUI();
+    }
+
+    private void RepeatRule_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border border || border.Tag is not string tag || !Enum.TryParse(tag, out RepeatRule repeatRule))
+            return;
+
+        _settings.DefaultRepeatRule = repeatRule;
+        _shutdown.SetRepeatRule(repeatRule);
+        _settingsService.Save(_settings);
+        UpdateRepeatRuleUI();
+        if (_shutdown.IsScheduled)
+            UpdateStatusUI();
+    }
+
+    private void UpdateRepeatRuleUI()
+    {
+        foreach (var button in new[] { RepeatOnce, RepeatDaily, RepeatWorkdays, RepeatWeekends })
+        {
+            var isSelected = button.Tag?.ToString() == _settings.DefaultRepeatRule.ToString();
+            button.Background = isSelected ? FindResource("HeroBrush") as Brush : Brushes.Transparent;
+            button.BorderBrush = isSelected ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191));
+            button.Effect = isSelected ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+        }
     }
 
     private void UpdatePowerActionUI()
@@ -502,6 +531,15 @@ public partial class MainWindow : Window
         PowerAction.LogOut => "自动注销",
         PowerAction.Lock => "自动锁定",
         _ => "自动关机"
+    };
+
+    private static string GetRepeatLabel(RepeatRule repeatRule) => repeatRule switch
+    {
+        RepeatRule.Once => "单次",
+        RepeatRule.Daily => "每日",
+        RepeatRule.Workdays => "工作日",
+        RepeatRule.Weekends => "周末",
+        _ => "单次"
     };
 
     public void UpdateStatusAfterDelay()

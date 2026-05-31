@@ -9,6 +9,7 @@ public class AppSettings
     public bool AutoStartEnabled { get; set; } = false;
     public bool ForceCloseApps { get; set; } = false;
     public PowerAction SelectedPowerAction { get; set; } = PowerAction.Shutdown;
+    public RepeatRule DefaultRepeatRule { get; set; } = RepeatRule.Once;
 }
 
 public enum TimerMode
@@ -25,4 +26,12 @@ public enum PowerAction
     Restart,
     LogOut,
     Lock
+}
+
+public enum RepeatRule
+{
+    Once,
+    Daily,
+    Workdays,
+    Weekends
 }

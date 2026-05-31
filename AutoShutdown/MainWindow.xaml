@@ -271,6 +271,26 @@
                                 </Border>
                             </Grid>
 
+                            <TextBlock Text="重复规则" Style="{StaticResource SubtitleText}" Margin="0,18,0,8"/>
+                            <UniformGrid Columns="4" Margin="0,0,0,4">
+                                <Border x:Name="RepeatOnce" Tag="Once" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                    <TextBlock Text="单次" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                </Border>
+                                <Border x:Name="RepeatDaily" Tag="Daily" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                    <TextBlock Text="每日" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                </Border>
+                                <Border x:Name="RepeatWorkdays" Tag="Workdays" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                    <TextBlock Text="工作日" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                </Border>
+                                <Border x:Name="RepeatWeekends" Tag="Weekends" CornerRadius="14" Padding="10,10"
+                                        Background="Transparent" BorderBrush="#334D5BFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                    <TextBlock Text="周末" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                </Border>
+                            </UniformGrid>
+
                             <Button x:Name="FixedTimeStartBtn" Content="启动定时" Style="{StaticResource PrimaryButton}"
                                     Margin="0,24,0,0" Click="FixedTimeStart_Click"/>
                         </StackPanel>
