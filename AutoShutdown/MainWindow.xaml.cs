@@ -17,10 +17,13 @@ public partial class MainWindow : Window
     private readonly TrayIconService _tray;
     private readonly NetworkIdleService _networkIdle = new();
     private readonly ProcessExitService _processExit = new();
+    private readonly TimedProcessCloseService _timedProcessClose = new();
     private readonly PreActionScriptService _preActionScript = new();
     private readonly AppSettings _settings;
     private SavedTask? _activeTask;
     private ReminderWindow? _reminderWindow;
+    private string _processMonitorStatus = "进程状态：等待选择";
+    private string _processAutoCloseStatus = "自动关闭：未启用";
 
     public MainWindow(ShutdownService shutdown, SettingsService settingsService, TrayIconService tray)
     {
@@ -39,6 +42,9 @@ public partial class MainWindow : Window
         _networkIdle.IdleReached += OnNetworkIdleReached;
         _processExit.Tick += OnProcessExitTick;
         _processExit.ProcessExited += OnProcessExited;
+        _timedProcessClose.Tick += OnTimedProcessCloseTick;
+        _timedProcessClose.Closing += OnTimedProcessCloseClosing;
+        _timedProcessClose.Completed += OnTimedProcessCloseCompleted;
         _shutdown.BeforePowerActionAsync = RunPreActionScriptAsync;
 
         LoadSettings();
@@ -54,6 +60,11 @@ public partial class MainWindow : Window
         NetworkDownloadThresholdInput.Text = _settings.NetworkDownloadThresholdKb.ToString();
         NetworkUploadThresholdInput.Text = _settings.NetworkUploadThresholdKb.ToString();
         NetworkIdleMinutesInput.Text = _settings.NetworkIdleMinutes.ToString();
+        ProcessCloseHoursInput.Text = _settings.ProcessTriggerCloseHours.ToString();
+        ProcessCloseMinutesInput.Text = _settings.ProcessTriggerCloseMinutes.ToString();
+        ProcessCloseSecondsInput.Text = _settings.ProcessTriggerCloseSeconds.ToString();
+        ProcessCloseTimeoutInput.Text = _settings.ProcessTriggerCloseTimeoutSeconds.ToString();
+        _processAutoCloseStatus = _settings.ProcessTriggerAutoCloseEnabled ? "自动关闭：等待开始监控" : "自动关闭：未启用";
         PreActionScriptPathInput.Text = _settings.PreActionScriptPath;
         PreActionScriptTimeoutInput.Text = _settings.PreActionScriptTimeoutSeconds.ToString();
         UpdatePreActionScriptUI();
@@ -65,6 +76,13 @@ public partial class MainWindow : Window
         UpdateRepeatRuleUI();
         RefreshTaskList();
         RefreshProcessList();
+        if (!string.IsNullOrWhiteSpace(_settings.ProcessTriggerProcessName))
+        {
+            ProcessListCombo.Text = _settings.ProcessTriggerProcessName;
+            ProcessListCombo.SelectedValue = _settings.ProcessTriggerProcessName;
+        }
+        UpdateProcessAutoCloseUI();
+        UpdateProcessTriggerLabels();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
     }
@@ -142,6 +160,15 @@ public partial class MainWindow : Window
         _shutdown.ScheduleFixedTime(target);
 
         UpdateStatusUI();
+    }
+
+    private void ExecuteCurrentAction_Click(object sender, RoutedEventArgs e)
+    {
+        _shutdown.SetPowerAction(_settings.SelectedPowerAction);
+        _shutdown.SetForceCloseApps(_settings.ForceCloseApps);
+        _shutdown.SetRepeatRule(RepeatRule.Once);
+        _shutdown.ResetReminderFlag();
+        _shutdown.ExecuteShutdown();
     }
 
     // === Cancel ===
@@ -548,7 +575,7 @@ public partial class MainWindow : Window
 
     private void RefreshProcessList()
     {
-        var selected = ProcessListCombo.SelectedValue?.ToString();
+        var selected = GetSelectedProcessName();
         var processes = System.Diagnostics.Process.GetProcesses()
             .Where(process => !string.IsNullOrWhiteSpace(process.ProcessName))
             .GroupBy(process => process.ProcessName)
@@ -561,25 +588,54 @@ public partial class MainWindow : Window
         ProcessListCombo.SelectedValuePath = nameof(ProcessListItem.Name);
 
         if (!string.IsNullOrWhiteSpace(selected))
-            ProcessListCombo.SelectedValue = selected;
+            ProcessListCombo.Text = selected;
         else if (processes.Count > 0)
             ProcessListCombo.SelectedIndex = 0;
     }
 
     private void StartProcessTrigger_Click(object sender, RoutedEventArgs e)
     {
-        var processName = ProcessListCombo.SelectedValue?.ToString();
+        var processName = ProcessExitService.NormalizeProcessName(GetSelectedProcessName());
         if (string.IsNullOrWhiteSpace(processName))
         {
-            ProcessTriggerStatusLabel.Text = "进程状态：请先刷新并选择进程";
+            _processMonitorStatus = "进程状态：请先刷新并选择进程，或手动输入进程名";
+            UpdateProcessTriggerLabels();
             return;
         }
 
+        SaveProcessAutoCloseSettings();
+        _settings.ProcessTriggerProcessName = processName;
+
+        var closeDelay = GetProcessCloseDelay();
+        if (_settings.ProcessTriggerAutoCloseEnabled && closeDelay <= TimeSpan.Zero)
+        {
+            _processMonitorStatus = "进程状态：自动关闭倒计时必须大于 0 秒";
+            UpdateProcessTriggerLabels();
+            return;
+        }
+
+        _settingsService.Save(_settings);
+        ProcessListCombo.Text = processName;
         _processExit.Start(processName);
+
         StartProcessTriggerButton.IsEnabled = false;
         StopProcessTriggerButton.IsEnabled = true;
         RefreshProcessListButton.IsEnabled = false;
-        ProcessTriggerStatusLabel.Text = $"进程状态：正在监控 {processName}";
+        ProcessListCombo.IsEnabled = false;
+        _processMonitorStatus = $"进程状态：正在监控 {processName}";
+
+        if (_settings.ProcessTriggerAutoCloseEnabled)
+        {
+            _processAutoCloseStatus = $"自动关闭：将在 {FormatDuration(closeDelay)} 后关闭 {processName}";
+            _timedProcessClose.Start(processName, closeDelay, _settings.ProcessTriggerCloseTimeoutSeconds);
+        }
+        else
+        {
+            _processAutoCloseStatus = "自动关闭：未启用";
+        }
+
+        UpdateProcessAutoCloseUI();
+        UpdateProcessTriggerLabels();
     }
 
     private void StopProcessTrigger_Click(object sender, RoutedEventArgs e)
@@ -591,9 +647,10 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            ProcessTriggerStatusLabel.Text = hasSeenProcess
+            _processMonitorStatus = hasSeenProcess
                 ? $"进程状态：{processName} 正在运行 {count} 个实例"
                 : $"进程状态：等待 {processName} 启动/出现";
+            UpdateProcessTriggerLabels();
         });
     }
 
@@ -602,6 +659,8 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             StopProcessMonitoring($"进程状态：{processName} 已退出，已触发任务");
+            _processAutoCloseStatus = "自动关闭：被监控程序已退出";
+            UpdateProcessTriggerLabels();
             _shutdown.SetRepeatRule(RepeatRule.Once);
             _shutdown.ResetReminderFlag();
             _shutdown.ScheduleCountdown(TimeSpan.FromSeconds(_settings.ReminderSeconds));
@@ -612,10 +671,95 @@ public partial class MainWindow : Window
     private void StopProcessMonitoring(string statusText)
     {
         _processExit.Stop();
+        _timedProcessClose.Stop();
         StartProcessTriggerButton.IsEnabled = true;
         StopProcessTriggerButton.IsEnabled = false;
         RefreshProcessListButton.IsEnabled = true;
-        ProcessTriggerStatusLabel.Text = statusText;
+        ProcessListCombo.IsEnabled = true;
+        _processMonitorStatus = statusText;
+        _processAutoCloseStatus = _settings.ProcessTriggerAutoCloseEnabled ? "自动关闭：已停止" : "自动关闭：未启用";
+        UpdateProcessAutoCloseUI();
+        UpdateProcessTriggerLabels();
+    }
+
+    private void OnTimedProcessCloseTick(string processName, TimeSpan remaining)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _processAutoCloseStatus = $"自动关闭：将在 {FormatDuration(remaining)} 后关闭 {processName}";
+            UpdateProcessTriggerLabels();
+        });
+    }
+
+    private void OnTimedProcessCloseClosing(string processName)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _processAutoCloseStatus = $"自动关闭：正在关闭 {processName}...";
+            UpdateProcessTriggerLabels();
+        });
+    }
+
+    private void OnTimedProcessCloseCompleted(ProcessCloseResult result)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _processAutoCloseStatus = $"自动关闭：{result.Message}";
+            UpdateProcessTriggerLabels();
+            _tray.ShowBalloon("智能定时关机", result.Message);
+        });
+    }
+
+    private string GetSelectedProcessName()
+    {
+        if (ProcessListCombo.SelectedItem is ProcessListItem selectedItem)
+        {
+            var typedText = ProcessListCombo.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(typedText) || typedText == selectedItem.Display || typedText == selectedItem.Name)
+                return selectedItem.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(ProcessListCombo.Text))
+            return ProcessListCombo.Text.Trim();
+
+        return ProcessListCombo.SelectedValue?.ToString()?.Trim() ?? string.Empty;
+    }
+
+    private void SaveProcessAutoCloseSettings()
+    {
+        _settings.ProcessTriggerCloseHours = Math.Clamp(ParseInt(ProcessCloseHoursInput.Text), 0, 99);
+        _settings.ProcessTriggerCloseMinutes = Math.Clamp(ParseInt(ProcessCloseMinutesInput.Text), 0, 59);
+        _settings.ProcessTriggerCloseSeconds = Math.Clamp(ParseInt(ProcessCloseSecondsInput.Text), 0, 59);
+        _settings.ProcessTriggerCloseTimeoutSeconds = Math.Clamp(ParseInt(ProcessCloseTimeoutInput.Text), 1, 300);
+
+        ProcessCloseHoursInput.Text = _settings.ProcessTriggerCloseHours.ToString();
+        ProcessCloseMinutesInput.Text = _settings.ProcessTriggerCloseMinutes.ToString();
+        ProcessCloseSecondsInput.Text = _settings.ProcessTriggerCloseSeconds.ToString();
+        ProcessCloseTimeoutInput.Text = _settings.ProcessTriggerCloseTimeoutSeconds.ToString();
+    }
+
+    private TimeSpan GetProcessCloseDelay()
+    {
+        return new TimeSpan(
+            _settings.ProcessTriggerCloseHours,
+            _settings.ProcessTriggerCloseMinutes,
+            _settings.ProcessTriggerCloseSeconds);
+    }
+
+    private void UpdateProcessTriggerLabels()
+    {
+        ProcessTriggerStatusLabel.Text = _processMonitorStatus;
+        ProcessAutoCloseStatusLabel.Text = _processAutoCloseStatus;
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration < TimeSpan.Zero)
+            duration = TimeSpan.Zero;
+
+        return duration.TotalHours >= 1
+            ? duration.ToString(@"hh\:mm\:ss")
+            : duration.ToString(@"mm\:ss");
     }
 
     private sealed record ProcessListItem(string Name, int Count)
@@ -675,15 +819,15 @@ public partial class MainWindow : Window
 
     private async Task<bool> RunPreActionScriptAsync()
     {
-        _settings.PreActionScriptPath = PreActionScriptPathInput.Text.Trim();
-        SavePreActionScriptTimeout();
-        _settingsService.Save(_settings);
+        var enabled = _settings.PreActionScriptEnabled;
+        var path = _settings.PreActionScriptPath;
+        var timeoutSeconds = _settings.PreActionScriptTimeoutSeconds;
 
-        if (!_settings.PreActionScriptEnabled)
+        if (!enabled)
             return true;
 
         Dispatcher.Invoke(() => PreActionScriptStatusLabel.Text = "脚本状态：执行中...");
-        var result = await _preActionScript.RunAsync(_settings.PreActionScriptPath, _settings.PreActionScriptTimeoutSeconds);
+        var result = await _preActionScript.RunAsync(path, timeoutSeconds);
         Dispatcher.Invoke(() =>
         {
             PreActionScriptStatusLabel.Text = $"脚本状态：{result.Message}";
@@ -723,6 +867,39 @@ public partial class MainWindow : Window
     private void ReminderSecondsInput_LostFocus(object sender, RoutedEventArgs e)
     {
         SaveReminderSetting();
+    }
+
+    private void ProcessAutoCloseToggle_Click(object sender, MouseButtonEventArgs e)
+    {
+        _settings.ProcessTriggerAutoCloseEnabled = !_settings.ProcessTriggerAutoCloseEnabled;
+        SaveProcessAutoCloseSettings();
+        _settings.ProcessTriggerProcessName = GetSelectedProcessName();
+        _settingsService.Save(_settings);
+        _processAutoCloseStatus = _settings.ProcessTriggerAutoCloseEnabled ? "自动关闭：等待开始监控" : "自动关闭：未启用";
+        UpdateProcessAutoCloseUI();
+        UpdateProcessTriggerLabels();
+    }
+
+    private void UpdateProcessAutoCloseUI()
+    {
+        if (_settings.ProcessTriggerAutoCloseEnabled)
+        {
+            ProcessAutoCloseToggle.Background = FindResource("HeroBrush") as Brush;
+            ProcessAutoCloseToggle.Effect = FindResource("CyanShadow") as System.Windows.Media.Effects.Effect;
+            ProcessAutoCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+            ProcessAutoCloseKnob.Background = Brushes.White;
+            ProcessAutoCloseSettingsPanel.Opacity = 1;
+        }
+        else
+        {
+            ProcessAutoCloseToggle.Background = new SolidColorBrush(Color.FromRgb(28, 31, 54));
+            ProcessAutoCloseToggle.Effect = null;
+            ProcessAutoCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+            ProcessAutoCloseKnob.Background = FindResource("TextSecondaryBrush") as Brush;
+            ProcessAutoCloseSettingsPanel.Opacity = 0.45;
+        }
+
+        PulseElement(ProcessAutoCloseToggle, 1.06);
     }
 
     private void ForceCloseToggle_Click(object sender, MouseButtonEventArgs e)

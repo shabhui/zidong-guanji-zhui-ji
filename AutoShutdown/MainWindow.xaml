@@ -157,6 +157,8 @@
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
+                            <Button x:Name="ExecuteCurrentActionButton" Content="立即执行当前动作" Style="{StaticResource DangerButton}"
+                                    Margin="0,16,0,0" Click="ExecuteCurrentAction_Click"/>
                         </StackPanel>
                     </Border>
 
@@ -226,9 +228,64 @@
                                     <ColumnDefinition Width="12"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="ProcessListCombo" Height="42" FontSize="14"/>
+                                <ComboBox x:Name="ProcessListCombo" Height="42" FontSize="14" IsEditable="True" IsTextSearchEnabled="True"/>
                                 <Button Grid.Column="2" x:Name="RefreshProcessListButton" Content="刷新进程" Style="{StaticResource SecondaryButton}" Click="RefreshProcessList_Click"/>
                             </Grid>
+
+                            <Border Height="1" Background="#334D5BFF" Margin="0,16,0,16"/>
+
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,20,0">
+                                    <TextBlock Text="自动关闭被监控程序" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="开启后，到设定时间会先关闭该程序；程序退出后再触发当前电源动作。" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Border x:Name="ProcessAutoCloseToggle" Grid.Column="1" Width="56" Height="30" CornerRadius="15" Cursor="Hand"
+                                        MouseLeftButtonDown="ProcessAutoCloseToggle_Click" BorderBrush="#5536E8FF" BorderThickness="1">
+                                    <Border x:Name="ProcessAutoCloseKnob" Width="24" Height="24" CornerRadius="12" HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                                </Border>
+                            </Grid>
+
+                            <Grid x:Name="ProcessAutoCloseSettingsPanel">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="小时" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="ProcessCloseHoursInput" Text="1" TextAlignment="Center" MaxLength="2"
+                                             PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="分钟" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="ProcessCloseMinutesInput" Text="0" TextAlignment="Center" MaxLength="2"
+                                             PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="秒" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="ProcessCloseSecondsInput" Text="0" TextAlignment="Center" MaxLength="2"
+                                             PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="关闭超时秒" Style="{StaticResource SubtitleText}" Margin="0,0,0,8"/>
+                                    <TextBox x:Name="ProcessCloseTimeoutInput" Text="10" TextAlignment="Center" MaxLength="3"
+                                             PreviewTextInput="NumberPreviewTextInput" GotKeyboardFocus="NumberInput_GotKeyboardFocus"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock x:Name="ProcessAutoCloseStatusLabel" Text="自动关闭：未启用" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,10,0,0" TextWrapping="Wrap"/>
                             <Grid Margin="0,16,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
