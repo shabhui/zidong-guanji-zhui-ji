@@ -13,6 +13,12 @@ public class AppSettings
     public int NetworkDownloadThresholdKb { get; set; } = 100;
     public int NetworkUploadThresholdKb { get; set; } = 50;
     public int NetworkIdleMinutes { get; set; } = 5;
+    public bool ProcessTriggerAutoCloseEnabled { get; set; } = false;
+    public string ProcessTriggerProcessName { get; set; } = string.Empty;
+    public int ProcessTriggerCloseHours { get; set; } = 1;
+    public int ProcessTriggerCloseMinutes { get; set; } = 0;
+    public int ProcessTriggerCloseSeconds { get; set; } = 0;
+    public int ProcessTriggerCloseTimeoutSeconds { get; set; } = 10;
     public bool PreActionScriptEnabled { get; set; } = false;
     public string PreActionScriptPath { get; set; } = string.Empty;
     public int PreActionScriptTimeoutSeconds { get; set; } = 60;
