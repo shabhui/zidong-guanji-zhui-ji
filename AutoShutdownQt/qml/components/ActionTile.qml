@@ -3,8 +3,7 @@ import ".."
 
 NeonCard {
     id: root
-    width: 155
-    height: 74
+    implicitHeight: 76
 
     property string actionKey: ""
     property string actionLabel: ""

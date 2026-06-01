@@ -18,6 +18,7 @@ dist/
 # IDE/user files
 .vs/
 .vscode/
+.idea/
 *.user
 *.suo
 
