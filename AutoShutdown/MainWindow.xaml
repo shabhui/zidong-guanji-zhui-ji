@@ -271,7 +271,7 @@
                                 </Grid>
                             </Border>
 
-                            <Border x:Name="CountdownPanel" Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                            <Border x:Name="CountdownPanel" Style="{StaticResource CommandCard}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <Grid Margin="0,0,0,18">
                                         <Grid.ColumnDefinitions>
@@ -332,7 +332,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="FixedTimePanel" Style="{StaticResource CardBorder}" Margin="0,0,0,16" Visibility="Collapsed">
+                            <Border x:Name="FixedTimePanel" Style="{StaticResource CommandCard}" Margin="0,0,0,16" Visibility="Collapsed">
                                 <StackPanel>
                                     <Grid Margin="0,0,0,18">
                                         <Grid.ColumnDefinitions>
@@ -404,7 +404,7 @@
 
                     <ScrollViewer x:Name="TasksSection" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                         <StackPanel>
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                            <Border Style="{StaticResource CommandCard}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <TextBlock Text="任务中心" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
                                     <TextBlock Text="保存多个常用计划，系统会从启用任务里运行最近的一条。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
@@ -425,7 +425,7 @@
 
                     <ScrollViewer x:Name="TriggersSection" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                         <StackPanel>
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="18">
+                            <Border Style="{StaticResource AccordionPanel}" Margin="0,0,0,16" Padding="18">
                                 <StackPanel>
                                     <Border Width="38" Height="4" CornerRadius="2" Background="{StaticResource HeroBrush}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
                                     <TextBlock Text="网络闲置触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
@@ -465,7 +465,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="18">
+                            <Border Style="{StaticResource AccordionPanel}" Margin="0,0,0,16" Padding="18">
                                 <StackPanel>
                                     <Border Width="38" Height="4" CornerRadius="2" Background="{StaticResource HeroBrush}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
                                     <TextBlock Text="进程退出触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
@@ -551,7 +551,7 @@
 
                     <ScrollViewer x:Name="ScriptSection" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                         <StackPanel>
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                            <Border Style="{StaticResource CommandCard}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <TextBlock Text="执行前脚本" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
                                     <TextBlock Text="执行电源动作前先运行 bat/cmd/ps1 脚本；失败或超时会自动取消动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
@@ -584,7 +584,7 @@
 
                     <ScrollViewer x:Name="SettingsSection" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                         <StackPanel>
-                            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                            <Border Style="{StaticResource CommandCard}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <TextBlock Text="偏好设置" Style="{StaticResource TitleText}" Margin="0,0,0,16"/>
 

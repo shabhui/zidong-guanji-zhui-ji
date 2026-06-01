@@ -378,13 +378,14 @@ public partial class MainWindow : Window
         {
             var card = new Border
             {
-                CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(14),
-                Margin = new Thickness(0, 0, 0, 10),
-                Background = new SolidColorBrush(Color.FromArgb(112, 17, 24, 43)),
-                BorderBrush = task.Enabled ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191)),
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 0, 0, 12),
+                Background = FindResource("CommandCardBrush") as Brush,
+                BorderBrush = task.Enabled ? FindResource("CommandCardBorderBrush") as Brush : FindResource("GlassBorderBrush") as Brush,
                 BorderThickness = new Thickness(1),
-                Opacity = task.Enabled ? 1 : 0.55
+                Effect = task.Enabled ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null,
+                Opacity = task.Enabled ? 1 : 0.52
             };
 
             var root = new Grid();
@@ -408,7 +409,7 @@ public partial class MainWindow : Window
             });
             text.Children.Add(new TextBlock
             {
-                Text = $"下次：{GetNextTaskTime(task):yyyy-MM-dd HH:mm:ss}",
+                Text = $"NEXT · {GetNextTaskTime(task):yyyy-MM-dd HH:mm:ss}",
                 Foreground = FindResource("AccentBrush") as Brush,
                 FontSize = 12,
                 Margin = new Thickness(0, 4, 0, 0)
@@ -1010,8 +1011,8 @@ public partial class MainWindow : Window
         foreach (var button in new[] { RepeatOnce, RepeatDaily, RepeatWorkdays, RepeatWeekends })
         {
             var isSelected = button.Tag?.ToString() == _settings.DefaultRepeatRule.ToString();
-            button.Background = isSelected ? FindResource("HeroBrush") as Brush : Brushes.Transparent;
-            button.BorderBrush = isSelected ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191));
+            button.Background = isSelected ? FindResource("ActionTileActiveBrush") as Brush : Brushes.Transparent;
+            button.BorderBrush = isSelected ? FindResource("GlassBorderStrongBrush") as Brush : FindResource("GlassBorderBrush") as Brush;
             button.Effect = isSelected ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
         }
     }
