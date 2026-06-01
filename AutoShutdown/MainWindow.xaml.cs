@@ -97,6 +97,7 @@ public partial class MainWindow : Window
         UpdateAutoStartUI();
         UpdateForceCloseUI();
         ShowSection(UiSection.Overview);
+        UpdateReadyOverview();
     }
 
     // === Mode Switching ===
@@ -150,7 +151,8 @@ public partial class MainWindow : Window
         HoursInput.Text = ((int)duration.TotalHours).ToString();
         MinutesInput.Text = duration.Minutes.ToString();
         SecondsInput.Text = "0";
-        PulseElement(CountdownPanel, 1.01);
+        UpdateReadyOverview();
+        PulseElement(StatusCard, 1.01);
     }
 
     // === Fixed Time ===
@@ -442,12 +444,49 @@ public partial class MainWindow : Window
 
     // === Status Updates ===
 
+    private void UpdateReadyOverview()
+    {
+        var duration = new TimeSpan(ParseInt(HoursInput.Text), ParseInt(MinutesInput.Text), ParseInt(SecondsInput.Text));
+        StatusTitle.Text = "准备启动任务";
+        RemainingLabel.Text = "默认倒计时";
+        RemainingTime.Text = duration.ToString(@"hh\:mm\:ss");
+        TargetTimeLabel.Text = $"当前动作：{GetActionLabel(_settings.SelectedPowerAction)}";
+        ShutdownModeLabel.Text = _shutdown.SupportsForceCloseApps && _settings.ForceCloseApps
+            ? "执行方式：强制关闭应用（未保存内容可能丢失）"
+            : "执行方式：正常执行";
+        SetStatusBadge("READY", "StatusReadyBrush");
+        OverviewStartButton.IsEnabled = true;
+        PauseResumeButton.Visibility = Visibility.Collapsed;
+        CancelPlanButton.Visibility = Visibility.Collapsed;
+        UpdateOverviewSummaries();
+    }
+
+    private void SetStatusBadge(string text, string brushKey)
+    {
+        HeaderStatusText.Text = text;
+        OverviewStatusText.Text = text;
+        var brush = FindResource(brushKey) as Brush;
+        HeaderStatusText.Foreground = brush;
+        OverviewStatusText.Foreground = brush;
+    }
+
+    private void UpdateOverviewSummaries()
+    {
+        OverviewActionSummary.Text = $"动作：{GetActionLabel(_settings.SelectedPowerAction)}";
+        OverviewReminderSummary.Text = $"提醒：提前 {_settings.ReminderSeconds} 秒";
+        OverviewForceSummary.Text = _settings.ForceCloseApps && _shutdown.SupportsForceCloseApps ? "强制关闭：开启" : "强制关闭：关闭";
+        OverviewScriptSummary.Text = _settings.PreActionScriptEnabled ? $"脚本：已启用 · 超时 {_settings.PreActionScriptTimeoutSeconds} 秒" : "脚本：未启用";
+    }
+
     private void UpdateStatusUI()
     {
         StatusCard.Visibility = Visibility.Visible;
         PulseElement(StatusCard);
         CountdownStartBtn.IsEnabled = false;
         FixedTimeStartBtn.IsEnabled = false;
+        OverviewStartButton.IsEnabled = false;
+        PauseResumeButton.Visibility = Visibility.Visible;
+        CancelPlanButton.Visibility = Visibility.Visible;
         _tray.SetShutdownActive(true);
         UpdatePauseUI();
         var repeatText = _shutdown.RepeatRule == RepeatRule.Once ? "单次" : GetRepeatLabel(_shutdown.RepeatRule);
@@ -457,6 +496,7 @@ public partial class MainWindow : Window
         ShutdownModeLabel.Text = _shutdown.SupportsForceCloseApps && _settings.ForceCloseApps
             ? "执行方式：强制关闭应用（未保存内容可能丢失）"
             : "执行方式：正常执行";
+        UpdateOverviewSummaries();
     }
 
     private void OnTick(string remaining)
@@ -464,7 +504,7 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             RemainingTime.Text = remaining;
-            PulseElement(RemainingTime, 1.035);
+            PulseElement(RemainingTime, 1.025);
         });
     }
 
@@ -489,11 +529,14 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            StatusCard.Visibility = Visibility.Collapsed;
             CountdownStartBtn.IsEnabled = true;
             FixedTimeStartBtn.IsEnabled = true;
+            OverviewStartButton.IsEnabled = true;
+            PauseResumeButton.Visibility = Visibility.Collapsed;
+            CancelPlanButton.Visibility = Visibility.Collapsed;
             _tray.SetShutdownActive(false);
             _tray.SetPaused(false);
+            UpdateReadyOverview();
             _tray.ShowBalloon("智能定时关机", "已取消任务计划");
         });
     }
@@ -520,9 +563,11 @@ public partial class MainWindow : Window
 
     private void UpdatePauseUI()
     {
-        PauseResumeButton.Content = _shutdown.IsPaused ? "恢复任务" : "暂停 1 小时";
-        StatusTitle.Text = _shutdown.IsPaused ? "任务已暂停" : "任务计划运行中";
-        RemainingLabel.Text = _shutdown.IsPaused ? "恢复后剩余时间" : "距离执行还有";
+        var paused = _shutdown.IsPaused;
+        PauseResumeButton.Content = paused ? "恢复任务" : "暂停 1 小时";
+        StatusTitle.Text = paused ? "任务已暂停" : "任务计划运行中";
+        RemainingLabel.Text = paused ? "恢复后剩余时间" : "距离执行还有";
+        SetStatusBadge(paused ? "PAUSED" : "RUNNING", paused ? "StatusPausedBrush" : "StatusRunningBrush");
     }
 
     // === Network Idle ===
@@ -831,6 +876,7 @@ public partial class MainWindow : Window
         PreActionScriptStatusLabel.Text = _settings.PreActionScriptEnabled
             ? $"脚本状态：已启用 · 超时 {_settings.PreActionScriptTimeoutSeconds} 秒"
             : "脚本状态：未启用";
+        UpdateOverviewSummaries();
     }
 
     private async Task<bool> RunPreActionScriptAsync()
@@ -878,6 +924,7 @@ public partial class MainWindow : Window
         ReminderSecondsInput.Text = _settings.ReminderSeconds.ToString();
         _shutdown.SetReminderSeconds(_settings.ReminderSeconds);
         _settingsService.Save(_settings);
+        UpdateOverviewSummaries();
     }
 
     private void ReminderSecondsInput_LostFocus(object sender, RoutedEventArgs e)
@@ -984,9 +1031,9 @@ public partial class MainWindow : Window
         foreach (var button in actionButtons)
         {
             var isSelected = button.Tag?.ToString() == _settings.SelectedPowerAction.ToString();
-            button.Background = isSelected ? FindResource("HeroBrush") as Brush : Brushes.Transparent;
-            button.BorderBrush = isSelected ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromRgb(51, 77, 191));
-            button.Effect = isSelected ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+            button.Background = isSelected ? FindResource("ActionTileActiveBrush") as Brush : FindResource("ActionTileBrush") as Brush;
+            button.BorderBrush = isSelected ? FindResource("GlassBorderStrongBrush") as Brush : FindResource("GlassBorderBrush") as Brush;
+            button.Effect = isSelected ? FindResource("HeroGlowShadow") as System.Windows.Media.Effects.Effect : null;
         }
 
         var label = GetActionLabel(_settings.SelectedPowerAction);
@@ -996,6 +1043,7 @@ public partial class MainWindow : Window
         FixedTimePanelTitle.Text = $"指定时间{label}";
         FixedTimePanelSubtitle.Text = $"选择今天或明天的具体时间，到点后{verb}。";
         ReminderSettingSubtitle.Text = $"{label}前弹窗提醒，可在 10-300 秒之间设置。";
+        UpdateReadyOverview();
     }
 
     private void UpdateForceCloseUI()
@@ -1008,6 +1056,7 @@ public partial class MainWindow : Window
 
         ApplyToggleVisual(ForceCloseToggle, ForceCloseKnob, _settings.ForceCloseApps && _shutdown.SupportsForceCloseApps, useDanger: true);
         PulseElement(ForceCloseToggle, 1.03);
+        UpdateOverviewSummaries();
     }
 
     private void AutoStartToggle_Click(object sender, MouseButtonEventArgs e)
@@ -1026,6 +1075,7 @@ public partial class MainWindow : Window
     {
         ApplyToggleVisual(AutoStartToggle, AutoStartKnob, _settings.AutoStartEnabled);
         PulseElement(AutoStartToggle, 1.03);
+        UpdateOverviewSummaries();
     }
 
     private void NavItem_Click(object sender, MouseButtonEventArgs e)
@@ -1066,9 +1116,10 @@ public partial class MainWindow : Window
         foreach (var (item, indicator) in navItems)
         {
             var isActive = item.Tag?.ToString() == _currentSection.ToString();
-            item.Background = isActive ? FindResource("GlassSurfaceHoverBrush") as Brush : FindResource("NavItemBrush") as Brush;
-            item.BorderBrush = isActive ? FindResource("AccentBrush") as Brush : FindResource("GlassBorderBrush") as Brush;
+            item.Background = isActive ? FindResource("NavPillActiveBrush") as Brush : FindResource("NavPillBrush") as Brush;
+            item.BorderBrush = isActive ? FindResource("GlassBorderStrongBrush") as Brush : FindResource("GlassBorderBrush") as Brush;
             item.Effect = isActive ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+            indicator.Background = isActive ? FindResource("NavPillIndicatorBrush") as Brush : FindResource("NavIndicatorBrush") as Brush;
             indicator.Opacity = isActive ? 1 : 0;
         }
     }
