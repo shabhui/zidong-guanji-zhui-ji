@@ -462,6 +462,7 @@
                         <StackPanel>
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="18">
                                 <StackPanel>
+                                    <Border Width="38" Height="4" CornerRadius="2" Background="{StaticResource HeroBrush}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
                                     <TextBlock Text="网络闲置触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
                                     <TextBlock Text="上传和下载速度持续低于阈值后，自动执行当前选择的电源动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
                                     <Grid>
@@ -501,6 +502,7 @@
 
                             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16" Padding="18">
                                 <StackPanel>
+                                    <Border Width="38" Height="4" CornerRadius="2" Background="{StaticResource HeroBrush}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
                                     <TextBlock Text="进程退出触发" Style="{StaticResource TitleText}" Margin="0,0,0,8"/>
                                     <TextBlock Text="监控一个程序，等它全部退出后执行当前电源动作；也可以到点自动关闭它。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
                                     <Grid>

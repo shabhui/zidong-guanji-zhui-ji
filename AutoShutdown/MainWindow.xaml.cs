@@ -885,6 +885,18 @@ public partial class MainWindow : Window
         SaveReminderSetting();
     }
 
+    private void ApplyToggleVisual(Border toggle, Border knob, bool isOn, bool useDanger = false)
+    {
+        toggle.Background = isOn
+            ? (useDanger ? FindResource("DangerBrush") as Brush : FindResource("HeroBrush") as Brush)
+            : FindResource("ToggleOffBrush") as Brush;
+        toggle.Effect = isOn
+            ? (useDanger ? FindResource("DangerShadow") as System.Windows.Media.Effects.Effect : FindResource("CyanShadow") as System.Windows.Media.Effects.Effect)
+            : null;
+        knob.HorizontalAlignment = isOn ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+        knob.Background = isOn ? Brushes.White : FindResource("ToggleKnobOffBrush") as Brush;
+    }
+
     private void ProcessAutoCloseToggle_Click(object sender, MouseButtonEventArgs e)
     {
         if (!ProcessAutoCloseToggle.IsEnabled)
@@ -901,24 +913,9 @@ public partial class MainWindow : Window
 
     private void UpdateProcessAutoCloseUI()
     {
-        if (_settings.ProcessTriggerAutoCloseEnabled)
-        {
-            ProcessAutoCloseToggle.Background = FindResource("HeroBrush") as Brush;
-            ProcessAutoCloseToggle.Effect = FindResource("CyanShadow") as System.Windows.Media.Effects.Effect;
-            ProcessAutoCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
-            ProcessAutoCloseKnob.Background = Brushes.White;
-            ProcessAutoCloseSettingsPanel.Opacity = 1;
-        }
-        else
-        {
-            ProcessAutoCloseToggle.Background = new SolidColorBrush(Color.FromRgb(28, 31, 54));
-            ProcessAutoCloseToggle.Effect = null;
-            ProcessAutoCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-            ProcessAutoCloseKnob.Background = FindResource("TextSecondaryBrush") as Brush;
-            ProcessAutoCloseSettingsPanel.Opacity = 0.45;
-        }
-
-        PulseElement(ProcessAutoCloseToggle, 1.06);
+        ApplyToggleVisual(ProcessAutoCloseToggle, ProcessAutoCloseKnob, _settings.ProcessTriggerAutoCloseEnabled);
+        ProcessAutoCloseSettingsPanel.Opacity = _settings.ProcessTriggerAutoCloseEnabled ? 1 : 0.45;
+        PulseElement(ProcessAutoCloseToggle, 1.03);
     }
 
     private void ForceCloseToggle_Click(object sender, MouseButtonEventArgs e)
@@ -1009,21 +1006,8 @@ public partial class MainWindow : Window
             ? $"开启后{GetActionLabel(_settings.SelectedPowerAction)}会关闭所有应用，未保存内容可能丢失。"
             : $"{GetActionLabel(_settings.SelectedPowerAction)}不使用强制关闭应用。";
 
-        if (_settings.ForceCloseApps && _shutdown.SupportsForceCloseApps)
-        {
-            ForceCloseToggle.Background = FindResource("DangerBrush") as Brush;
-            ForceCloseToggle.Effect = FindResource("DangerShadow") as System.Windows.Media.Effects.Effect;
-            ForceCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
-            ForceCloseKnob.Background = Brushes.White;
-        }
-        else
-        {
-            ForceCloseToggle.Background = new SolidColorBrush(Color.FromRgb(28, 31, 54));
-            ForceCloseToggle.Effect = null;
-            ForceCloseKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-            ForceCloseKnob.Background = FindResource("TextSecondaryBrush") as Brush;
-        }
-        PulseElement(ForceCloseToggle, 1.06);
+        ApplyToggleVisual(ForceCloseToggle, ForceCloseKnob, _settings.ForceCloseApps && _shutdown.SupportsForceCloseApps, useDanger: true);
+        PulseElement(ForceCloseToggle, 1.03);
     }
 
     private void AutoStartToggle_Click(object sender, MouseButtonEventArgs e)
@@ -1040,21 +1024,8 @@ public partial class MainWindow : Window
 
     private void UpdateAutoStartUI()
     {
-        if (_settings.AutoStartEnabled)
-        {
-            AutoStartToggle.Background = FindResource("HeroBrush") as Brush;
-            AutoStartToggle.Effect = FindResource("CyanShadow") as System.Windows.Media.Effects.Effect;
-            AutoStartKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
-            AutoStartKnob.Background = Brushes.White;
-        }
-        else
-        {
-            AutoStartToggle.Background = new SolidColorBrush(Color.FromRgb(28, 31, 54));
-            AutoStartToggle.Effect = null;
-            AutoStartKnob.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-            AutoStartKnob.Background = FindResource("TextSecondaryBrush") as Brush;
-        }
-        PulseElement(AutoStartToggle, 1.06);
+        ApplyToggleVisual(AutoStartToggle, AutoStartKnob, _settings.AutoStartEnabled);
+        PulseElement(AutoStartToggle, 1.03);
     }
 
     private void NavItem_Click(object sender, MouseButtonEventArgs e)
