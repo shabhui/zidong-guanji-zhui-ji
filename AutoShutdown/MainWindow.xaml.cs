@@ -758,7 +758,7 @@ public partial class MainWindow : Window
             duration = TimeSpan.Zero;
 
         return duration.TotalHours >= 1
-            ? duration.ToString(@"hh\:mm\:ss")
+            ? $"{(int)duration.TotalHours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}"
             : duration.ToString(@"mm\:ss");
     }
 
