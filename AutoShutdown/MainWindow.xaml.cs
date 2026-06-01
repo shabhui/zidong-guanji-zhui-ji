@@ -622,6 +622,8 @@ public partial class MainWindow : Window
         StopProcessTriggerButton.IsEnabled = true;
         RefreshProcessListButton.IsEnabled = false;
         ProcessListCombo.IsEnabled = false;
+        ProcessAutoCloseToggle.IsEnabled = false;
+        ProcessAutoCloseSettingsPanel.IsEnabled = false;
         _processMonitorStatus = $"进程状态：正在监控 {processName}";
 
         if (_settings.ProcessTriggerAutoCloseEnabled)
@@ -676,6 +678,8 @@ public partial class MainWindow : Window
         StopProcessTriggerButton.IsEnabled = false;
         RefreshProcessListButton.IsEnabled = true;
         ProcessListCombo.IsEnabled = true;
+        ProcessAutoCloseToggle.IsEnabled = true;
+        ProcessAutoCloseSettingsPanel.IsEnabled = true;
         _processMonitorStatus = statusText;
         _processAutoCloseStatus = _settings.ProcessTriggerAutoCloseEnabled ? "自动关闭：已停止" : "自动关闭：未启用";
         UpdateProcessAutoCloseUI();
@@ -871,6 +875,9 @@ public partial class MainWindow : Window
 
     private void ProcessAutoCloseToggle_Click(object sender, MouseButtonEventArgs e)
     {
+        if (!ProcessAutoCloseToggle.IsEnabled)
+            return;
+
         _settings.ProcessTriggerAutoCloseEnabled = !_settings.ProcessTriggerAutoCloseEnabled;
         SaveProcessAutoCloseSettings();
         _settings.ProcessTriggerProcessName = GetSelectedProcessName();
