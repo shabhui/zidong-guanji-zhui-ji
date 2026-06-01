@@ -1082,12 +1082,23 @@ public partial class MainWindow : Window
 
     private void UpdateNavigationUI()
     {
-        foreach (var nav in new[] { NavOverview, NavTimer, NavTasks, NavTriggers, NavScript, NavSettings })
+        var navItems = new (Border Item, Border Indicator)[]
         {
-            var isActive = nav.Tag?.ToString() == _currentSection.ToString();
-            nav.Background = isActive ? FindResource("HeroBrush") as Brush : new SolidColorBrush(Color.FromArgb(34, 255, 255, 255));
-            nav.BorderBrush = isActive ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromArgb(72, 255, 255, 255));
-            nav.Effect = isActive ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+            (NavOverview, NavOverviewIndicator),
+            (NavTimer, NavTimerIndicator),
+            (NavTasks, NavTasksIndicator),
+            (NavTriggers, NavTriggersIndicator),
+            (NavScript, NavScriptIndicator),
+            (NavSettings, NavSettingsIndicator)
+        };
+
+        foreach (var (item, indicator) in navItems)
+        {
+            var isActive = item.Tag?.ToString() == _currentSection.ToString();
+            item.Background = isActive ? FindResource("GlassSurfaceHoverBrush") as Brush : FindResource("NavItemBrush") as Brush;
+            item.BorderBrush = isActive ? FindResource("AccentBrush") as Brush : FindResource("GlassBorderBrush") as Brush;
+            item.Effect = isActive ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+            indicator.Opacity = isActive ? 1 : 0;
         }
     }
 

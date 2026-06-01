@@ -46,7 +46,7 @@
             </Grid.RowDefinitions>
 
             <Border x:Name="HeroHeader" Grid.Row="0" CornerRadius="24,24,0,0" Padding="24,14"
-                    BorderBrush="#55FFFFFF" BorderThickness="0,0,0,1" Background="#22FFFFFF">
+                    BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="0,0,0,1" Background="{StaticResource GlassSurfaceBrush}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -70,7 +70,7 @@
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
                         <Button Content="&#xE921;" FontFamily="Segoe MDL2 Assets" Width="40" Height="40" FontSize="12"
-                                ToolTip="最小化到托盘" Background="#22FFFFFF" BorderBrush="#66FFFFFF" BorderThickness="1"
+                                ToolTip="最小化到托盘" Background="{StaticResource GlassSurfaceBrush}" BorderBrush="{StaticResource GlassBorderStrongBrush}" BorderThickness="1"
                                 Foreground="{StaticResource TextPrimaryBrush}" Click="Minimize_Click" Padding="0"/>
                         <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Width="40" Height="40" FontSize="12" Margin="8,0,0,0"
                                 ToolTip="隐藏到托盘" Background="#33FF5C8A" BorderBrush="#66FF8ACF" BorderThickness="1"
@@ -92,27 +92,75 @@
                             <TextBlock Text="导航" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="8,4,0,12"/>
                             <Border x:Name="NavOverview" Tag="Overview" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="总览" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavOverviewIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="总览" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="NavTimer" Tag="Timer" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="定时" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavTimerIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="定时" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="NavTasks" Tag="Tasks" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="任务" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavTasksIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="任务" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="NavTriggers" Tag="Triggers" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="智能触发" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavTriggersIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="智能触发" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="NavScript" Tag="Script" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="脚本" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavScriptIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="脚本" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="NavSettings" Tag="Settings" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
                                     BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="NavItem_Click">
-                                <TextBlock Text="设置" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="NavSettingsIndicator" Width="3" CornerRadius="2" Background="{StaticResource NavIndicatorBrush}" Opacity="0"/>
+                                    <TextBlock Grid.Column="2" Text="设置" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Grid>
                             </Border>
                         </StackPanel>
 
@@ -134,42 +182,42 @@
                                     <TextBlock Text="所有定时、触发器和立即执行都会使用这里的动作。" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
                                     <UniformGrid Columns="3" Rows="2">
                                         <Border x:Name="ActionShutdown" Tag="Shutdown" CornerRadius="16" Padding="14,12" Margin="0,0,8,8"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="关机" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="SHUTDOWN" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="ActionSleep" Tag="Sleep" CornerRadius="16" Padding="14,12" Margin="0,0,8,8"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="睡眠" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="SLEEP" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="ActionHibernate" Tag="Hibernate" CornerRadius="16" Padding="14,12" Margin="0,0,0,8"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="休眠" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="HIBERNATE" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="ActionRestart" Tag="Restart" CornerRadius="16" Padding="14,12" Margin="0,0,8,0"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="重启" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="RESTART" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="ActionLogOut" Tag="LogOut" CornerRadius="16" Padding="14,12" Margin="0,0,8,0"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="注销" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="LOG OUT" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="ActionLock" Tag="Lock" CornerRadius="16" Padding="14,12"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="PowerAction_Click">
                                             <StackPanel>
                                                 <TextBlock Text="锁定" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                                 <TextBlock Text="LOCK" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
@@ -215,7 +263,7 @@
                                         </StackPanel>
                                     </Grid>
 
-                                    <Border Margin="0,16,0,0" Padding="14" CornerRadius="16" Background="#22FFFFFF" BorderBrush="#55FFFFFF" BorderThickness="1">
+                                    <Border Margin="0,16,0,0" Padding="14" CornerRadius="16" Background="{StaticResource GlassSurfaceBrush}" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1">
                                         <StackPanel>
                                             <TextBlock x:Name="TargetTimeLabel" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
                                             <TextBlock x:Name="ShutdownModeLabel" Margin="0,6,0,0" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
@@ -365,19 +413,19 @@
                                     <TextBlock Text="重复规则" Style="{StaticResource SubtitleText}" Margin="0,18,0,8"/>
                                     <UniformGrid Columns="4" Margin="0,0,0,4">
                                         <Border x:Name="RepeatOnce" Tag="Once" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
                                             <TextBlock Text="单次" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                         </Border>
                                         <Border x:Name="RepeatDaily" Tag="Daily" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
                                             <TextBlock Text="每日" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                         </Border>
                                         <Border x:Name="RepeatWorkdays" Tag="Workdays" CornerRadius="14" Padding="10,10" Margin="0,0,8,0"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
                                             <TextBlock Text="工作日" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                         </Border>
                                         <Border x:Name="RepeatWeekends" Tag="Weekends" CornerRadius="14" Padding="10,10"
-                                                Background="Transparent" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
+                                                Background="Transparent" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonDown="RepeatRule_Click">
                                             <TextBlock Text="周末" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                         </Border>
                                     </UniformGrid>
