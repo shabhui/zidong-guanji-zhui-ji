@@ -41,6 +41,19 @@
     <SolidColorBrush x:Key="InputFocusBrush" Color="#79D8FF"/>
     <SolidColorBrush x:Key="ToggleOffBrush" Color="#1C1F36"/>
     <SolidColorBrush x:Key="ToggleKnobOffBrush" Color="#CDBFEA"/>
+    <SolidColorBrush x:Key="CommandCardBorderBrush" Color="#88DDF7FF"/>
+    <SolidColorBrush x:Key="CommandCardInnerBorderBrush" Color="#3379D8FF"/>
+    <SolidColorBrush x:Key="NavPillBrush" Color="#1823405F"/>
+    <SolidColorBrush x:Key="NavPillActiveBrush" Color="#3A79D8FF"/>
+    <SolidColorBrush x:Key="NavPillIndicatorBrush" Color="#FF8ACF"/>
+    <SolidColorBrush x:Key="StatusReadyBrush" Color="#7DFFC4"/>
+    <SolidColorBrush x:Key="StatusRunningBrush" Color="#FFD166"/>
+    <SolidColorBrush x:Key="StatusPausedBrush" Color="#B779FF"/>
+    <SolidColorBrush x:Key="ActionTileBrush" Color="#1F243A60"/>
+    <SolidColorBrush x:Key="ActionTileHoverBrush" Color="#33406486"/>
+    <SolidColorBrush x:Key="BadgeBrush" Color="#2629D8FF"/>
+    <SolidColorBrush x:Key="ChipBrush" Color="#223D2F62"/>
+    <SolidColorBrush x:Key="ChipHoverBrush" Color="#355B3F86"/>
 
     <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#151226" Offset="0"/>
@@ -65,10 +78,36 @@
         <GradientStop Color="#22261C3E" Offset="1"/>
     </LinearGradientBrush>
 
+    <LinearGradientBrush x:Key="CommandBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#0B1024" Offset="0"/>
+        <GradientStop Color="#161039" Offset="0.42"/>
+        <GradientStop Color="#2B164D" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="CommandHeroBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#6636E8FF" Offset="0"/>
+        <GradientStop Color="#55B779FF" Offset="0.42"/>
+        <GradientStop Color="#44FF8ACF" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="CommandCardBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#3AFFFFFF" Offset="0"/>
+        <GradientStop Color="#23203655" Offset="0.55"/>
+        <GradientStop Color="#1A10182F" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ActionTileActiveBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#BBFF8ACF" Offset="0"/>
+        <GradientStop Color="#99B779FF" Offset="0.5"/>
+        <GradientStop Color="#8879D8FF" Offset="1"/>
+    </LinearGradientBrush>
+
     <DropShadowEffect x:Key="NeonShadow" Color="#FF8ACF" BlurRadius="26" ShadowDepth="0" Opacity="0.34"/>
     <DropShadowEffect x:Key="CyanShadow" Color="#79D8FF" BlurRadius="20" ShadowDepth="0" Opacity="0.32"/>
     <DropShadowEffect x:Key="DangerShadow" Color="#FF5C8A" BlurRadius="20" ShadowDepth="0" Opacity="0.36"/>
     <DropShadowEffect x:Key="SoftShadow" Color="#000000" BlurRadius="26" ShadowDepth="6" Opacity="0.24"/>
+    <DropShadowEffect x:Key="HeroGlowShadow" Color="#79D8FF" BlurRadius="36" ShadowDepth="0" Opacity="0.42"/>
+    <DropShadowEffect x:Key="PinkGlowShadow" Color="#FF8ACF" BlurRadius="30" ShadowDepth="0" Opacity="0.36"/>
 
     <Style TargetType="Window">
         <Setter Property="Background" Value="Transparent"/>
@@ -222,6 +261,50 @@
     <Style x:Key="GlassPanel" TargetType="Border" BasedOn="{StaticResource CardBorder}">
         <Setter Property="Background" Value="#22FFFFFF"/>
         <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+    </Style>
+
+    <Style x:Key="CommandCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+        <Setter Property="Background" Value="{StaticResource CommandCardBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CommandCardBorderBrush}"/>
+        <Setter Property="CornerRadius" Value="28"/>
+        <Setter Property="Padding" Value="22"/>
+        <Setter Property="Effect" Value="{StaticResource SoftShadow}"/>
+    </Style>
+
+    <Style x:Key="HeroCommandCard" TargetType="Border" BasedOn="{StaticResource CommandCard}">
+        <Setter Property="Background" Value="{StaticResource CommandHeroBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GlassBorderStrongBrush}"/>
+        <Setter Property="Effect" Value="{StaticResource HeroGlowShadow}"/>
+    </Style>
+
+    <Style x:Key="StatusBadge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="Background" Value="{StaticResource BadgeBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CommandCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="Background" Value="{StaticResource ChipBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CommandCardInnerBorderBrush}"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="MinHeight" Value="38"/>
+    </Style>
+
+    <Style x:Key="ActionTile" TargetType="Border">
+        <Setter Property="CornerRadius" Value="20"/>
+        <Setter Property="Padding" Value="16,14"/>
+        <Setter Property="Background" Value="{StaticResource ActionTileBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style x:Key="AccordionPanel" TargetType="Border" BasedOn="{StaticResource CommandCard}">
+        <Setter Property="CornerRadius" Value="26"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,0,0,16"/>
     </Style>
 
     <Style x:Key="TitleText" TargetType="TextBlock">
