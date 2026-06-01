@@ -10,6 +10,16 @@ using AutoShutdown.Services;
 
 namespace AutoShutdown;
 
+public enum UiSection
+{
+    Overview,
+    Timer,
+    Tasks,
+    Triggers,
+    Script,
+    Settings
+}
+
 public partial class MainWindow : Window
 {
     private readonly ShutdownService _shutdown;
@@ -22,6 +32,7 @@ public partial class MainWindow : Window
     private readonly AppSettings _settings;
     private SavedTask? _activeTask;
     private ReminderWindow? _reminderWindow;
+    private UiSection _currentSection = UiSection.Overview;
     private string _processMonitorStatus = "进程状态：等待选择";
     private string _processAutoCloseStatus = "自动关闭：未启用";
 
@@ -85,6 +96,7 @@ public partial class MainWindow : Window
         UpdateProcessTriggerLabels();
         UpdateAutoStartUI();
         UpdateForceCloseUI();
+        ShowSection(UiSection.Overview);
     }
 
     // === Mode Switching ===
@@ -1043,6 +1055,65 @@ public partial class MainWindow : Window
             AutoStartKnob.Background = FindResource("TextSecondaryBrush") as Brush;
         }
         PulseElement(AutoStartToggle, 1.06);
+    }
+
+    private void NavItem_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border border || border.Tag is not string tag || !Enum.TryParse(tag, out UiSection section))
+            return;
+
+        ShowSection(section);
+    }
+
+    private void ShowSection(UiSection section)
+    {
+        _currentSection = section;
+
+        OverviewSection.Visibility = section == UiSection.Overview ? Visibility.Visible : Visibility.Collapsed;
+        TimerSection.Visibility = section == UiSection.Timer ? Visibility.Visible : Visibility.Collapsed;
+        TasksSection.Visibility = section == UiSection.Tasks ? Visibility.Visible : Visibility.Collapsed;
+        TriggersSection.Visibility = section == UiSection.Triggers ? Visibility.Visible : Visibility.Collapsed;
+        ScriptSection.Visibility = section == UiSection.Script ? Visibility.Visible : Visibility.Collapsed;
+        SettingsSection.Visibility = section == UiSection.Settings ? Visibility.Visible : Visibility.Collapsed;
+
+        UpdateNavigationUI();
+        AnimateActiveSection(section);
+    }
+
+    private void UpdateNavigationUI()
+    {
+        foreach (var nav in new[] { NavOverview, NavTimer, NavTasks, NavTriggers, NavScript, NavSettings })
+        {
+            var isActive = nav.Tag?.ToString() == _currentSection.ToString();
+            nav.Background = isActive ? FindResource("HeroBrush") as Brush : new SolidColorBrush(Color.FromArgb(34, 255, 255, 255));
+            nav.BorderBrush = isActive ? FindResource("AccentBrush") as Brush : new SolidColorBrush(Color.FromArgb(72, 255, 255, 255));
+            nav.Effect = isActive ? FindResource("CyanShadow") as System.Windows.Media.Effects.Effect : null;
+        }
+    }
+
+    private void AnimateActiveSection(UiSection section)
+    {
+        var active = section switch
+        {
+            UiSection.Overview => OverviewSection,
+            UiSection.Timer => TimerSection,
+            UiSection.Tasks => TasksSection,
+            UiSection.Triggers => TriggersSection,
+            UiSection.Script => ScriptSection,
+            UiSection.Settings => SettingsSection,
+            _ => OverviewSection
+        };
+
+        active.Opacity = 0;
+        active.RenderTransform = new TranslateTransform(0, 12);
+        active.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
+        ((TranslateTransform)active.RenderTransform).BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, TimeSpan.FromMilliseconds(240))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
     }
 
     // === Window Controls ===
