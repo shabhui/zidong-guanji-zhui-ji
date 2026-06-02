@@ -29,6 +29,32 @@ QtObject {
     readonly property color textPrimary: "#FFF7FF"
     readonly property color textSecondary: "#D9CCF3"
 
+    readonly property color e5BgA: "#090A1F"
+    readonly property color e5BgB: "#111334"
+    readonly property color e5BgC: "#1A1044"
+    readonly property color e5Pink: "#FF6FD8"
+    readonly property color e5Purple: "#9B5CFF"
+    readonly property color e5Blue: "#4CC9FF"
+    readonly property color e5Star: "#F7F2FF"
+
+    readonly property color shellGlass: "#26101834"
+    readonly property color cardGlass: "#30141B46"
+    readonly property color cardGlassHover: "#421A255F"
+    readonly property color cardGlassActive: "#522C1D68"
+    readonly property color inputGlass: "#2AFFFFFF"
+
+    readonly property color e5BorderSoft: "#55BDEBFF"
+    readonly property color e5BorderStrong: "#B44CC9FF"
+    readonly property color e5BorderPink: "#BBFF6FD8"
+    readonly property color e5BorderPurple: "#AA9B5CFF"
+
+    readonly property color glowBlue: "#554CC9FF"
+    readonly property color glowPink: "#55FF6FD8"
+    readonly property color glowPurple: "#559B5CFF"
+
+    readonly property int floatVerySlow: 11200
+    readonly property int twinkleSlow: 1800
+
     readonly property real radiusSm: 10
     readonly property real radiusMd: 16
     readonly property real radiusLg: 22
