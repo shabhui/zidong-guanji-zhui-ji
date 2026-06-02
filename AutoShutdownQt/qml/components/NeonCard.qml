@@ -4,16 +4,18 @@ import ".."
 Rectangle {
     id: root
 
-    property color cardBorderColor: Theme.borderSoft
-    property color cardColor: Theme.glassBase
-    property color hoverColor: Theme.glassHover
+    property color cardBorderColor: Theme.e5BorderSoft
+    property color cardColor: Theme.cardGlass
+    property color hoverColor: Theme.cardGlassHover
     property bool hoverable: true
     property bool breathing: false
+    property bool active: false
+    property color activeBorderColor: Theme.e5BorderPink
 
-    color: hoverArea.containsMouse && hoverable ? hoverColor : cardColor
+    color: active ? Theme.cardGlassActive : (hoverArea.containsMouse && hoverable ? hoverColor : cardColor)
     radius: Theme.radiusLg
-    border.color: hoverArea.containsMouse && hoverable ? Theme.borderStrong : cardBorderColor
-    border.width: 1
+    border.color: active ? activeBorderColor : (hoverArea.containsMouse && hoverable ? Theme.e5BorderStrong : cardBorderColor)
+    border.width: active ? 2 : 1
     antialiasing: true
     scale: hoverArea.containsMouse && hoverable ? 1.008 : 1.0
 
@@ -37,7 +39,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.rightMargin: -width * 0.32
         anchors.topMargin: -width * 0.38
-        color: Theme.primary
+        color: Theme.e5Blue
         opacity: hoverArea.containsMouse && hoverable ? 0.18 : 0.09
     }
 
@@ -49,7 +51,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.leftMargin: -width * 0.42
         anchors.bottomMargin: -width * 0.48
-        color: Theme.accent
+        color: Theme.e5Pink
         opacity: hoverArea.containsMouse && hoverable ? 0.12 : 0.055
     }
 

@@ -12,9 +12,11 @@ NeonCard {
     property string actionSub: ""
     property bool isSelected: controller.selectedAction === actionKey
 
-    cardColor: isSelected ? "#40FF8ACF" : "#20FFFFFF"
-    hoverColor: isSelected ? "#52FF8ACF" : "#34FFFFFF"
-    cardBorderColor: isSelected ? Theme.borderPink : Theme.borderSoft
+    active: isSelected
+    cardColor: isSelected ? Theme.cardGlassActive : Theme.cardGlass
+    hoverColor: isSelected ? "#66301F78" : Theme.cardGlassHover
+    cardBorderColor: isSelected ? Theme.e5BorderPink : Theme.e5BorderSoft
+    activeBorderColor: Theme.e5BorderPink
     scale: mouseArea.containsMouse ? 1.025 : 1.0
 
     Rectangle {
@@ -23,7 +25,7 @@ NeonCard {
         anchors.bottom: parent.bottom
         width: 4
         radius: 2
-        color: root.isSelected ? Theme.accent : "transparent"
+        color: root.isSelected ? Theme.e5Pink : "transparent"
         opacity: root.isSelected ? 1 : 0
     }
 
@@ -31,7 +33,7 @@ NeonCard {
         anchors.fill: parent
         anchors.margins: 1
         radius: parent.radius - 1
-        color: root.isSelected ? "#1079D8FF" : "transparent"
+        color: root.isSelected ? Theme.glowBlue : "transparent"
     }
 
     MouseArea {
