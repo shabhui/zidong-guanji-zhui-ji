@@ -529,7 +529,7 @@ Window {
             }
         }
 
-        // Timer page
+        // Timer page (1 定时)
         Item {
             anchors.fill: parent
             visible: currentPage === 1
@@ -541,12 +541,14 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cardColor: Theme.glassBase
+                    cardColor: Theme.cardGlass
+                    cardBorderColor: Theme.e5BorderSoft
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 24
                         spacing: 18
                         Text { text: "倒计时"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                        Text { text: "输入等待时长，启动后按当前电源动作执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         TimeInputPanel { id: countdownInput; Layout.fillWidth: true; Layout.preferredHeight: 126 }
                         Button {
                             Layout.preferredWidth: 180
@@ -560,12 +562,14 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cardColor: Theme.glassBase
+                    cardColor: Theme.cardGlass
+                    cardBorderColor: Theme.e5BorderSoft
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 24
                         spacing: 18
                         Text { text: "指定时间"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                        Text { text: "设定今天的执行时刻；如果时间已过，会自动排到明天。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         TimeInputPanel { id: fixedInput; Layout.fillWidth: true; Layout.preferredHeight: 126; showSeconds: false; hours: "23"; minutes: "00" }
                         Button {
                             Layout.preferredWidth: 180
@@ -573,36 +577,46 @@ Window {
                             text: "启动定时"
                             onClicked: controller.startFixedTime(mainWindow.safeInt(fixedInput.hours, 23), mainWindow.safeInt(fixedInput.minutes, 0))
                         }
-                        Text { text: "如果时间已过，会自动排到明天。"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        Text { text: "Dry-run 开启时只验证流程，不会真实执行系统动作。"; color: Theme.success; font.pixelSize: 13 }
                     }
                 }
             }
         }
 
-        // Actions page
+        // Tasks page (2 任务)
         Item {
             anchors.fill: parent
             visible: currentPage === 2
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: Theme.glassBase
+                cardColor: Theme.cardGlass
+                cardBorderColor: Theme.e5BorderSoft
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
                     spacing: 16
-                    Text { text: "动作选择"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                    Text { text: "任务中心"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "v2.0 先保留核心倒计时与动作执行。任务模板会复用旧版已验证规则迁移到 QML。"
+                        color: Theme.textSecondary
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
+                    Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 3
                         rowSpacing: 12
                         columnSpacing: 12
-                        ActionTile { Layout.fillWidth: true; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                        ActionTile { Layout.fillWidth: true; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                        ActionTile { Layout.fillWidth: true; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                        ActionTile { Layout.fillWidth: true; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                        ActionTile { Layout.fillWidth: true; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                        ActionTile { Layout.fillWidth: true; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
                     }
                     RowLayout {
                         spacing: 12
@@ -613,40 +627,91 @@ Window {
             }
         }
 
-        // Triggers placeholder page
+        // Smart triggers page (3 智能触发)
         Item {
             anchors.fill: parent
             visible: currentPage === 3
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: Theme.glassBase
+                cardColor: Theme.cardGlass
+                cardBorderColor: Theme.e5BorderSoft
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
                     spacing: 14
                     Text { text: "智能触发"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
-                    Text {
+                    NeonCard {
                         Layout.fillWidth: true
-                        text: "v2.0-preview 先聚焦核心倒计时、指定时间和动作执行。网络闲置、进程退出、任务中心等高级能力会在后续预览版迁移。"
-                        color: Theme.textSecondary
-                        font.pixelSize: 14
-                        wrapMode: Text.WordWrap
+                        Layout.preferredHeight: 156
+                        cardColor: Theme.cardGlass
+                        cardBorderColor: Theme.e5BorderPink
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            spacing: 8
+                            Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。高级逻辑将在后续迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { text: "状态：待迁移"; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
+                        }
                     }
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.borderSoft }
-                    Text { text: "保留路线：复用 WPF 版已验证的业务规则，再做 QML 高级触发器页面。"; color: Theme.primary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    NeonCard {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 156
+                        cardColor: Theme.cardGlass
+                        cardBorderColor: Theme.e5BorderPurple
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            spacing: 8
+                            Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            Text { text: "监控程序退出后执行当前电源动作，自动关闭子面板将在后续迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { text: "状态：待迁移"; color: Theme.e5Pink; font.pixelSize: 13; font.weight: Font.Bold }
+                        }
+                    }
+                    Item { Layout.fillHeight: true }
                 }
             }
         }
 
-        // Settings page
+        // Script page (4 脚本)
         Item {
             anchors.fill: parent
             visible: currentPage === 4
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: Theme.glassBase
+                cardColor: Theme.cardGlass
+                cardBorderColor: Theme.e5BorderSoft
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 24
+                    spacing: 16
+                    Text { text: "执行前脚本"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "脚本路径、启用状态和超时设置将在业务逻辑迁移后接入。当前版本保持 Dry-run 安全验证。"
+                        color: Theme.textSecondary
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                    }
+                    Text { text: "状态：未启用"; color: Theme.warning; font.pixelSize: 14; font.weight: Font.Bold }
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
+                    Text { text: "后续接入项：脚本路径、启用开关、超时秒数、执行日志。"; color: Theme.primary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Item { Layout.fillHeight: true }
+                }
+            }
+        }
+
+        // Settings page (5 设置)
+        Item {
+            anchors.fill: parent
+            visible: currentPage === 5
+
+            NeonCard {
+                anchors.fill: parent
+                cardColor: Theme.cardGlass
+                cardBorderColor: Theme.e5BorderSoft
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
