@@ -356,98 +356,143 @@ Window {
             anchors.fill: parent
             visible: currentPage === 0
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
-                spacing: 16
+                spacing: 18
 
-                NeonCard {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 292
-                    cardColor: "#34FFFFFF"
-                    cardBorderColor: Theme.borderStrong
-                    radius: Theme.radiusXl
-                    breathing: true
+                    Layout.fillHeight: true
+                    spacing: 16
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 26
-                        spacing: 24
+                    NeonCard {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 292
+                        cardColor: Theme.cardGlassActive
+                        cardBorderColor: Theme.e5BorderPink
+                        active: true
+                        activeBorderColor: Theme.e5BorderPink
+                        radius: Theme.radiusXl
+                        breathing: true
 
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 26
+                            spacing: 24
 
-                            Rectangle {
-                                Layout.preferredWidth: heroPill.implicitWidth + 26
-                                Layout.preferredHeight: 30
-                                radius: 15
-                                color: Theme.surfaceStrong
-                                border.color: controller.statusColor
-                                border.width: 1
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.preferredWidth: heroPill.implicitWidth + 26
+                                    Layout.preferredHeight: 30
+                                    radius: 15
+                                    color: Theme.surfaceStrong
+                                    border.color: controller.statusColor
+                                    border.width: 1
+                                    Text {
+                                        id: heroPill
+                                        anchors.centerIn: parent
+                                        text: mainWindow.statusLabel()
+                                        color: controller.statusColor
+                                        font.pixelSize: 12
+                                        font.weight: Font.Bold
+                                    }
+                                }
+
                                 Text {
-                                    id: heroPill
-                                    anchors.centerIn: parent
-                                    text: mainWindow.statusLabel()
-                                    color: controller.statusColor
-                                    font.pixelSize: 12
+                                    text: controller.actionLabel
+                                    color: Theme.textPrimary
+                                    font.pixelSize: 30
                                     font.weight: Font.Bold
+                                }
+
+                                Text {
+                                    text: controller.remainingText
+                                    color: controller.status === "running" ? Theme.warning : Theme.textPrimary
+                                    font.pixelSize: 70
+                                    font.weight: Font.Bold
+                                    font.family: "Consolas"
+                                }
+
+                                Text {
+                                    text: controller.targetInfo ? "目标：" + controller.targetInfo : "选择动作和时间，然后启动任务"
+                                    color: Theme.textSecondary
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
                                 }
                             }
 
-                            Text {
-                                text: controller.actionLabel
-                                color: Theme.textPrimary
-                                font.pixelSize: 30
-                                font.weight: Font.Bold
-                            }
-
-                            Text {
-                                text: controller.remainingText
-                                color: controller.status === "running" ? Theme.warning : Theme.textPrimary
-                                font.pixelSize: 70
-                                font.weight: Font.Bold
-                                font.family: "Consolas"
-                            }
-
-                            Text {
-                                text: controller.targetInfo ? "目标：" + controller.targetInfo : "选择动作和时间，然后启动任务"
-                                color: Theme.textSecondary
-                                font.pixelSize: 14
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.preferredWidth: 230
-                            spacing: 12
-                            Button {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 42
-                                text: "启动 30 分钟倒计时"
-                                onClicked: controller.startCountdown(0, 30, 0)
-                            }
-                            Button {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 42
-                                text: "立即执行当前动作"
-                                onClicked: confirmDialog.open()
-                            }
-                            Button {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 42
-                                text: "取消任务"
-                                enabled: controller.status === "running"
-                                onClicked: controller.cancel()
+                            ColumnLayout {
+                                Layout.preferredWidth: 230
+                                spacing: 12
+                                Button {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 42
+                                    text: "启动倒计时"
+                                    onClicked: controller.startCountdown(0, 30, 0)
+                                }
+                                Button {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 42
+                                    text: "立即执行当前动作"
+                                    onClicked: confirmDialog.open()
+                                }
+                                Button {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 42
+                                    text: "取消任务"
+                                    enabled: controller.status === "running"
+                                    onClicked: controller.cancel()
+                                }
                             }
                         }
                     }
-                }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 162
-                    spacing: 16
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 162
+                        spacing: 16
+
+                        NeonCard {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            cardColor: Theme.cardGlass
+                            cardBorderColor: Theme.e5BorderSoft
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
+                                spacing: 12
+                                Text { text: "快捷倒计时"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Button { Layout.fillWidth: true; text: "15 分钟"; onClicked: controller.startCountdown(0, 15, 0) }
+                                    Button { Layout.fillWidth: true; text: "30 分钟"; onClicked: controller.startCountdown(0, 30, 0) }
+                                    Button { Layout.fillWidth: true; text: "1 小时"; onClicked: controller.startCountdown(1, 0, 0) }
+                                    Button { Layout.fillWidth: true; text: "2 小时"; onClicked: controller.startCountdown(2, 0, 0) }
+                                }
+                            }
+                        }
+
+                        NeonCard {
+                            Layout.preferredWidth: 300
+                            Layout.fillHeight: true
+                            cardColor: Theme.cardGlass
+                            cardBorderColor: Theme.e5BorderSoft
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
+                                spacing: 7
+                                Text { text: "当前配置"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                Text { text: "动作：" + controller.actionLabel; color: Theme.textSecondary; font.pixelSize: 13 }
+                                Text { text: "强制关闭：" + (controller.forceClose ? "开启" : "关闭"); color: Theme.textSecondary; font.pixelSize: 13 }
+                                Text { text: "执行模式：" + (controller.dryRun ? "Dry-run" : "真实执行"); color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 13 }
+                            }
+                        }
+                    }
 
                     NeonCard {
                         Layout.fillWidth: true
@@ -457,57 +502,29 @@ Window {
                             anchors.fill: parent
                             anchors.margins: 18
                             spacing: 12
-                            Text { text: "快捷倒计时"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            RowLayout {
+                            Text { text: "电源动作"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            GridLayout {
                                 Layout.fillWidth: true
-                                spacing: 8
-                                Button { Layout.fillWidth: true; text: "15 分钟"; onClicked: controller.startCountdown(0, 15, 0) }
-                                Button { Layout.fillWidth: true; text: "30 分钟"; onClicked: controller.startCountdown(0, 30, 0) }
-                                Button { Layout.fillWidth: true; text: "1 小时"; onClicked: controller.startCountdown(1, 0, 0) }
-                                Button { Layout.fillWidth: true; text: "2 小时"; onClicked: controller.startCountdown(2, 0, 0) }
+                                Layout.fillHeight: true
+                                columns: 3
+                                rowSpacing: 10
+                                columnSpacing: 10
+                                ActionTile { Layout.fillWidth: true; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
+                                ActionTile { Layout.fillWidth: true; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
+                                ActionTile { Layout.fillWidth: true; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
+                                ActionTile { Layout.fillWidth: true; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
+                                ActionTile { Layout.fillWidth: true; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
+                                ActionTile { Layout.fillWidth: true; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
                             }
-                        }
-                    }
-
-                    NeonCard {
-                        Layout.preferredWidth: 300
-                        Layout.fillHeight: true
-                        cardColor: Theme.glassBase
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 18
-                            spacing: 7
-                            Text { text: "当前配置"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            Text { text: "动作：" + controller.actionLabel; color: Theme.textSecondary; font.pixelSize: 13 }
-                            Text { text: "强制关闭：" + (controller.forceClose ? "开启" : "关闭"); color: Theme.textSecondary; font.pixelSize: 13 }
-                            Text { text: "执行模式：" + (controller.dryRun ? "Dry-run" : "真实执行"); color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 13 }
                         }
                     }
                 }
 
-                NeonCard {
-                    Layout.fillWidth: true
+                StarryMascot {
+                    Layout.preferredWidth: 286
                     Layout.fillHeight: true
-                    cardColor: Theme.glassBase
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 18
-                        spacing: 12
-                        Text { text: "电源动作"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                        GridLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            columns: 3
-                            rowSpacing: 10
-                            columnSpacing: 10
-                            ActionTile { Layout.fillWidth: true; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                            ActionTile { Layout.fillWidth: true; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                            ActionTile { Layout.fillWidth: true; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                            ActionTile { Layout.fillWidth: true; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                            ActionTile { Layout.fillWidth: true; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                            ActionTile { Layout.fillWidth: true; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
-                        }
-                    }
+                    title: "星空守夜中"
+                    subtitle: controller.dryRun ? "Dry-run safety mode" : "Live power mode enabled"
                 }
             }
         }
