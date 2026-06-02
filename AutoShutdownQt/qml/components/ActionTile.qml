@@ -1,46 +1,65 @@
 import QtQuick
+import QtQuick.Layouts
 import ".."
 
 NeonCard {
     id: root
-    implicitHeight: 76
+    implicitHeight: 78
+    hoverable: true
 
     property string actionKey: ""
     property string actionLabel: ""
     property string actionSub: ""
     property bool isSelected: controller.selectedAction === actionKey
 
-    radius: Theme.radiusMd
-    cardColor: isSelected ? "#44FFFFFF" : Theme.surfaceGlass
-    cardBorderColor: isSelected ? Theme.accent : Theme.borderSoft
+    cardColor: isSelected ? "#40FF8ACF" : "#20FFFFFF"
+    hoverColor: isSelected ? "#52FF8ACF" : "#34FFFFFF"
+    cardBorderColor: isSelected ? Theme.borderPink : Theme.borderSoft
+    scale: mouseArea.containsMouse ? 1.025 : 1.0
 
-    scale: mouseArea.containsMouse ? 1.03 : 1.0
-    Behavior on scale { NumberAnimation { duration: Theme.animFast } }
+    Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 4
+        radius: 2
+        color: root.isSelected ? Theme.accent : "transparent"
+        opacity: root.isSelected ? 1 : 0
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: parent.radius - 1
+        color: root.isSelected ? "#1079D8FF" : "transparent"
+    }
 
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         onClicked: controller.selectedAction = root.actionKey
     }
 
-    Column {
+    ColumnLayout {
         anchors.centerIn: parent
         spacing: 4
         Text {
             text: actionLabel
             color: root.isSelected ? Theme.textPrimary : Theme.textSecondary
-            font.pixelSize: 15
+            font.pixelSize: 16
             font.weight: Font.Bold
-            anchors.horizontalCenter: parent.horizontalCenter
+            Layout.alignment: Qt.AlignHCenter
         }
         Text {
             text: actionSub
-            color: Theme.textSecondary
+            color: root.isSelected ? Theme.primary : Theme.textSecondary
             font.pixelSize: 10
-            anchors.horizontalCenter: parent.horizontalCenter
-            opacity: root.isSelected ? 1 : 0.6
+            opacity: root.isSelected ? 1 : 0.72
+            Layout.alignment: Qt.AlignHCenter
         }
     }
+
+    Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
 }

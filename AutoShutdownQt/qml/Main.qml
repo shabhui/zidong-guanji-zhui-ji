@@ -33,36 +33,97 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.bgDeep
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.bgDeep }
+            GradientStop { position: 0.48; color: Theme.bgNight }
+            GradientStop { position: 1.0; color: Theme.bgViolet }
+        }
     }
 
-    // Controlled neon background: subtle, fixed, non-interactive.
+    // Starry anime glass background: soft floating orbs and subtle sparkles.
     Rectangle {
+        id: orbPurple
         width: 430
         height: 430
         radius: 215
-        x: -160
+        x: -155
         y: -170
         color: Theme.secondary
-        opacity: 0.12
+        opacity: 0.16
+        SequentialAnimation on y {
+            loops: Animation.Infinite
+            NumberAnimation { from: -170; to: -120; duration: Theme.floatSlow; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -120; to: -170; duration: Theme.floatSlow; easing.type: Easing.InOutSine }
+        }
+        SequentialAnimation on x {
+            loops: Animation.Infinite
+            NumberAnimation { from: -155; to: -105; duration: Theme.floatSlow + 1400; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -105; to: -155; duration: Theme.floatSlow + 1400; easing.type: Easing.InOutSine }
+        }
     }
     Rectangle {
+        id: orbCyan
         width: 360
         height: 360
         radius: 180
         x: parent.width - 230
         y: 58
         color: Theme.primary
-        opacity: 0.10
+        opacity: 0.14
+        SequentialAnimation on y {
+            loops: Animation.Infinite
+            NumberAnimation { from: 58; to: 105; duration: Theme.floatSlow + 900; easing.type: Easing.InOutSine }
+            NumberAnimation { from: 105; to: 58; duration: Theme.floatSlow + 900; easing.type: Easing.InOutSine }
+        }
     }
     Rectangle {
+        id: orbPink
         width: 380
         height: 380
         radius: 190
         x: parent.width - 260
         y: parent.height - 220
         color: Theme.accent
+        opacity: 0.12
+        SequentialAnimation on x {
+            loops: Animation.Infinite
+            NumberAnimation { from: mainWindow.width - 260; to: mainWindow.width - 310; duration: Theme.floatSlow + 1800; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.width - 310; to: mainWindow.width - 260; duration: Theme.floatSlow + 1800; easing.type: Easing.InOutSine }
+        }
+    }
+    Rectangle {
+        id: orbViolet
+        width: 260
+        height: 260
+        radius: 130
+        x: 360
+        y: parent.height - 150
+        color: "#6F5BFF"
         opacity: 0.08
+        SequentialAnimation on y {
+            loops: Animation.Infinite
+            NumberAnimation { from: mainWindow.height - 150; to: mainWindow.height - 205; duration: Theme.floatSlow + 2200; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.height - 205; to: mainWindow.height - 150; duration: Theme.floatSlow + 2200; easing.type: Easing.InOutSine }
+        }
+    }
+
+    Repeater {
+        model: 42
+        Rectangle {
+            width: index % 5 === 0 ? 3 : 2
+            height: width
+            radius: width / 2
+            x: (index * 83) % mainWindow.width
+            y: 72 + ((index * 47) % (mainWindow.height - 96))
+            color: index % 3 === 0 ? Theme.accent : (index % 3 === 1 ? Theme.primary : "#FFFFFF")
+            opacity: 0.16
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                PauseAnimation { duration: 80 * index }
+                NumberAnimation { from: 0.10; to: 0.58; duration: 900 + index * 14; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.58; to: 0.10; duration: 1100 + index * 12; easing.type: Easing.InOutSine }
+            }
+        }
     }
 
     // Title bar
@@ -72,7 +133,7 @@ Window {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        color: "#10182B"
+        color: Theme.glassSoft
         border.color: Theme.borderSoft
         border.width: 1
 
@@ -96,7 +157,7 @@ Window {
                 Layout.preferredWidth: 38
                 Layout.preferredHeight: 38
                 radius: 14
-                color: Theme.surfaceStrong
+                color: Theme.glassStrong
                 border.color: Theme.borderStrong
                 border.width: 1
                 Text {
@@ -163,7 +224,7 @@ Window {
         y: topBarHeight + outerMargin
         width: sidebarWidth
         height: parent.height - topBarHeight - outerMargin * 2
-        cardColor: "#2022334A"
+        cardColor: Theme.glassSoft
         cardBorderColor: Theme.borderSoft
         radius: Theme.radiusXl
 
@@ -226,7 +287,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 104
                 radius: Theme.radiusLg
-                color: "#20FFFFFF"
+                color: Theme.glassSoft
                 border.color: Theme.borderSoft
                 border.width: 1
 
@@ -270,9 +331,10 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 292
-                    cardColor: "#2BFFFFFF"
+                    cardColor: "#34FFFFFF"
                     cardBorderColor: Theme.borderStrong
                     radius: Theme.radiusXl
+                    breathing: true
 
                     RowLayout {
                         anchors.fill: parent
@@ -358,7 +420,7 @@ Window {
                     NeonCard {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        cardColor: "#22FFFFFF"
+                        cardColor: Theme.glassBase
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 18
@@ -378,7 +440,7 @@ Window {
                     NeonCard {
                         Layout.preferredWidth: 300
                         Layout.fillHeight: true
-                        cardColor: "#22FFFFFF"
+                        cardColor: Theme.glassBase
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 18
@@ -394,7 +456,7 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cardColor: "#22FFFFFF"
+                    cardColor: Theme.glassBase
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 18
@@ -430,7 +492,7 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cardColor: "#22FFFFFF"
+                    cardColor: Theme.glassBase
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 24
@@ -449,7 +511,7 @@ Window {
                 NeonCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cardColor: "#22FFFFFF"
+                    cardColor: Theme.glassBase
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 24
@@ -475,7 +537,7 @@ Window {
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: "#22FFFFFF"
+                cardColor: Theme.glassBase
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
@@ -509,7 +571,7 @@ Window {
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: "#22FFFFFF"
+                cardColor: Theme.glassBase
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
@@ -535,7 +597,7 @@ Window {
 
             NeonCard {
                 anchors.fill: parent
-                cardColor: "#22FFFFFF"
+                cardColor: Theme.glassBase
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
