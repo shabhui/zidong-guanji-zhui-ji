@@ -10,7 +10,7 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "AutoShutdown v2.0-preview"
+    title: "AutoShutdown v2.0"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
@@ -18,7 +18,7 @@ Window {
     readonly property int topBarHeight: 58
     readonly property int sidebarWidth: 224
     readonly property int outerMargin: 22
-    readonly property var pages: ["总览", "定时", "动作", "触发器", "设置"]
+    readonly property var pages: ["总览", "定时", "任务", "智能触发", "脚本", "设置"]
 
     function statusLabel() {
         if (controller.status === "running") return "RUNNING"
@@ -34,9 +34,9 @@ Window {
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.bgDeep }
-            GradientStop { position: 0.48; color: Theme.bgNight }
-            GradientStop { position: 1.0; color: Theme.bgViolet }
+            GradientStop { position: 0.0; color: Theme.e5BgA }
+            GradientStop { position: 0.46; color: Theme.e5BgB }
+            GradientStop { position: 1.0; color: Theme.e5BgC }
         }
     }
 
@@ -48,17 +48,17 @@ Window {
         radius: 215
         x: -155
         y: -170
-        color: Theme.secondary
+        color: Theme.e5Purple
         opacity: 0.16
         SequentialAnimation on y {
             loops: Animation.Infinite
-            NumberAnimation { from: -170; to: -120; duration: Theme.floatSlow; easing.type: Easing.InOutSine }
-            NumberAnimation { from: -120; to: -170; duration: Theme.floatSlow; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -170; to: -120; duration: Theme.floatVerySlow; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -120; to: -170; duration: Theme.floatVerySlow; easing.type: Easing.InOutSine }
         }
         SequentialAnimation on x {
             loops: Animation.Infinite
-            NumberAnimation { from: -155; to: -105; duration: Theme.floatSlow + 1400; easing.type: Easing.InOutSine }
-            NumberAnimation { from: -105; to: -155; duration: Theme.floatSlow + 1400; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -155; to: -105; duration: Theme.floatVerySlow + 1400; easing.type: Easing.InOutSine }
+            NumberAnimation { from: -105; to: -155; duration: Theme.floatVerySlow + 1400; easing.type: Easing.InOutSine }
         }
     }
     Rectangle {
@@ -68,12 +68,12 @@ Window {
         radius: 180
         x: parent.width - 230
         y: 58
-        color: Theme.primary
+        color: Theme.e5Blue
         opacity: 0.14
         SequentialAnimation on y {
             loops: Animation.Infinite
-            NumberAnimation { from: 58; to: 105; duration: Theme.floatSlow + 900; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 105; to: 58; duration: Theme.floatSlow + 900; easing.type: Easing.InOutSine }
+            NumberAnimation { from: 58; to: 105; duration: Theme.floatVerySlow + 900; easing.type: Easing.InOutSine }
+            NumberAnimation { from: 105; to: 58; duration: Theme.floatVerySlow + 900; easing.type: Easing.InOutSine }
         }
     }
     Rectangle {
@@ -83,12 +83,12 @@ Window {
         radius: 190
         x: parent.width - 260
         y: parent.height - 220
-        color: Theme.accent
+        color: Theme.e5Pink
         opacity: 0.12
         SequentialAnimation on x {
             loops: Animation.Infinite
-            NumberAnimation { from: mainWindow.width - 260; to: mainWindow.width - 310; duration: Theme.floatSlow + 1800; easing.type: Easing.InOutSine }
-            NumberAnimation { from: mainWindow.width - 310; to: mainWindow.width - 260; duration: Theme.floatSlow + 1800; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.width - 260; to: mainWindow.width - 310; duration: Theme.floatVerySlow + 1800; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.width - 310; to: mainWindow.width - 260; duration: Theme.floatVerySlow + 1800; easing.type: Easing.InOutSine }
         }
     }
     Rectangle {
@@ -98,12 +98,12 @@ Window {
         radius: 130
         x: 360
         y: parent.height - 150
-        color: "#6F5BFF"
+        color: Theme.e5Purple
         opacity: 0.08
         SequentialAnimation on y {
             loops: Animation.Infinite
-            NumberAnimation { from: mainWindow.height - 150; to: mainWindow.height - 205; duration: Theme.floatSlow + 2200; easing.type: Easing.InOutSine }
-            NumberAnimation { from: mainWindow.height - 205; to: mainWindow.height - 150; duration: Theme.floatSlow + 2200; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.height - 150; to: mainWindow.height - 205; duration: Theme.floatVerySlow + 2200; easing.type: Easing.InOutSine }
+            NumberAnimation { from: mainWindow.height - 205; to: mainWindow.height - 150; duration: Theme.floatVerySlow + 2200; easing.type: Easing.InOutSine }
         }
     }
 
@@ -124,6 +124,19 @@ Window {
                 NumberAnimation { from: 0.58; to: 0.10; duration: 1100 + index * 12; easing.type: Easing.InOutSine }
             }
         }
+    }
+
+    NeonCard {
+        id: appShell
+        x: outerMargin - 8
+        y: topBarHeight + outerMargin - 8
+        width: parent.width - outerMargin * 2 + 16
+        height: parent.height - topBarHeight - outerMargin * 2 + 16
+        radius: Theme.radiusXl
+        cardColor: Theme.shellGlass
+        cardBorderColor: Theme.e5BorderSoft
+        hoverable: false
+        z: 0
     }
 
     // Title bar
@@ -162,9 +175,9 @@ Window {
                 border.width: 1
                 Text {
                     anchors.centerIn: parent
-                    text: "⏻"
+                    text: "AS"
                     color: Theme.primary
-                    font.pixelSize: 18
+                    font.pixelSize: 14
                     font.weight: Font.Bold
                 }
             }
@@ -179,7 +192,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v2.0-preview · Fluent Neon Control Deck"
+                    text: "v2.0 · Starry Glass"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -197,6 +210,23 @@ Window {
                     anchors.centerIn: parent
                     text: mainWindow.statusLabel()
                     color: controller.statusColor
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+            }
+
+            Rectangle {
+                Layout.preferredWidth: dryRunText.implicitWidth + 24
+                Layout.preferredHeight: 30
+                radius: 15
+                color: controller.dryRun ? "#2262F6B5" : "#22FF5C8A"
+                border.color: controller.dryRun ? Theme.success : Theme.danger
+                border.width: 1
+                Text {
+                    id: dryRunText
+                    anchors.centerIn: parent
+                    text: controller.dryRun ? "DRY RUN" : "LIVE MODE"
+                    color: controller.dryRun ? Theme.success : Theme.danger
                     font.pixelSize: 12
                     font.weight: Font.Bold
                 }
@@ -224,8 +254,9 @@ Window {
         y: topBarHeight + outerMargin
         width: sidebarWidth
         height: parent.height - topBarHeight - outerMargin * 2
-        cardColor: Theme.glassSoft
-        cardBorderColor: Theme.borderSoft
+        z: 1
+        cardColor: Theme.shellGlass
+        cardBorderColor: Theme.e5BorderSoft
         radius: Theme.radiusXl
 
         ColumnLayout {
@@ -247,8 +278,8 @@ Window {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 48
                     radius: Theme.radiusMd
-                    color: currentPage === index ? Theme.surfaceStrong : "transparent"
-                    border.color: currentPage === index ? Theme.borderStrong : "transparent"
+                    color: currentPage === index ? Theme.cardGlassActive : "transparent"
+                    border.color: currentPage === index ? Theme.e5BorderPink : "transparent"
                     border.width: 1
 
                     RowLayout {
@@ -261,7 +292,7 @@ Window {
                             Layout.preferredWidth: 3
                             Layout.preferredHeight: 24
                             radius: 2
-                            color: currentPage === index ? Theme.accent : "transparent"
+                            color: currentPage === index ? Theme.e5Pink : "transparent"
                         }
                         Text {
                             Layout.fillWidth: true
@@ -318,6 +349,7 @@ Window {
         y: topBarHeight + outerMargin
         width: parent.width - x - outerMargin
         height: parent.height - y - outerMargin
+        z: 1
 
         // Overview page
         Item {
