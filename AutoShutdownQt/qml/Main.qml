@@ -232,15 +232,19 @@ Window {
                 }
             }
 
-            Button {
+            NeonButton {
                 Layout.preferredWidth: 38
                 Layout.preferredHeight: 32
+                compact: true
+                variant: "ghost"
                 text: "—"
                 onClicked: mainWindow.showMinimized()
             }
-            Button {
+            NeonButton {
                 Layout.preferredWidth: 38
                 Layout.preferredHeight: 32
+                compact: true
+                variant: "danger"
                 text: "×"
                 onClicked: Qt.quit()
             }
@@ -428,21 +432,24 @@ Window {
                             ColumnLayout {
                                 Layout.preferredWidth: 230
                                 spacing: 12
-                                Button {
+                                NeonButton {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 42
+                                    Layout.preferredHeight: 44
+                                    variant: "primary"
                                     text: "启动倒计时"
                                     onClicked: controller.startCountdown(0, 30, 0)
                                 }
-                                Button {
+                                NeonButton {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 42
+                                    Layout.preferredHeight: 44
+                                    variant: "danger"
                                     text: "立即执行当前动作"
                                     onClicked: confirmDialog.open()
                                 }
-                                Button {
+                                NeonButton {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 42
+                                    Layout.preferredHeight: 44
+                                    variant: "secondary"
                                     text: "取消任务"
                                     enabled: controller.status === "running"
                                     onClicked: controller.cancel()
@@ -466,13 +473,40 @@ Window {
                                 anchors.margins: 18
                                 spacing: 12
                                 Text { text: "快捷倒计时"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                RowLayout {
+                                GridLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
-                                    Button { Layout.fillWidth: true; text: "15 分钟"; onClicked: controller.startCountdown(0, 15, 0) }
-                                    Button { Layout.fillWidth: true; text: "30 分钟"; onClicked: controller.startCountdown(0, 30, 0) }
-                                    Button { Layout.fillWidth: true; text: "1 小时"; onClicked: controller.startCountdown(1, 0, 0) }
-                                    Button { Layout.fillWidth: true; text: "2 小时"; onClicked: controller.startCountdown(2, 0, 0) }
+                                    columns: 2
+                                    rowSpacing: 8
+                                    columnSpacing: 8
+
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        text: "15 分钟"
+                                        onClicked: controller.startCountdown(0, 15, 0)
+                                    }
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        text: "30 分钟"
+                                        onClicked: controller.startCountdown(0, 30, 0)
+                                    }
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        text: "1 小时"
+                                        onClicked: controller.startCountdown(1, 0, 0)
+                                    }
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        text: "2 小时"
+                                        onClicked: controller.startCountdown(2, 0, 0)
+                                    }
                                 }
                             }
                         }
@@ -497,7 +531,8 @@ Window {
                     NeonCard {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        cardColor: Theme.glassBase
+                        cardColor: Theme.cardGlass
+                        cardBorderColor: Theme.e5BorderSoft
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 18
@@ -550,9 +585,10 @@ Window {
                         Text { text: "倒计时"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                         Text { text: "输入等待时长，启动后按当前电源动作执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         TimeInputPanel { id: countdownInput; Layout.fillWidth: true; Layout.preferredHeight: 126 }
-                        Button {
+                        NeonButton {
                             Layout.preferredWidth: 180
-                            Layout.preferredHeight: 42
+                            Layout.preferredHeight: 44
+                            variant: "primary"
                             text: "启动倒计时"
                             onClicked: controller.startCountdown(mainWindow.safeInt(countdownInput.hours, 0), mainWindow.safeInt(countdownInput.minutes, 0), mainWindow.safeInt(countdownInput.seconds, 0))
                         }
@@ -571,9 +607,10 @@ Window {
                         Text { text: "指定时间"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                         Text { text: "设定今天的执行时刻；如果时间已过，会自动排到明天。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         TimeInputPanel { id: fixedInput; Layout.fillWidth: true; Layout.preferredHeight: 126; showSeconds: false; hours: "23"; minutes: "00" }
-                        Button {
+                        NeonButton {
                             Layout.preferredWidth: 180
-                            Layout.preferredHeight: 42
+                            Layout.preferredHeight: 44
+                            variant: "primary"
                             text: "启动定时"
                             onClicked: controller.startFixedTime(mainWindow.safeInt(fixedInput.hours, 23), mainWindow.safeInt(fixedInput.minutes, 0))
                         }
@@ -620,8 +657,21 @@ Window {
                     }
                     RowLayout {
                         spacing: 12
-                        Button { text: "立即执行当前动作"; onClicked: confirmDialog.open() }
-                        Button { text: "取消任务"; enabled: controller.status === "running"; onClicked: controller.cancel() }
+                        NeonButton {
+                            Layout.preferredWidth: 180
+                            Layout.preferredHeight: 44
+                            variant: "danger"
+                            text: "立即执行当前动作"
+                            onClicked: confirmDialog.open()
+                        }
+                        NeonButton {
+                            Layout.preferredWidth: 128
+                            Layout.preferredHeight: 44
+                            variant: "secondary"
+                            text: "取消任务"
+                            enabled: controller.status === "running"
+                            onClicked: controller.cancel()
+                        }
                     }
                 }
             }
