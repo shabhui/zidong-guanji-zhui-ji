@@ -42,6 +42,42 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("onClicked: root.accept()", dialog)
         self.assertIn("onClicked: root.reject()", dialog)
 
+    def test_overview_action_tiles_fit_default_window_height(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        title_index = main.index('Text { text: "电源动作"')
+        power_index = main.rindex("NeonCard {", 0, title_index)
+        mascot_index = main.index("StarryMascot {", power_index)
+        power_section = main[power_index:mascot_index]
+
+        self.assertIn("Layout.preferredHeight: 252", main, "hero card should be compact enough for 720px windows")
+        self.assertIn("Layout.preferredHeight: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
+        self.assertIn("Layout.preferredHeight: 170", power_section, "overview action card should reserve enough fixed space for two compact rows")
+        self.assertIn("anchors.margins: 14", power_section, "overview action card needs compact margins")
+        self.assertIn("rowSpacing: 6", power_section, "overview action grid needs compact row spacing")
+        self.assertEqual(power_section.count("Layout.preferredHeight: 56"), 6, "overview action tiles need fixed compact heights")
+
+    def test_core_mvp_pages_are_wired_to_controller(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for template_key in ("shutdown_15", "shutdown_30", "sleep_60", "shutdown_2300"):
+            self.assertIn(f'applyTaskTemplate("{template_key}")', main)
+        for label in ("15 分钟后关机", "30 分钟后关机", "1 小时后睡眠", "今晚 23:00 关机"):
+            self.assertIn(label, main)
+
+        for snippet in (
+            "controller.scriptEnabled",
+            "controller.scriptPath",
+            "controller.scriptTimeoutSeconds",
+            "controller.testScript()",
+            "controller.processName",
+            "controller.processPollSeconds",
+            "controller.startProcessTrigger()",
+            "controller.stopProcessTrigger()",
+            "controller.processTriggerStatus",
+            "controller.logText",
+        ):
+            self.assertIn(snippet, main)
+
 
 if __name__ == "__main__":
     unittest.main()

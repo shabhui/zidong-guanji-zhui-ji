@@ -371,7 +371,7 @@ Window {
 
                     NeonCard {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 292
+                        Layout.preferredHeight: 252
                         cardColor: Theme.cardGlassActive
                         cardBorderColor: Theme.e5BorderPink
                         active: true
@@ -460,7 +460,7 @@ Window {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 162
+                        Layout.preferredHeight: 150
                         spacing: 16
 
                         NeonCard {
@@ -530,26 +530,25 @@ Window {
 
                     NeonCard {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        Layout.preferredHeight: 170
                         cardColor: Theme.cardGlass
                         cardBorderColor: Theme.e5BorderSoft
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 18
-                            spacing: 12
+                            anchors.margins: 14
+                            spacing: 6
                             Text { text: "电源动作"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
                             GridLayout {
                                 Layout.fillWidth: true
-                                Layout.fillHeight: true
                                 columns: 3
-                                rowSpacing: 10
-                                columnSpacing: 10
-                                ActionTile { Layout.fillWidth: true; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                                ActionTile { Layout.fillWidth: true; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                                ActionTile { Layout.fillWidth: true; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                                ActionTile { Layout.fillWidth: true; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                                ActionTile { Layout.fillWidth: true; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                                ActionTile { Layout.fillWidth: true; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+                                rowSpacing: 6
+                                columnSpacing: 8
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
                             }
                         }
                     }
@@ -632,28 +631,39 @@ Window {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
-                    spacing: 16
+                    spacing: 14
                     Text { text: "任务中心"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                     Text {
                         Layout.fillWidth: true
-                        text: "v2.0 先保留核心倒计时与动作执行。任务模板会复用旧版已验证规则迁移到 QML。"
+                        text: "选择常用模板后会立即按当前安全模式启动任务。Dry-run 开启时不会真实执行系统动作。"
                         color: Theme.textSecondary
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
                     }
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
+                    Text { text: "常用任务模板"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        rowSpacing: 10
+                        columnSpacing: 10
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "15 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_15") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "30 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_30") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "1 小时后睡眠"; onClicked: controller.applyTaskTemplate("sleep_60") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "今晚 23:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_2300") }
+                    }
                     Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 3
-                        rowSpacing: 12
-                        columnSpacing: 12
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 82; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+                        rowSpacing: 10
+                        columnSpacing: 10
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
+                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
                     }
                     RowLayout {
                         spacing: 12
@@ -671,6 +681,19 @@ Window {
                             text: "取消任务"
                             enabled: controller.status === "running"
                             onClicked: controller.cancel()
+                        }
+                    }
+                    NeonCard {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        cardColor: Theme.glassSoft
+                        cardBorderColor: Theme.e5BorderSoft
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 6
+                            Text { text: "最近日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
                         }
                     }
                 }
@@ -693,33 +716,75 @@ Window {
                     Text { text: "智能触发"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                     NeonCard {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 156
+                        Layout.preferredHeight: 236
                         cardColor: Theme.cardGlass
                         cardBorderColor: Theme.e5BorderPink
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 18
-                            spacing: 8
-                            Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。高级逻辑将在后续迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { text: "状态：待迁移"; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
+                            spacing: 10
+                            Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            Text { text: "监控指定进程；当进程出现后再退出，会按当前电源动作执行。Dry-run 会只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Text { text: "进程名"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                TextField {
+                                    id: processNameInput
+                                    Layout.fillWidth: true
+                                    text: controller.processName
+                                    color: Theme.textPrimary
+                                    placeholderText: "notepad.exe"
+                                    onTextChanged: controller.processName = text
+                                    background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                }
+                                Text { text: "轮询秒"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                TextField {
+                                    id: processPollInput
+                                    Layout.preferredWidth: 70
+                                    text: String(controller.processPollSeconds)
+                                    horizontalAlignment: Text.AlignHCenter
+                                    color: Theme.textPrimary
+                                    validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                    onTextChanged: controller.processPollSeconds = mainWindow.safeInt(text, 5)
+                                    background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                }
+                            }
+                            RowLayout {
+                                spacing: 10
+                                NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "primary"; text: "开始监控"; enabled: !controller.processTriggerActive; onClicked: controller.startProcessTrigger() }
+                                NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "secondary"; text: "停止监控"; enabled: controller.processTriggerActive; onClicked: controller.stopProcessTrigger() }
+                                Text { text: controller.processTriggerStatus; color: controller.processTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13 }
+                            }
                         }
                     }
                     NeonCard {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 156
+                        Layout.preferredHeight: 120
                         cardColor: Theme.cardGlass
                         cardBorderColor: Theme.e5BorderPurple
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 18
                             spacing: 8
-                            Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            Text { text: "监控程序退出后执行当前电源动作，自动关闭子面板将在后续迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { text: "状态：待迁移"; color: Theme.e5Pink; font.pixelSize: 13; font.weight: Font.Bold }
+                            Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。该高级逻辑保留为下一阶段迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { text: "状态：后续迁移"; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
                         }
                     }
-                    Item { Layout.fillHeight: true }
+                    NeonCard {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        cardColor: Theme.glassSoft
+                        cardBorderColor: Theme.e5BorderSoft
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 6
+                            Text { text: "触发日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                        }
+                    }
                 }
             }
         }
@@ -736,19 +801,59 @@ Window {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 24
-                    spacing: 16
+                    spacing: 14
                     Text { text: "执行前脚本"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                     Text {
                         Layout.fillWidth: true
-                        text: "脚本路径、启用状态和超时设置将在业务逻辑迁移后接入。当前版本保持 Dry-run 安全验证。"
+                        text: "启用后，真实执行电源动作前会先运行脚本。Dry-run 下只记录将执行的脚本，不会启动外部程序。"
                         color: Theme.textSecondary
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
                     }
-                    Text { text: "状态：未启用"; color: Theme.warning; font.pixelSize: 14; font.weight: Font.Bold }
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
-                    Text { text: "后续接入项：脚本路径、启用开关、超时秒数、执行日志。"; color: Theme.primary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Item { Layout.fillHeight: true }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "启用执行前脚本"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.scriptEnabled; onCheckedChanged: controller.scriptEnabled = checked }
+                    }
+                    Text { text: "脚本路径"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                    TextField {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        text: controller.scriptPath
+                        placeholderText: "C:/scripts/before-shutdown.bat"
+                        color: Theme.textPrimary
+                        onTextChanged: controller.scriptPath = text
+                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Text { text: "超时秒数"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        TextField {
+                            Layout.preferredWidth: 92
+                            Layout.preferredHeight: 40
+                            text: String(controller.scriptTimeoutSeconds)
+                            horizontalAlignment: Text.AlignHCenter
+                            color: Theme.textPrimary
+                            validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                            onTextChanged: controller.scriptTimeoutSeconds = mainWindow.safeInt(text, 10)
+                            background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                        }
+                        NeonButton { Layout.preferredWidth: 138; Layout.preferredHeight: 40; variant: "primary"; text: "测试脚本"; onClicked: controller.testScript() }
+                    }
+                    NeonCard {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        cardColor: Theme.glassSoft
+                        cardBorderColor: Theme.e5BorderSoft
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 6
+                            Text { text: "脚本与执行日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                        }
+                    }
                 }
             }
         }
