@@ -31,6 +31,11 @@ Window {
         return isNaN(parsed) ? fallback : parsed
     }
 
+    function safeFloat(value, fallback) {
+        var parsed = parseFloat(value)
+        return isNaN(parsed) ? fallback : parsed
+    }
+
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
@@ -709,87 +714,152 @@ Window {
                 anchors.fill: parent
                 cardColor: Theme.cardGlass
                 cardBorderColor: Theme.e5BorderSoft
-                ColumnLayout {
+                ScrollView {
+                    id: smartTriggerScroll
                     anchors.fill: parent
-                    anchors.margins: 24
-                    spacing: 14
-                    Text { text: "智能触发"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
-                    NeonCard {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 236
-                        cardColor: Theme.cardGlass
-                        cardBorderColor: Theme.e5BorderPink
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 18
-                            spacing: 10
-                            Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            Text { text: "监控指定进程；当进程出现后再退出，会按当前电源动作执行。Dry-run 会只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            RowLayout {
-                                Layout.fillWidth: true
+                    clip: true
+                    contentWidth: availableWidth
+                    leftPadding: 24
+                    rightPadding: 24
+                    topPadding: 24
+                    bottomPadding: 24
+                    ColumnLayout {
+                        width: smartTriggerScroll.availableWidth
+                        spacing: 14
+                        Text { text: "智能触发"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
+                        NeonCard {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 236
+                            cardColor: Theme.cardGlass
+                            cardBorderColor: Theme.e5BorderPink
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
                                 spacing: 10
-                                Text { text: "进程名"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                TextField {
-                                    id: processNameInput
+                                Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                Text { text: "监控指定进程；当进程出现后再退出，会按当前电源动作执行。Dry-run 会只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: controller.processName
-                                    color: Theme.textPrimary
-                                    placeholderText: "notepad.exe"
-                                    onTextChanged: controller.processName = text
-                                    background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    spacing: 10
+                                    Text { text: "进程名"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        id: processNameInput
+                                        Layout.fillWidth: true
+                                        text: controller.processName
+                                        color: Theme.textPrimary
+                                        placeholderText: "notepad.exe"
+                                        onTextChanged: controller.processName = text
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                    Text { text: "轮询秒"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        id: processPollInput
+                                        Layout.preferredWidth: 70
+                                        text: String(controller.processPollSeconds)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                        onTextChanged: controller.processPollSeconds = mainWindow.safeInt(text, 5)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
                                 }
-                                Text { text: "轮询秒"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                TextField {
-                                    id: processPollInput
-                                    Layout.preferredWidth: 70
-                                    text: String(controller.processPollSeconds)
-                                    horizontalAlignment: Text.AlignHCenter
-                                    color: Theme.textPrimary
-                                    validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
-                                    onTextChanged: controller.processPollSeconds = mainWindow.safeInt(text, 5)
-                                    background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                RowLayout {
+                                    spacing: 10
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "primary"; text: "开始监控"; enabled: !controller.processTriggerActive; onClicked: controller.startProcessTrigger() }
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "secondary"; text: "停止监控"; enabled: controller.processTriggerActive; onClicked: controller.stopProcessTrigger() }
+                                    Text { text: controller.processTriggerStatus; color: controller.processTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13 }
                                 }
                             }
-                            RowLayout {
-                                spacing: 10
-                                NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "primary"; text: "开始监控"; enabled: !controller.processTriggerActive; onClicked: controller.startProcessTrigger() }
-                                NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "secondary"; text: "停止监控"; enabled: controller.processTriggerActive; onClicked: controller.stopProcessTrigger() }
-                                Text { text: controller.processTriggerStatus; color: controller.processTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13 }
+                        }
+                        NeonCard {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 236
+                            cardColor: Theme.cardGlass
+                            cardBorderColor: Theme.e5BorderPurple
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
+                                spacing: 8
+                                Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。Dry-run 下只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 4
+                                    rowSpacing: 8
+                                    columnSpacing: 8
+                                    Text { text: "下载阈值"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.networkDownloadThresholdKbps)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        onTextChanged: controller.networkDownloadThresholdKbps = mainWindow.safeFloat(text, 10.0)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                    Text { text: "上传阈值"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.networkUploadThresholdKbps)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        onTextChanged: controller.networkUploadThresholdKbps = mainWindow.safeFloat(text, 10.0)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                    Text { text: "闲置秒数"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.networkIdleSeconds)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                        onTextChanged: controller.networkIdleSeconds = mainWindow.safeInt(text, 60)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                    Text { text: "轮询秒"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.networkPollSeconds)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                        onTextChanged: controller.networkPollSeconds = mainWindow.safeInt(text, 3)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                }
+                                RowLayout {
+                                    spacing: 10
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "primary"; text: "开始网络监控"; enabled: !controller.networkTriggerActive; onClicked: controller.startNetworkTrigger() }
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "secondary"; text: "停止网络监控"; enabled: controller.networkTriggerActive; onClicked: controller.stopNetworkTrigger() }
+                                    Text { text: controller.networkTriggerStatus; color: controller.networkTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                                }
+                                Text { text: controller.networkSpeedText; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
                             }
                         }
-                    }
-                    NeonCard {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 120
-                        cardColor: Theme.cardGlass
-                        cardBorderColor: Theme.e5BorderPurple
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 18
-                            spacing: 8
-                            Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                            Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。该高级逻辑保留为下一阶段迁移。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { text: "状态：后续迁移"; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
-                        }
-                    }
-                    NeonCard {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        cardColor: Theme.glassSoft
-                        cardBorderColor: Theme.e5BorderSoft
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 6
-                            Text { text: "触发日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                        NeonCard {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 154
+                            cardColor: Theme.glassSoft
+                            cardBorderColor: Theme.e5BorderSoft
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 6
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Text { Layout.fillWidth: true; text: "触发日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                    NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "清空日志"; onClicked: controller.clearLogs() }
+                                    NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "导出日志"; onClicked: controller.exportLogs() }
+                                }
+                                Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Script page (4 脚本)
+// Script page (4 脚本)
         Item {
             anchors.fill: parent
             visible: currentPage === 4
@@ -840,6 +910,8 @@ Window {
                             background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
                         }
                         NeonButton { Layout.preferredWidth: 138; Layout.preferredHeight: 40; variant: "primary"; text: "测试脚本"; onClicked: controller.testScript() }
+                        NeonButton { Layout.preferredWidth: 112; Layout.preferredHeight: 40; variant: "secondary"; text: "验证路径"; onClicked: controller.validateScriptPath() }
+                        NeonButton { Layout.preferredWidth: 112; Layout.preferredHeight: 40; variant: "secondary"; text: "打开目录"; onClicked: controller.openScriptFolder() }
                     }
                     NeonCard {
                         Layout.fillWidth: true

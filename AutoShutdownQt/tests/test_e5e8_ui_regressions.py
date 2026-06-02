@@ -78,6 +78,36 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         ):
             self.assertIn(snippet, main)
 
+    def test_practical_enhancement_controls_are_wired_to_controller(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            "controller.networkDownloadThresholdKbps",
+            "controller.networkUploadThresholdKbps",
+            "controller.networkIdleSeconds",
+            "controller.networkPollSeconds",
+            "controller.networkSpeedText",
+            "controller.networkTriggerStatus",
+            "controller.startNetworkTrigger()",
+            "controller.stopNetworkTrigger()",
+            "controller.clearLogs()",
+            "controller.exportLogs()",
+            "controller.validateScriptPath()",
+            "controller.openScriptFolder()",
+        ):
+            self.assertIn(snippet, main)
+        for label in ("下载阈值", "上传阈值", "闲置秒数", "开始网络监控", "停止网络监控", "清空日志", "导出日志", "验证路径", "打开目录"):
+            self.assertIn(label, main)
+    def test_smart_trigger_page_scrolls_to_keep_controls_accessible(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        smart_index = main.index("// Smart triggers page")
+        script_index = main.index("// Script page", smart_index)
+        smart_section = main[smart_index:script_index]
+
+        self.assertIn("ScrollView {", smart_section)
+        self.assertIn("contentWidth: availableWidth", smart_section)
+        self.assertIn("clip: true", smart_section)
+
 
 if __name__ == "__main__":
     unittest.main()

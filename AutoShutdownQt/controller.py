@@ -1,8 +1,14 @@
-from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer
+from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer, QCoreApplication
 from datetime import datetime, timedelta
+from pathlib import Path
+import math
+import os
 import subprocess
+import sys
 
+from network_service import NetworkReader, compute_speed
 from script_service import run_script
+from settings_service import default_settings, load_settings, log_export_path as default_log_export_path, save_settings
 
 
 class AppController(QObject):
@@ -13,6 +19,7 @@ class AppController(QObject):
     forceCloseChanged = Signal()
     scriptConfigChanged = Signal()
     processTriggerChanged = Signal()
+    networkTriggerChanged = Signal()
     logTextChanged = Signal()
 
     POWER_ACTIONS = ["shutdown", "sleep", "hibernate", "restart", "logoff", "lock"]
@@ -21,31 +28,49 @@ class AppController(QObject):
         "restart": "重启", "logoff": "注销", "lock": "锁定",
     }
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None):
         super().__init__(parent)
-        self._dry_run = True
-        self._selected_action = "shutdown"
+        self._settings_path = settings_path
+        self._persist_settings = self._should_persist_settings(settings_path)
+        settings = load_settings(settings_path) if self._persist_settings else default_settings()
+
+        self._dry_run = self._coerce_bool(settings.get("dryRun"), True)
+        self._selected_action = self._coerce_action(settings.get("selectedAction"), "shutdown")
         self._status = "ready"
         self._remaining_seconds = 0
         self._target_time_str = ""
-        self._force_close = False
-        self._script_enabled = False
-        self._script_path = ""
-        self._script_timeout_seconds = 10
-        self._process_name = ""
-        self._process_poll_seconds = 5
+        self._force_close = self._coerce_bool(settings.get("forceClose"), False)
+        self._script_enabled = self._coerce_bool(settings.get("scriptEnabled"), False)
+        self._script_path = str(settings.get("scriptPath") or "")
+        self._script_timeout_seconds = self._coerce_int(settings.get("scriptTimeoutSeconds"), 10, minimum=1)
+        self._process_name = str(settings.get("processName") or "")
+        self._process_poll_seconds = self._coerce_int(settings.get("processPollSeconds"), 5, minimum=1)
         self._process_trigger_active = False
         self._process_trigger_status = "未启动"
         self._process_seen = False
-        self._logs = ["READY · Dry-run 已开启"]
+        self._network_download_threshold_kbps = self._coerce_float(settings.get("networkDownloadThresholdKbps"), 10.0, minimum=0.0)
+        self._network_upload_threshold_kbps = self._coerce_float(settings.get("networkUploadThresholdKbps"), 10.0, minimum=0.0)
+        self._network_idle_seconds = self._coerce_int(settings.get("networkIdleSeconds"), 60, minimum=1)
+        self._network_poll_seconds = self._coerce_int(settings.get("networkPollSeconds"), 3, minimum=1)
+        self._network_trigger_active = False
+        self._network_trigger_status = "未启动"
+        self._network_speed_text = "等待网络监控"
+        self._network_previous_sample = None
+        self._network_idle_elapsed = 0.0
+        self._logs = ["READY · Dry-run 已开启" if self._dry_run else "READY · 真实执行模式"]
         self._script_runner = run_script
         self._power_executor = None
         self._process_checker = self._is_process_running
+        self._network_reader = network_reader or NetworkReader()
+        self._log_export_path = log_export_path
+        self._open_folder = open_folder
         self._timer = QTimer(self)
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self._on_tick)
         self._process_timer = QTimer(self)
         self._process_timer.timeout.connect(self._poll_process_trigger)
+        self._network_timer = QTimer(self)
+        self._network_timer.timeout.connect(self._poll_network_trigger)
 
     # --- QML Properties ---
 
@@ -55,6 +80,7 @@ class AppController(QObject):
         if self._dry_run != v:
             self._dry_run = v
             self._add_log("Dry-run 已开启" if v else "真实执行模式已开启")
+            self._save_settings()
             self.dryRunChanged.emit()
     dryRun = Property(bool, getDryRun, setDryRun, notify=dryRunChanged)
 
@@ -76,6 +102,7 @@ class AppController(QObject):
         if v in self.POWER_ACTIONS and self._selected_action != v:
             self._selected_action = v
             self._add_log(f"已选择动作：{self.ACTION_LABELS.get(v, v)}")
+            self._save_settings()
             self.targetInfoChanged.emit()
     selectedAction = Property(str, getSelectedAction, setSelectedAction, notify=targetInfoChanged)
 
@@ -85,6 +112,7 @@ class AppController(QObject):
         if self._force_close != v:
             self._force_close = v
             self._add_log("强制关闭已开启" if v else "强制关闭已关闭")
+            self._save_settings()
             self.forceCloseChanged.emit()
     forceClose = Property(bool, getForceClose, setForceClose, notify=forceCloseChanged)
 
@@ -104,6 +132,7 @@ class AppController(QObject):
         if self._script_enabled != v:
             self._script_enabled = v
             self._add_log("执行前脚本已启用" if v else "执行前脚本已关闭")
+            self._save_settings()
             self.scriptConfigChanged.emit()
     scriptEnabled = Property(bool, getScriptEnabled, setScriptEnabled, notify=scriptConfigChanged)
 
@@ -112,17 +141,16 @@ class AppController(QObject):
         v = str(v or "")
         if self._script_path != v:
             self._script_path = v
+            self._save_settings()
             self.scriptConfigChanged.emit()
     scriptPath = Property(str, getScriptPath, setScriptPath, notify=scriptConfigChanged)
 
     def getScriptTimeoutSeconds(self): return self._script_timeout_seconds
     def setScriptTimeoutSeconds(self, v):
-        try:
-            v = max(1, int(v))
-        except (TypeError, ValueError):
-            v = 10
+        v = self._coerce_int(v, 10, minimum=1)
         if self._script_timeout_seconds != v:
             self._script_timeout_seconds = v
+            self._save_settings()
             self.scriptConfigChanged.emit()
     scriptTimeoutSeconds = Property(int, getScriptTimeoutSeconds, setScriptTimeoutSeconds, notify=scriptConfigChanged)
 
@@ -131,19 +159,18 @@ class AppController(QObject):
         v = str(v or "")
         if self._process_name != v:
             self._process_name = v
+            self._save_settings()
             self.processTriggerChanged.emit()
     processName = Property(str, getProcessName, setProcessName, notify=processTriggerChanged)
 
     def getProcessPollSeconds(self): return self._process_poll_seconds
     def setProcessPollSeconds(self, v):
-        try:
-            v = max(1, int(v))
-        except (TypeError, ValueError):
-            v = 5
+        v = self._coerce_int(v, 5, minimum=1)
         if self._process_poll_seconds != v:
             self._process_poll_seconds = v
             if self._process_trigger_active:
                 self._process_timer.setInterval(v * 1000)
+            self._save_settings()
             self.processTriggerChanged.emit()
     processPollSeconds = Property(int, getProcessPollSeconds, setProcessPollSeconds, notify=processTriggerChanged)
 
@@ -152,6 +179,53 @@ class AppController(QObject):
 
     def getProcessTriggerStatus(self): return self._process_trigger_status
     processTriggerStatus = Property(str, getProcessTriggerStatus, notify=processTriggerChanged)
+
+    def getNetworkDownloadThresholdKbps(self): return self._network_download_threshold_kbps
+    def setNetworkDownloadThresholdKbps(self, v):
+        v = self._coerce_float(v, 10.0, minimum=0.0)
+        if self._network_download_threshold_kbps != v:
+            self._network_download_threshold_kbps = v
+            self._save_settings()
+            self.networkTriggerChanged.emit()
+    networkDownloadThresholdKbps = Property(float, getNetworkDownloadThresholdKbps, setNetworkDownloadThresholdKbps, notify=networkTriggerChanged)
+
+    def getNetworkUploadThresholdKbps(self): return self._network_upload_threshold_kbps
+    def setNetworkUploadThresholdKbps(self, v):
+        v = self._coerce_float(v, 10.0, minimum=0.0)
+        if self._network_upload_threshold_kbps != v:
+            self._network_upload_threshold_kbps = v
+            self._save_settings()
+            self.networkTriggerChanged.emit()
+    networkUploadThresholdKbps = Property(float, getNetworkUploadThresholdKbps, setNetworkUploadThresholdKbps, notify=networkTriggerChanged)
+
+    def getNetworkIdleSeconds(self): return self._network_idle_seconds
+    def setNetworkIdleSeconds(self, v):
+        v = self._coerce_int(v, 60, minimum=1)
+        if self._network_idle_seconds != v:
+            self._network_idle_seconds = v
+            self._save_settings()
+            self.networkTriggerChanged.emit()
+    networkIdleSeconds = Property(int, getNetworkIdleSeconds, setNetworkIdleSeconds, notify=networkTriggerChanged)
+
+    def getNetworkPollSeconds(self): return self._network_poll_seconds
+    def setNetworkPollSeconds(self, v):
+        v = self._coerce_int(v, 3, minimum=1)
+        if self._network_poll_seconds != v:
+            self._network_poll_seconds = v
+            if self._network_trigger_active:
+                self._network_timer.setInterval(v * 1000)
+            self._save_settings()
+            self.networkTriggerChanged.emit()
+    networkPollSeconds = Property(int, getNetworkPollSeconds, setNetworkPollSeconds, notify=networkTriggerChanged)
+
+    def getNetworkTriggerActive(self): return self._network_trigger_active
+    networkTriggerActive = Property(bool, getNetworkTriggerActive, notify=networkTriggerChanged)
+
+    def getNetworkTriggerStatus(self): return self._network_trigger_status
+    networkTriggerStatus = Property(str, getNetworkTriggerStatus, notify=networkTriggerChanged)
+
+    def getNetworkSpeedText(self): return self._network_speed_text
+    networkSpeedText = Property(str, getNetworkSpeedText, notify=networkTriggerChanged)
 
     def getLogText(self): return "\n".join(self._logs[-8:])
     logText = Property(str, getLogText, notify=logTextChanged)
@@ -206,6 +280,7 @@ class AppController(QObject):
             return
         action, label, mode, args = template
         self._selected_action = action
+        self._save_settings()
         self.targetInfoChanged.emit()
         self._add_log(f"应用任务模板：{label}")
         if mode == "countdown":
@@ -266,6 +341,86 @@ class AppController(QObject):
         self.processTriggerChanged.emit()
 
     @Slot()
+    def startNetworkTrigger(self):
+        sample = self._network_reader.sample()
+        self._network_previous_sample = sample
+        self._network_idle_elapsed = 0.0
+        self._network_speed_text = "下载 0.0 KB/s · 上传 0.0 KB/s"
+        if not sample.available:
+            message = sample.message or "network unavailable"
+            self._network_trigger_active = False
+            self._network_trigger_status = message
+            self._add_log(f"网络监控未启动：{message}")
+            self.networkTriggerChanged.emit()
+            return
+        self._network_trigger_active = True
+        self._network_trigger_status = f"监控中：0/{self._network_idle_seconds} 秒"
+        self._network_timer.setInterval(self._network_poll_seconds * 1000)
+        self._network_timer.start()
+        self._add_log("网络闲置触发已启动")
+        self.networkTriggerChanged.emit()
+
+    @Slot()
+    def stopNetworkTrigger(self):
+        self._network_timer.stop()
+        self._network_trigger_active = False
+        self._network_idle_elapsed = 0.0
+        self._network_previous_sample = None
+        self._network_trigger_status = "已停止"
+        self._add_log("网络闲置触发已停止")
+        self.networkTriggerChanged.emit()
+
+    @Slot()
+    def clearLogs(self):
+        self._logs = ["READY · 日志已清空"]
+        self.logTextChanged.emit()
+
+    @Slot()
+    def exportLogs(self):
+        target = Path(self._log_export_path) if self._log_export_path is not None else default_log_export_path()
+        try:
+            target = target.expanduser()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("\n".join(self._logs) + "\n", encoding="utf-8")
+        except Exception as exc:
+            self._add_log(f"日志导出失败：{exc}")
+            return
+        self._add_log(f"日志已导出：{target}")
+
+    @Slot()
+    def validateScriptPath(self):
+        clean_path = self._script_path.strip()
+        if not clean_path:
+            self._add_log("脚本路径为空")
+            return
+        path = Path(clean_path).expanduser()
+        if path.exists():
+            self._add_log(f"脚本路径有效：{path}")
+        else:
+            self._add_log(f"脚本路径不存在：{path}")
+
+    @Slot()
+    def openScriptFolder(self):
+        clean_path = self._script_path.strip()
+        if not clean_path:
+            self._add_log("脚本路径为空，无法打开目录")
+            return
+        path = Path(clean_path).expanduser()
+        if not path.exists():
+            self._add_log(f"脚本路径不存在，无法打开目录：{path}")
+            return
+        folder = path if path.is_dir() else path.parent
+        try:
+            if self._open_folder:
+                self._open_folder(folder)
+            else:
+                self._open_path(folder)
+        except Exception as exc:
+            self._add_log(f"打开目录失败：{exc}")
+            return
+        self._add_log(f"已打开目录：{folder}")
+
+    @Slot()
     def executeNow(self):
         self._execute_with_script("立即执行")
 
@@ -320,6 +475,44 @@ class AppController(QObject):
             self._process_trigger_status = f"等待进程出现：{name}"
             self.processTriggerChanged.emit()
 
+    def _poll_network_trigger(self):
+        if not self._network_trigger_active:
+            return
+        current = self._network_reader.sample()
+        speed = compute_speed(self._network_previous_sample, current)
+        if not speed.available:
+            message = speed.message or current.message or "network unavailable"
+            self._network_timer.stop()
+            self._network_trigger_active = False
+            self._network_trigger_status = message
+            self._network_speed_text = "网络计数不可用"
+            self._add_log(f"网络监控已停止：{message}")
+            self.networkTriggerChanged.emit()
+            return
+
+        self._network_previous_sample = current
+        self._network_speed_text = f"下载 {speed.download_kbps:.1f} KB/s · 上传 {speed.upload_kbps:.1f} KB/s"
+        is_idle = (
+            speed.download_kbps < self._network_download_threshold_kbps
+            and speed.upload_kbps < self._network_upload_threshold_kbps
+        )
+        if is_idle:
+            self._network_idle_elapsed += speed.elapsed_seconds
+            elapsed = min(int(self._network_idle_elapsed), self._network_idle_seconds)
+            self._network_trigger_status = f"网络闲置：{elapsed}/{self._network_idle_seconds} 秒"
+            if self._network_idle_elapsed >= self._network_idle_seconds:
+                self._network_timer.stop()
+                self._network_trigger_active = False
+                self._network_trigger_status = "网络闲置触发"
+                self._add_log("网络闲置触发：达到设定闲置时长")
+                self.networkTriggerChanged.emit()
+                self._execute_with_script("网络闲置触发")
+                return
+        else:
+            self._network_idle_elapsed = 0.0
+            self._network_trigger_status = f"网络忙碌：0/{self._network_idle_seconds} 秒"
+        self.networkTriggerChanged.emit()
+
     def _execute_power_action(self):
         if self._power_executor:
             self._power_executor(self._selected_action, self._force_close)
@@ -361,3 +554,80 @@ class AppController(QObject):
         if s:
             parts.append(f"{s} 秒")
         return " ".join(parts) or "0 秒"
+
+    def _settings_snapshot(self):
+        return {
+            "dryRun": self._dry_run,
+            "forceClose": self._force_close,
+            "selectedAction": self._selected_action,
+            "scriptEnabled": self._script_enabled,
+            "scriptPath": self._script_path,
+            "scriptTimeoutSeconds": self._script_timeout_seconds,
+            "processName": self._process_name,
+            "processPollSeconds": self._process_poll_seconds,
+            "networkDownloadThresholdKbps": self._network_download_threshold_kbps,
+            "networkUploadThresholdKbps": self._network_upload_threshold_kbps,
+            "networkIdleSeconds": self._network_idle_seconds,
+            "networkPollSeconds": self._network_poll_seconds,
+        }
+
+    def _save_settings(self):
+        if not self._persist_settings:
+            return
+        try:
+            save_settings(self._settings_snapshot(), self._settings_path)
+        except Exception as exc:
+            self._add_log(f"设置保存失败：{exc}")
+
+    def _should_persist_settings(self, settings_path):
+        if settings_path is not None:
+            return True
+        app = QCoreApplication.instance()
+        return bool(app and QCoreApplication.applicationName() == "AutoShutdownQt")
+
+    def _coerce_bool(self, value, fallback):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return fallback
+
+    def _coerce_int(self, value, fallback, minimum=None):
+        try:
+            if isinstance(value, float) and not math.isfinite(value):
+                raise ValueError("non-finite integer setting")
+            coerced = int(value)
+        except (TypeError, ValueError, OverflowError):
+            coerced = fallback
+        if minimum is not None:
+            coerced = max(minimum, coerced)
+        return coerced
+
+    def _coerce_float(self, value, fallback, minimum=None):
+        try:
+            coerced = float(value)
+            if not math.isfinite(coerced):
+                raise ValueError("non-finite float setting")
+        except (TypeError, ValueError, OverflowError):
+            coerced = fallback
+        if minimum is not None:
+            coerced = max(minimum, coerced)
+        return coerced
+
+    def _coerce_action(self, value, fallback):
+        return value if value in self.POWER_ACTIONS else fallback
+
+    def _open_path(self, folder):
+        if hasattr(os, "startfile"):
+            os.startfile(str(folder))
+            return
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(folder)])
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])
