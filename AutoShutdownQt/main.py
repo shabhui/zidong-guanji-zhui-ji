@@ -8,7 +8,7 @@ from controller import AppController
 if __name__ == "__main__":
     app = QGuiApplication(sys.argv)
     app.setApplicationName("AutoShutdownQt")
-    app.setApplicationVersion("2.0-preview")
+    app.setApplicationVersion("2.0")
 
     # PySide6 versions differ in QQuickStyle introspection support.
     # Use Fusion as a safe baseline; QML supplies the custom Fluent Neon visuals.
