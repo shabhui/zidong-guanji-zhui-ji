@@ -129,6 +129,60 @@ class TaskSchedulerTest(unittest.TestCase):
         self.assertEqual(len(scheduler.tasks), 1)
         self.assertIn("invalid saved task", diagnostics[0])
 
+    def test_load_recomputes_recurring_fixed_time_next_run_even_when_saved_stale(self):
+        scheduler = TaskScheduler(now_provider=lambda: datetime(2026, 6, 3, 12, 0, 0))
+        saved = {
+            "version": 1,
+            "tasks": [{
+                "id": "daily-1",
+                "name": "每天睡眠",
+                "action": "sleep",
+                "forceClose": False,
+                "triggerType": "fixed_time",
+                "triggerConfig": {"hour": 8, "minute": 30},
+                "repeatRule": "daily",
+                "enabled": True,
+                "status": "pending",
+                "createdOrder": 1,
+                "nextRunAt": "2026-06-02T08:30:00",
+                "lastRunAt": None,
+                "lastError": "",
+            }],
+        }
+
+        scheduler.load_from_settings(saved)
+
+        task = scheduler.tasks[0]
+        self.assertEqual(task.next_run_at, datetime(2026, 6, 4, 8, 30, 0))
+        self.assertEqual(scheduler.due_tasks(datetime(2026, 6, 3, 12, 0, 0)), [])
+
+    def test_load_keeps_disabled_recurring_fixed_time_paused(self):
+        scheduler = TaskScheduler(now_provider=lambda: datetime(2026, 6, 3, 12, 0, 0))
+        saved = {
+            "version": 1,
+            "tasks": [{
+                "id": "daily-paused",
+                "name": "暂停每日任务",
+                "action": "sleep",
+                "forceClose": False,
+                "triggerType": "fixed_time",
+                "triggerConfig": {"hour": 8, "minute": 30},
+                "repeatRule": "daily",
+                "enabled": False,
+                "status": "pending",
+                "createdOrder": 1,
+                "nextRunAt": "2026-06-02T08:30:00",
+                "lastRunAt": None,
+                "lastError": "",
+            }],
+        }
+
+        scheduler.load_from_settings(saved)
+
+        task = scheduler.tasks[0]
+        self.assertIsNone(task.next_run_at)
+        self.assertEqual(task.status.value, "paused")
+
 
 if __name__ == "__main__":
     unittest.main()

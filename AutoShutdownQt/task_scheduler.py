@@ -127,6 +127,9 @@ class TaskScheduler:
             task.next_run_at = None
         elif task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
             task.next_run_at = None
+        elif task.trigger_type == TaskTriggerType.FIXED_TIME and task.repeat_rule != RepeatRule.ONCE:
+            task.status = TaskStatus.PENDING
+            self._schedule_next_run(task, self._now_provider())
         elif task.next_run_at is None:
             self._schedule_next_run(task, self._now_provider())
 
