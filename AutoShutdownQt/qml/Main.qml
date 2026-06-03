@@ -1095,7 +1095,7 @@ Window {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。关闭窗口会隐藏到托盘；请使用托盘菜单 Quit 显式退出。"
+                        text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。托盘可用时关闭窗口会隐藏到后台；托盘不可用时关闭窗口不会继续后台运行。请使用托盘菜单 Quit 显式退出。"
                         color: Theme.danger
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap

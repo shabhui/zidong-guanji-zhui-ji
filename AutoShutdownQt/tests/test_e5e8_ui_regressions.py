@@ -116,6 +116,15 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             self.assertIn(snippet, main)
         for label in ("任务队列", "重复规则", "仅一次", "每天", "工作日", "周末", "Dry-run 检查", "删除"):
             self.assertIn(label, main)
+
+    def test_2_2_tray_copy_mentions_availability_and_explicit_quit(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("托盘可用时关闭窗口会隐藏到后台", main)
+        self.assertIn("托盘不可用时关闭窗口不会继续后台运行", main)
+        self.assertIn("托盘菜单 Quit", main)
+        self.assertIn("trayCloseRequested", main)
+        self.assertIn("mainWindow.hide()", main)
     def test_smart_trigger_page_scrolls_to_keep_controls_accessible(self):
         main = MAIN_QML.read_text(encoding="utf-8")
         smart_index = main.index("// Smart triggers page")

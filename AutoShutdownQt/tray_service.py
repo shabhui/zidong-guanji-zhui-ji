@@ -57,4 +57,6 @@ class TrayService:
         self._controller.cancelAllTasks()
 
     def quit_app(self):
+        if hasattr(self._window, "trayCloseRequested"):
+            self._window.trayCloseRequested = True
         self._controller.requestQuit()

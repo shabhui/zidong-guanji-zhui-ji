@@ -76,6 +76,17 @@ class TrayServiceTest(unittest.TestCase):
         self.assertFalse(available)
         self.assertIn("tray unavailable", messages[0])
 
+    def test_quit_app_marks_window_for_explicit_quit_when_property_exists(self):
+        window = FakeWindow()
+        window.trayCloseRequested = False
+        controller = FakeController()
+        service = TrayService(controller, window, tray_factory=lambda: object())
+
+        service.quit_app()
+
+        self.assertTrue(window.trayCloseRequested)
+        self.assertTrue(controller.quit_requested)
+
 
 if __name__ == "__main__":
     unittest.main()
