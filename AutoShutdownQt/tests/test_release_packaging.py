@@ -256,6 +256,20 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertIn("queue persistence", content)
             self.assertIn("close-to-tray", content)
 
+    def test_release_notes_document_2_2_stability_patch(self):
+        notes = (ROOT / "RELEASE_NOTES_v2.2.md").read_text(encoding="utf-8")
+        self.assertIn("2.2", notes)
+        self.assertIn("stability", notes.lower())
+        self.assertIn("queue", notes.lower())
+        self.assertIn("tray", notes.lower())
+        self.assertIn("SHA256SUMS.txt", notes)
+
+    def test_readme_mentions_2_2_download_and_checksum(self):
+        readme = README.read_text(encoding="utf-8")
+        self.assertIn("AutoShutdownQt 2.2", readme)
+        self.assertIn("AutoShutdownQt-2.2.zip", readme)
+        self.assertIn("SHA256SUMS.txt", readme)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,17 @@
-# AutoShutdownQt 2.0
+# AutoShutdownQt 2.2
 
-AutoShutdownQt 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。2.0 版本采用星空玻璃风格界面，支持倒计时、指定时间、任务模板、智能触发、执行前脚本和日志工具。
+AutoShutdownQt 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。2.2 是 2.1 practical scheduler 之后的 stability release，重点稳定任务队列、托盘后台、触发器同步和发布校验体验。
 
-> 安全提示：AutoShutdownQt 2.0 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
+> 安全提示：AutoShutdownQt 2.2 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
+
+## Current release
+
+AutoShutdownQt 2.2 is the current stability release.
+
+- Download: `AutoShutdownQt-2.2.zip`
+- Verify checksum with `SHA256SUMS.txt`
+- Dry-run is enabled by default.
+- Close-to-tray depends on tray availability; use tray Quit for explicit exit.
 
 ## 功能特性
 
