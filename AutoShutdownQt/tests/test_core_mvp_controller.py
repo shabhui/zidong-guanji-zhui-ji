@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import tempfile
 import unittest
 
 from PySide6.QtCore import QCoreApplication
@@ -50,24 +51,27 @@ class CoreMvpControllerTest(unittest.TestCase):
         self.assertIn("[dryRun] Would execute", self.controller.logText)
 
     def test_live_script_failure_blocks_power_action(self):
-        calls = []
-        self.controller.dryRun = False
-        self.controller.scriptEnabled = True
-        self.controller.scriptPath = "C:/tmp/fail.bat"
-        self.controller._script_runner = lambda path, timeout: type("Result", (), {
-            "ok": False,
-            "message": "exit 1",
-            "stdout": "",
-            "stderr": "boom",
-            "returncode": 1,
-        })()
-        self.controller._power_executor = lambda action, force: calls.append((action, force))
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "fail.bat"
+            script.write_text("exit /b 1", encoding="utf-8")
+            calls = []
+            self.controller.dryRun = False
+            self.controller.scriptEnabled = True
+            self.controller.scriptPath = str(script)
+            self.controller._script_runner = lambda path, timeout: type("Result", (), {
+                "ok": False,
+                "message": "脚本失败：exit 1",
+                "stdout": "",
+                "stderr": "boom",
+                "returncode": 1,
+            })()
+            self.controller._power_executor = lambda action, force: calls.append((action, force))
 
-        self.controller.executeNow()
+            self.controller.executeNow()
 
-        self.assertEqual(calls, [])
-        self.assertIn("脚本失败", self.controller.logText)
-        self.assertIn("已阻止电源动作", self.controller.logText)
+            self.assertEqual(calls, [])
+            self.assertIn("脚本失败", self.controller.logText)
+            self.assertIn("已阻止电源动作", self.controller.logText)
 
     def test_process_trigger_arms_waiting_for_process_and_can_stop(self):
         self.controller.processName = "definitely-not-running.exe"

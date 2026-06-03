@@ -108,6 +108,48 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("contentWidth: availableWidth", smart_section)
         self.assertIn("clip: true", smart_section)
 
+    def test_dry_run_switch_requires_confirmation_before_live_mode(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        settings_index = main.index("// Settings page")
+        live_dialog_index = main.index("id: liveModeConfirmDialog") if "id: liveModeConfirmDialog" in main else len(main)
+        settings_section = main[settings_index:live_dialog_index]
+
+        self.assertIn("id: liveModeConfirmDialog", main)
+        self.assertIn("id: dryRunSafetySwitch", settings_section)
+        self.assertIn("mainWindow.confirmLiveModeFromSwitch(checked)", settings_section)
+        self.assertIn("liveModeConfirmDialog.open()", main)
+        self.assertIn("mainWindow.syncDryRunSwitchState()\n        liveModeConfirmDialog.open()", main)
+        self.assertIn("controller.requestDryRunChange(false)", main)
+        self.assertIn("onRejected: mainWindow.syncDryRunSwitchState()", main)
+        self.assertNotIn("controller.requestDryRunChange(checked)", settings_section)
+        self.assertLess(main.index("liveModeConfirmDialog.open()"), main.index("controller.requestDryRunChange(false)"))
+
+    def test_live_mode_warning_describes_scheduled_and_trigger_confirmation_limits(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("立即执行按钮会再次弹窗", main)
+        self.assertIn("倒计时和进程/网络触发到点后不会再次确认", main)
+        self.assertNotIn("危险动作仍会弹窗确认", main)
+
+    def test_full_polish_controls_are_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            "mainWindow.confirmLiveModeFromSwitch(checked)",
+            "controller.exportDiagnostics()",
+            "controller.snoozeMinutes(5)",
+            "controller.snoozeMinutes(10)",
+            "applyTaskTemplate(\"lock_5\")",
+            "applyTaskTemplate(\"sleep_10\")",
+            "applyTaskTemplate(\"shutdown_midnight\")",
+            "mainWindow.toggleMaximized()",
+            "onDoubleClicked: mainWindow.toggleMaximized()",
+        ):
+            self.assertIn(snippet, main)
+
+        for label in ("LIVE MODE 会执行真实系统动作", "导出诊断", "延后 5 分钟", "延后 10 分钟", "5 分钟后锁定", "10 分钟后睡眠", "明天 00:00 关机"):
+            self.assertIn(label, main)
+
 
 if __name__ == "__main__":
     unittest.main()

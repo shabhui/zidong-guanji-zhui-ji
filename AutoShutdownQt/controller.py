@@ -48,6 +48,7 @@ class AppController(QObject):
         self._process_trigger_active = False
         self._process_trigger_status = "未启动"
         self._process_seen = False
+        self._process_target_name = ""
         self._network_download_threshold_kbps = self._coerce_float(settings.get("networkDownloadThresholdKbps"), 10.0, minimum=0.0)
         self._network_upload_threshold_kbps = self._coerce_float(settings.get("networkUploadThresholdKbps"), 10.0, minimum=0.0)
         self._network_idle_seconds = self._coerce_int(settings.get("networkIdleSeconds"), 60, minimum=1)
@@ -61,6 +62,7 @@ class AppController(QObject):
         self._script_runner = run_script
         self._power_executor = None
         self._process_checker = self._is_process_running
+        self._last_process_check_error = ""
         self._network_reader = network_reader or NetworkReader()
         self._log_export_path = log_export_path
         self._open_folder = open_folder
@@ -230,6 +232,10 @@ class AppController(QObject):
     def getLogText(self): return "\n".join(self._logs[-8:])
     logText = Property(str, getLogText, notify=logTextChanged)
 
+    def getDiagnosticText(self):
+        return self._diagnostic_text()
+    diagnosticText = Property(str, getDiagnosticText, notify=logTextChanged)
+
     # --- Slots ---
 
     @Slot(int, int, int)
@@ -238,6 +244,7 @@ class AppController(QObject):
         if total <= 0:
             self._add_log("倒计时时长无效，已忽略")
             return
+        self._replace_active_timed_task_if_needed()
         self._remaining_seconds = total
         self._status = "running"
         self._target_time_str = ""
@@ -249,6 +256,9 @@ class AppController(QObject):
 
     @Slot(int, int)
     def startFixedTime(self, hour, minute):
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            self._add_log("指定时间无效，已忽略")
+            return
         now = datetime.now()
         target = datetime(now.year, now.month, now.day, hour, minute, 0)
         if target <= now:
@@ -257,6 +267,7 @@ class AppController(QObject):
         if delta <= 0:
             self._add_log("指定时间无效，已忽略")
             return
+        self._replace_active_timed_task_if_needed()
         self._remaining_seconds = delta
         self._status = "running"
         self._target_time_str = target.strftime("%Y-%m-%d %H:%M")
@@ -273,6 +284,9 @@ class AppController(QObject):
             "shutdown_30": ("shutdown", "30 分钟后关机", "countdown", (0, 30, 0)),
             "sleep_60": ("sleep", "1 小时后睡眠", "countdown", (1, 0, 0)),
             "shutdown_2300": ("shutdown", "今晚 23:00 关机", "fixed", (23, 0)),
+            "lock_5": ("lock", "5 分钟后锁定", "countdown", (0, 5, 0)),
+            "sleep_10": ("sleep", "10 分钟后睡眠", "countdown", (0, 10, 0)),
+            "shutdown_midnight": ("shutdown", "明天 00:00 关机", "fixed", (0, 0)),
         }
         template = templates.get(key)
         if not template:
@@ -287,6 +301,27 @@ class AppController(QObject):
             self.startCountdown(*args)
         else:
             self.startFixedTime(*args)
+
+    @Slot(bool)
+    def requestDryRunChange(self, enabled):
+        self.dryRun = bool(enabled)
+        if not self._dry_run:
+            self._add_log("真实执行模式已开启：请确认动作、触发器、脚本路径和未保存工作")
+
+    @Slot(int)
+    def snoozeMinutes(self, minutes):
+        minutes = self._coerce_int(minutes, 0, minimum=0)
+        if minutes <= 0:
+            self._add_log("延后时长无效，已忽略")
+            return
+        if self._status != "running" or not self._timer.isActive():
+            self._add_log("没有正在运行的定时任务，无法延后")
+            return
+        self._remaining_seconds += minutes * 60
+        self._target_time_str = ""
+        self._add_log(f"已延后 {minutes} 分钟")
+        self.remainingTimeChanged.emit()
+        self.targetInfoChanged.emit()
 
     @Slot()
     def cancel(self):
@@ -307,7 +342,10 @@ class AppController(QObject):
         if self._dry_run:
             self._add_log(f"Dry-run：将执行脚本 {self._script_path or '(未设置路径)'}")
             return
-        result = self._script_runner(self._script_path, self._script_timeout_seconds)
+        script_path = self._validate_script_before_real_execution()
+        if not script_path:
+            return
+        result = self._script_runner(script_path, self._script_timeout_seconds)
         self._add_log(result.message)
 
     @Slot()
@@ -320,7 +358,16 @@ class AppController(QObject):
             self.processTriggerChanged.emit()
             return
         self._process_trigger_active = True
-        self._process_seen = bool(self._process_checker(name))
+        self._process_target_name = name
+        self._process_seen = self._check_process_running(name)
+        if self._last_process_check_error:
+            self._process_trigger_active = False
+            self._process_seen = False
+            self._process_target_name = ""
+            self._process_trigger_status = f"进程检测失败：{self._last_process_check_error}"
+            self._add_log(f"进程退出触发未启动：{self._process_trigger_status}")
+            self.processTriggerChanged.emit()
+            return
         if self._process_seen:
             self._process_trigger_status = f"监控中：{name}"
             self._add_log(f"进程退出触发已启动：正在监控 {name}")
@@ -336,6 +383,7 @@ class AppController(QObject):
         self._process_timer.stop()
         self._process_trigger_active = False
         self._process_seen = False
+        self._process_target_name = ""
         self._process_trigger_status = "已停止"
         self._add_log("进程退出触发已停止")
         self.processTriggerChanged.emit()
@@ -381,11 +429,24 @@ class AppController(QObject):
         try:
             target = target.expanduser()
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("\n".join(self._logs) + "\n", encoding="utf-8")
+            content = "=== Diagnostics ===\n" + self._diagnostic_text() + "\n\n=== Recent Logs ===\n" + "\n".join(self._logs) + "\n"
+            target.write_text(content, encoding="utf-8")
         except Exception as exc:
             self._add_log(f"日志导出失败：{exc}")
             return
         self._add_log(f"日志已导出：{target}")
+
+    @Slot()
+    def exportDiagnostics(self):
+        log_target = Path(self._log_export_path) if self._log_export_path is not None else default_log_export_path()
+        target = log_target.expanduser().with_name(f"{log_target.stem}-diagnostics{log_target.suffix}")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(self._diagnostic_text() + "\n", encoding="utf-8")
+        except Exception as exc:
+            self._add_log(f"诊断导出失败：{exc}")
+            return
+        self._add_log(f"诊断已导出：{target}")
 
     @Slot()
     def validateScriptPath(self):
@@ -424,6 +485,13 @@ class AppController(QObject):
     def executeNow(self):
         self._execute_with_script("立即执行")
 
+    def _replace_active_timed_task_if_needed(self):
+        if self._status == "running" and self._timer.isActive():
+            self._timer.stop()
+            self._remaining_seconds = 0
+            self._target_time_str = ""
+            self._add_log("已替换上一任务")
+
     def _on_tick(self):
         self._remaining_seconds -= 1
         self.remainingTimeChanged.emit()
@@ -433,12 +501,26 @@ class AppController(QObject):
             self.statusChanged.emit()
             self._execute_with_script("倒计时结束")
 
+    def _validate_script_before_real_execution(self):
+        clean_path = self._script_path.strip()
+        if not clean_path:
+            self._add_log("脚本路径为空，已阻止电源动作")
+            return None
+        path = Path(clean_path).expanduser()
+        if not path.exists():
+            self._add_log(f"脚本路径不存在，已阻止电源动作：{path}")
+            return None
+        return str(path)
+
     def _execute_with_script(self, reason):
         if self._script_enabled:
             if self._dry_run:
                 self._add_log(f"Dry-run：将执行脚本 {self._script_path or '(未设置路径)'}")
             else:
-                result = self._script_runner(self._script_path, self._script_timeout_seconds)
+                script_path = self._validate_script_before_real_execution()
+                if not script_path:
+                    return
+                result = self._script_runner(script_path, self._script_timeout_seconds)
                 self._add_log(result.message)
                 if not result.ok:
                     self._add_log("脚本失败，已阻止电源动作")
@@ -449,13 +531,25 @@ class AppController(QObject):
             self._add_log(message)
             return
         self._add_log(f"{reason}：执行 {self.actionLabel}")
-        self._execute_power_action()
+        try:
+            self._execute_power_action()
+        except Exception as exc:
+            self._add_log(f"电源动作执行失败：{exc}")
 
     def _poll_process_trigger(self):
         if not self._process_trigger_active:
             return
-        name = self._process_name.strip()
-        running = bool(self._process_checker(name))
+        name = self._process_target_name or self._process_name.strip()
+        running = self._check_process_running(name)
+        if self._last_process_check_error:
+            self._process_timer.stop()
+            self._process_trigger_active = False
+            self._process_seen = False
+            self._process_target_name = ""
+            self._process_trigger_status = f"进程检测失败：{self._last_process_check_error}"
+            self._add_log(f"进程退出触发已停止：{self._process_trigger_status}")
+            self.processTriggerChanged.emit()
+            return
         if running:
             if not self._process_seen:
                 self._add_log(f"已发现进程：{name}")
@@ -467,6 +561,7 @@ class AppController(QObject):
             self._process_timer.stop()
             self._process_trigger_active = False
             self._process_seen = False
+            self._process_target_name = ""
             self._process_trigger_status = f"进程已退出：{name}"
             self._add_log(f"进程已退出：{name}")
             self.processTriggerChanged.emit()
@@ -513,12 +608,36 @@ class AppController(QObject):
             self._network_trigger_status = f"网络忙碌：0/{self._network_idle_seconds} 秒"
         self.networkTriggerChanged.emit()
 
+    def _diagnostic_text(self):
+        return "\n".join([
+            "AutoShutdownQt 2.0 Diagnostics",
+            f"Dry-run: {self._dry_run}",
+            f"Status: {self._status}",
+            f"Remaining seconds: {self._remaining_seconds}",
+            f"Target info: {self._target_time_str or '(none)'}",
+            f"Action: {self._selected_action} ({self.actionLabel})",
+            f"Force close: {self._force_close}",
+            f"Script enabled: {self._script_enabled}",
+            f"Script path: {self._script_path or '(empty)'}",
+            f"Script timeout seconds: {self._script_timeout_seconds}",
+            f"Process trigger: active={self._process_trigger_active}, name={self._process_name or '(empty)'}, target={self._process_target_name or '(none)'}, status={self._process_trigger_status}",
+            f"Network trigger: active={self._network_trigger_active}, down<{self._network_download_threshold_kbps} KB/s, up<{self._network_upload_threshold_kbps} KB/s, idle={self._network_idle_seconds}s, poll={self._network_poll_seconds}s, status={self._network_trigger_status}, speed={self._network_speed_text}",
+        ])
+
     def _execute_power_action(self):
-        if self._power_executor:
+        if self._power_executor is not None:
             self._power_executor(self._selected_action, self._force_close)
             return
         from power_service import execute_power_action
         execute_power_action(self._selected_action, self._force_close)
+
+    def _check_process_running(self, process_name):
+        self._last_process_check_error = ""
+        try:
+            return bool(self._process_checker(process_name))
+        except Exception as exc:
+            self._last_process_check_error = str(exc) or exc.__class__.__name__
+            return False
 
     def _is_process_running(self, process_name):
         clean_name = (process_name or "").strip().lower()
@@ -532,7 +651,12 @@ class AppController(QObject):
                 timeout=4,
                 check=False,
             )
-        except Exception:
+        except Exception as exc:
+            self._last_process_check_error = str(exc) or exc.__class__.__name__
+            return False
+        if completed.returncode != 0:
+            message = (completed.stderr or completed.stdout or f"tasklist exited with {completed.returncode}").strip()
+            self._last_process_check_error = message
             return False
         return any(line.lower().startswith(f'"{clean_name}"') for line in completed.stdout.splitlines())
 

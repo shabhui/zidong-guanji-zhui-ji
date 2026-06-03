@@ -15,6 +15,7 @@ Window {
     flags: Qt.Window | Qt.FramelessWindowHint
 
     property int currentPage: 0
+    property bool dryRunSwitchSyncing: false
     readonly property int topBarHeight: 58
     readonly property int sidebarWidth: 224
     readonly property int outerMargin: 22
@@ -34,6 +35,41 @@ Window {
     function safeFloat(value, fallback) {
         var parsed = parseFloat(value)
         return isNaN(parsed) ? fallback : parsed
+    }
+
+    function toggleMaximized() {
+        if (mainWindow.visibility === Window.Maximized) {
+            mainWindow.showNormal()
+        } else {
+            mainWindow.showMaximized()
+        }
+    }
+
+    function syncDryRunSwitchState() {
+        if (dryRunSafetySwitch.checked !== controller.dryRun) {
+            dryRunSwitchSyncing = true
+            dryRunSafetySwitch.checked = controller.dryRun
+            dryRunSwitchSyncing = false
+        }
+    }
+
+    function confirmLiveModeFromSwitch(checked) {
+        if (dryRunSwitchSyncing || checked === controller.dryRun) {
+            return
+        }
+        if (checked) {
+            controller.requestDryRunChange(true)
+            return
+        }
+        mainWindow.syncDryRunSwitchState()
+        liveModeConfirmDialog.open()
+    }
+
+    Connections {
+        target: controller
+        function onDryRunChanged() {
+            mainWindow.syncDryRunSwitchState()
+        }
     }
 
     Rectangle {
@@ -163,6 +199,7 @@ Window {
                 mainWindow.x += mouse.x - lastPos.x
                 mainWindow.y += mouse.y - lastPos.y
             }
+            onDoubleClicked: mainWindow.toggleMaximized()
         }
 
         RowLayout {
@@ -244,6 +281,14 @@ Window {
                 variant: "ghost"
                 text: "—"
                 onClicked: mainWindow.showMinimized()
+            }
+            NeonButton {
+                Layout.preferredWidth: 38
+                Layout.preferredHeight: 32
+                compact: true
+                variant: "ghost"
+                text: mainWindow.visibility === Window.Maximized ? "❐" : "□"
+                onClicked: mainWindow.toggleMaximized()
             }
             NeonButton {
                 Layout.preferredWidth: 38
@@ -459,6 +504,28 @@ Window {
                                     enabled: controller.status === "running"
                                     onClicked: controller.cancel()
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        variant: "secondary"
+                                        text: "延后 5 分钟"
+                                        enabled: controller.status === "running"
+                                        onClicked: controller.snoozeMinutes(5)
+                                    }
+                                    NeonButton {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        compact: true
+                                        variant: "secondary"
+                                        text: "延后 10 分钟"
+                                        enabled: controller.status === "running"
+                                        onClicked: controller.snoozeMinutes(10)
+                                    }
+                                }
                             }
                         }
                     }
@@ -656,6 +723,9 @@ Window {
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "30 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_30") }
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "1 小时后睡眠"; onClicked: controller.applyTaskTemplate("sleep_60") }
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "今晚 23:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_2300") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "5 分钟后锁定"; onClicked: controller.applyTaskTemplate("lock_5") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "10 分钟后睡眠"; onClicked: controller.applyTaskTemplate("sleep_10") }
+                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "明天 00:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_midnight") }
                     }
                     Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
                     GridLayout {
@@ -850,6 +920,7 @@ Window {
                                     Text { Layout.fillWidth: true; text: "触发日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
                                     NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "清空日志"; onClicked: controller.clearLogs() }
                                     NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "导出日志"; onClicked: controller.exportLogs() }
+                                    NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "导出诊断"; onClicked: controller.exportDiagnostics() }
                                 }
                                 Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
                             }
@@ -947,7 +1018,11 @@ Window {
                     RowLayout {
                         Layout.fillWidth: true
                         Text { Layout.fillWidth: true; text: "Dry-run 安全验证"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
-                        FluentSwitch { checked: controller.dryRun; onCheckedChanged: controller.dryRun = checked }
+                        FluentSwitch {
+                            id: dryRunSafetySwitch
+                            checked: controller.dryRun
+                            onCheckedChanged: mainWindow.confirmLiveModeFromSwitch(checked)
+                        }
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -956,7 +1031,7 @@ Window {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "建议验证时保持 Dry-run 开启。关闭后会执行真实系统动作，危险动作仍会弹窗确认。"
+                        text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。"
                         color: Theme.danger
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
@@ -970,5 +1045,70 @@ Window {
         id: confirmDialog
         anchors.centerIn: parent
         actionLabel: controller.actionLabel
+    }
+
+    Dialog {
+        id: liveModeConfirmDialog
+        modal: true
+        standardButtons: Dialog.NoButton
+        width: 460
+        height: 286
+        padding: 22
+        anchors.centerIn: parent
+
+        background: Rectangle {
+            color: Theme.cardGlassActive
+            radius: Theme.radiusLg
+            border.color: Theme.danger
+            border.width: 1
+            antialiasing: true
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spaceMd
+            Text {
+                Layout.fillWidth: true
+                text: "确认关闭 Dry-run"
+                color: Theme.textPrimary
+                font.pixelSize: 20
+                font.weight: Font.Bold
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "关闭 Dry-run 后将进入 LIVE MODE，倒计时结束、进程退出触发、网络闲置触发和立即执行都可能执行真实系统电源动作。\n\n请确认动作、触发器、脚本路径和未保存工作。"
+                color: Theme.textSecondary
+                font.pixelSize: 14
+                lineHeight: 1.16
+                wrapMode: Text.WordWrap
+            }
+            Item { Layout.fillHeight: true }
+        }
+
+        footer: Item {
+            implicitHeight: 64
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 22
+                anchors.rightMargin: 22
+                anchors.bottomMargin: 16
+                spacing: Theme.spaceSm
+                Item { Layout.fillWidth: true }
+                NeonButton {
+                    compact: true
+                    text: "取消"
+                    onClicked: liveModeConfirmDialog.reject()
+                }
+                NeonButton {
+                    compact: true
+                    variant: "danger"
+                    text: "进入 LIVE MODE"
+                    onClicked: liveModeConfirmDialog.accept()
+                }
+            }
+        }
+
+        onAccepted: controller.requestDryRunChange(false)
+        onRejected: mainWindow.syncDryRunSwitchState()
+        onClosed: mainWindow.syncDryRunSwitchState()
     }
 }

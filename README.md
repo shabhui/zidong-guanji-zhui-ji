@@ -88,6 +88,8 @@ dist/AutoShutdownQt-2.0.zip
 - `dist/`、`build/` 和 `*.zip` 已被 `.gitignore` 忽略，不会随源码提交。
 - 当前发布包是便携版，不是安装器。
 - 当前 exe 未做代码签名，Windows 首次运行时可能出现安全提示。
+- zip 内会包含 `release-manifest.json`，用于记录版本、关键文件和安全说明。
+- 更多发布说明见 `RELEASE_NOTES_v2.0.md`。
 
 ## 安全模式说明
 
@@ -100,10 +102,10 @@ AutoShutdownQt 面向电源动作自动化，默认安全策略是：
 
 ## GitHub 发布状态
 
-当前 2.0 开发和发布准备分支：
+当前 2.0 源码和本地发布准备基线在：
 
 ```text
-v2-e5e8-reference-ui
+main
 ```
 
-本仓库当前提交发布配置和源码，不直接提交本地 zip 包。如需正式 GitHub Release，可在确认 README 和分支内容后创建 `v2.0` tag，并上传 `dist/AutoShutdownQt-2.0.zip`。
+本仓库提交发布配置和源码，不直接提交本地 zip 包。如需正式 GitHub Release，可在确认 README、测试和本地发布包后创建 `v2.0` tag，并上传 `dist/AutoShutdownQt-2.0.zip`。
