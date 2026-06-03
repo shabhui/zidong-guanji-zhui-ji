@@ -364,10 +364,18 @@ class AppController(QObject):
 
     @Slot(str)
     def deleteQueueTask(self, task_id):
-        removed = self._scheduler.remove_task(task_id)
-        if not removed:
+        try:
+            task = self._scheduler.get_task(task_id)
+        except KeyError:
             self._add_log(f"任务不存在：{task_id}")
             return
+        if task.trigger_type == TaskTriggerType.PROCESS_EXIT:
+            self._stop_process_monitor_without_queue_update()
+            self.processTriggerChanged.emit()
+        elif task.trigger_type == TaskTriggerType.NETWORK_IDLE:
+            self._stop_network_monitor_without_queue_update()
+            self.networkTriggerChanged.emit()
+        self._scheduler.remove_task(task_id)
         self._save_settings()
         self._add_log("任务已删除")
         self.taskQueueChanged.emit()
@@ -480,6 +488,8 @@ class AppController(QObject):
             self._add_log(f"进程退出触发已启动：等待进程出现 {name}")
         self._process_timer.setInterval(self._process_poll_seconds * 1000)
         self._process_timer.start()
+        if self._remove_queue_tasks_by_trigger(TaskTriggerType.PROCESS_EXIT):
+            self._add_log("已替换上一进程退出队列任务")
         self._scheduler.add_task(
             f"进程退出：{name}",
             self._selected_action,
@@ -494,12 +504,11 @@ class AppController(QObject):
 
     @Slot()
     def stopProcessTrigger(self):
-        self._process_timer.stop()
-        self._process_trigger_active = False
-        self._process_seen = False
-        self._process_target_name = ""
-        self._process_trigger_status = "已停止"
+        self._stop_process_monitor_without_queue_update()
+        self._remove_queue_tasks_by_trigger(TaskTriggerType.PROCESS_EXIT)
+        self._save_settings()
         self._add_log("进程退出触发已停止")
+        self.taskQueueChanged.emit()
         self.processTriggerChanged.emit()
 
     @Slot()
@@ -639,6 +648,29 @@ class AppController(QObject):
             self._status = "ready"
             self.statusChanged.emit()
             self._execute_with_script("倒计时结束")
+
+    def _queue_tasks_by_trigger(self, trigger_type):
+        return [task for task in self._scheduler.tasks if task.trigger_type == trigger_type]
+
+    def _remove_queue_tasks_by_trigger(self, trigger_type):
+        removed = False
+        for task in self._queue_tasks_by_trigger(trigger_type):
+            removed = self._scheduler.remove_task(task.id) or removed
+        return removed
+
+    def _stop_process_monitor_without_queue_update(self):
+        self._process_timer.stop()
+        self._process_trigger_active = False
+        self._process_seen = False
+        self._process_target_name = ""
+        self._process_trigger_status = "已停止"
+
+    def _stop_network_monitor_without_queue_update(self):
+        self._network_timer.stop()
+        self._network_trigger_active = False
+        self._network_idle_elapsed = 0.0
+        self._network_previous_sample = None
+        self._network_trigger_status = "已停止"
 
     def _execute_task(self, task, now):
         previous_action = self._selected_action

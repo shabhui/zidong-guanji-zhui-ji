@@ -162,6 +162,44 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("network_idle", controller.queueRowsJson)
         self.assertIn("网络闲置", controller.queueText)
 
+    def test_starting_second_process_trigger_replaces_previous_process_queue_task(self):
+        controller = AppController()
+        controller._process_checker = lambda name: True
+
+        controller.processName = "first.exe"
+        controller.startProcessTrigger()
+        controller.processName = "second.exe"
+        controller.startProcessTrigger()
+
+        self.assertEqual(controller.queueTaskCount, 1)
+        self.assertNotIn("first.exe", controller.queueText)
+        self.assertIn("second.exe", controller.queueText)
+
+    def test_stopping_process_trigger_removes_matching_queue_task(self):
+        controller = AppController()
+        controller.processName = "demo.exe"
+        controller._process_checker = lambda name: True
+
+        controller.startProcessTrigger()
+        controller.stopProcessTrigger()
+
+        self.assertFalse(controller.processTriggerActive)
+        self.assertNotIn("process_exit", controller.queueRowsJson)
+        self.assertEqual(controller.queueTaskCount, 0)
+
+    def test_deleting_active_process_queue_task_stops_process_monitor(self):
+        controller = AppController()
+        controller.processName = "demo.exe"
+        controller._process_checker = lambda name: True
+        controller.startProcessTrigger()
+        task_id = controller._scheduler.tasks[0].id
+
+        controller.deleteQueueTask(task_id)
+
+        self.assertFalse(controller.processTriggerActive)
+        self.assertEqual(controller.processTriggerStatus, "已停止")
+        self.assertEqual(controller.queueTaskCount, 0)
+
     def test_controller_saves_settings_when_persisted_properties_change(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "settings.json"
