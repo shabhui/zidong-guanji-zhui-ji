@@ -7,6 +7,7 @@ __pycache__/
 dist/
 *.spec
 !AutoShutdownQt/AutoShutdownQt-2.0.spec
+!AutoShutdownQt/AutoShutdownQt-2.1.spec
 
 # Publish artifacts
 [Pp]ublish/

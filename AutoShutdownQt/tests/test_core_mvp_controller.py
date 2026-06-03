@@ -24,16 +24,16 @@ class CoreMvpControllerTest(unittest.TestCase):
         self.controller.applyTaskTemplate("shutdown_15")
 
         self.assertEqual(self.controller.selectedAction, "shutdown")
-        self.assertEqual(self.controller.status, "running")
-        self.assertGreaterEqual(self.controller.remainingSeconds, 14 * 60)
+        self.assertEqual(self.controller.queueTaskCount, 1)
+        self.assertIn("倒计时 15 分钟", self.controller.queueText)
         self.assertIn("15 分钟后关机", self.controller.logText)
 
     def test_fixed_time_template_sets_target_and_logs_it(self):
         self.controller.applyTaskTemplate("shutdown_2300")
 
         self.assertEqual(self.controller.selectedAction, "shutdown")
-        self.assertEqual(self.controller.status, "running")
-        self.assertIn("23:00", self.controller.targetInfo)
+        self.assertEqual(self.controller.queueTaskCount, 1)
+        self.assertIn("23:00", self.controller.queueText)
         self.assertIn("今晚 23:00 关机", self.controller.logText)
 
     def test_script_dry_run_does_not_call_script_runner(self):

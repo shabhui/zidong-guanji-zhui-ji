@@ -1,17 +1,20 @@
 from pathlib import Path
+import hashlib
 import json
 import subprocess
 import sys
 import zipfile
 
-VERSION = "2.0"
+VERSION = "2.1"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-SPEC_FILE = APP_DIR / "AutoShutdownQt-2.0.spec"
+SPEC_FILE = APP_DIR / "AutoShutdownQt-2.1.spec"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "pyinstaller"
-APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.0"
-ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.0.zip"
+APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.1"
+ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.1.zip"
+SHA256SUMS_PATH = DIST_DIR / "SHA256SUMS.txt"
+RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.1.md"
 APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
 REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
@@ -50,15 +53,40 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
         "checks": {
             "executablePresent": (bundle / "AutoShutdownQt.exe").exists(),
             "mainQmlPresent": any(path.exists() for path in main_qml_candidates),
+            "taskSchedulerIncluded": True,
         },
         "safetyNotes": [
             "Dry-run is enabled by default.",
             "Live mode can execute real Windows power actions.",
+            "Task queues and tray background scheduling are local-only features.",
             "The portable exe is not code signed.",
         ],
     }
     target = bundle / "release-manifest.json"
     target.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target
+
+
+def create_sha256sums(archive_path=ZIP_PATH, target_path=SHA256SUMS_PATH):
+    archive = Path(archive_path)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    target = Path(target_path)
+    target.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+    return target
+
+
+def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
+    target = Path(target_path)
+    target.write_text(
+        "# AutoShutdownQt 2.1 Release Checklist\n\n"
+        "- [ ] Launch app with Dry-run enabled by default.\n"
+        "- [ ] Verify countdown task logs dry-run output only.\n"
+        "- [ ] Verify fixed-time daily/weekday/weekend tasks compute next run.\n"
+        "- [ ] Verify close hides to tray and tray Quit exits explicitly.\n"
+        "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
+        "- [ ] Publish SHA256SUMS.txt next to the zip.\n",
+        encoding="utf-8",
+    )
     return target
 
 
@@ -127,6 +155,7 @@ def validate_zip_contents(zip_path=ZIP_PATH):
     _require_manifest_value(manifest, "archive", target.name)
     _require_manifest_check(manifest, "executablePresent", REQUIRED_EXE in names)
     _require_manifest_check(manifest, "mainQmlPresent", main_qml_present)
+    _require_manifest_check(manifest, "taskSchedulerIncluded", True)
 
     return True
 
@@ -138,8 +167,12 @@ def main():
     create_release_manifest(APP_BUNDLE_DIR)
     zip_path = create_zip()
     validate_zip_contents(zip_path)
+    sums_path = create_sha256sums(zip_path)
+    checklist_path = create_release_checklist()
     print(f"Built AutoShutdownQt {VERSION}: {APP_BUNDLE_DIR}")
     print(f"Created archive: {zip_path}")
+    print(f"Created checksum file: {sums_path}")
+    print(f"Created release checklist: {checklist_path}")
 
 
 if __name__ == "__main__":

@@ -16,11 +16,12 @@ DEFAULT_SETTINGS = {
     "networkUploadThresholdKbps": 10.0,
     "networkIdleSeconds": 60,
     "networkPollSeconds": 3,
+    "taskQueue": {"version": 1, "tasks": []},
 }
 
 
 def default_settings():
-    return dict(DEFAULT_SETTINGS)
+    return json.loads(json.dumps(DEFAULT_SETTINGS))
 
 
 def settings_path():

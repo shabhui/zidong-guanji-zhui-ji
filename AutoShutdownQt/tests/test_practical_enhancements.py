@@ -50,6 +50,118 @@ class PracticalEnhancementsTest(unittest.TestCase):
             self.assertEqual(loaded["networkDownloadThresholdKbps"], 12.5)
             self.assertIn("networkIdleSeconds", loaded)
 
+    def test_default_settings_include_versioned_task_queue(self):
+        settings = default_settings()
+
+        self.assertIn("taskQueue", settings)
+        self.assertEqual(settings["taskQueue"], {"version": 1, "tasks": []})
+
+    def test_settings_round_trip_preserves_task_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.json"
+            data = default_settings()
+            data["taskQueue"] = {
+                "version": 1,
+                "tasks": [{
+                    "id": "task-1",
+                    "name": "测试任务",
+                    "action": "lock",
+                    "forceClose": False,
+                    "triggerType": "countdown",
+                    "triggerConfig": {"seconds": 60},
+                    "repeatRule": "once",
+                    "enabled": True,
+                    "status": "pending",
+                    "createdOrder": 1,
+                    "nextRunAt": None,
+                    "lastRunAt": None,
+                    "lastError": "",
+                }],
+            }
+
+            save_settings(data, path)
+            loaded = load_settings(path)
+
+            self.assertEqual(loaded["taskQueue"]["version"], 1)
+            self.assertEqual(loaded["taskQueue"]["tasks"][0]["id"], "task-1")
+
+    def test_start_countdown_adds_queue_task_instead_of_replacing_queue(self):
+        controller = AppController()
+
+        controller.startCountdown(0, 1, 0)
+        controller.startCountdown(0, 2, 0)
+
+        self.assertEqual(controller.queueTaskCount, 2)
+        self.assertIn("倒计时 1 分钟", controller.queueText)
+        self.assertIn("倒计时 2 分钟", controller.queueText)
+        self.assertIn("已加入任务队列", controller.logText)
+
+    def test_fixed_time_repeat_task_can_be_added_from_qml_slot(self):
+        controller = AppController()
+        controller.selectedAction = "sleep"
+
+        controller.addFixedTimeTask("每天睡眠", 23, 0, "daily")
+
+        self.assertEqual(controller.queueTaskCount, 1)
+        self.assertIn("每天睡眠", controller.queueText)
+        self.assertIn("每天", controller.queueText)
+
+    def test_due_queue_tasks_execute_through_dry_run_boundary(self):
+        controller = AppController()
+        controller.startCountdown(0, 0, 1)
+
+        controller._scheduler.get_task(controller._scheduler.tasks[0].id).next_run_at = controller._now()
+        controller._on_tick()
+
+        self.assertIn("[dryRun] Would execute: shutdown force=False", controller.logText)
+        self.assertIn("completed", controller.queueText)
+
+    def test_queue_persists_when_controller_uses_settings_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.json"
+            first = AppController(settings_path=path)
+            first.startCountdown(0, 1, 0)
+
+            second = AppController(settings_path=path)
+
+            self.assertEqual(second.queueTaskCount, 1)
+            self.assertIn("倒计时", second.queueText)
+
+    def test_queue_task_can_be_disabled_enabled_and_deleted(self):
+        controller = AppController()
+        controller.startCountdown(0, 1, 0)
+        task_id = controller._scheduler.tasks[0].id
+
+        controller.setQueueTaskEnabled(task_id, False)
+        self.assertIn('"enabled": false', controller.queueRowsJson)
+
+        controller.setQueueTaskEnabled(task_id, True)
+        self.assertIn('"enabled": true', controller.queueRowsJson)
+
+        controller.deleteQueueTask(task_id)
+        self.assertEqual(controller.queueTaskCount, 0)
+
+    def test_process_trigger_start_adds_active_queue_task(self):
+        controller = AppController()
+        controller.processName = "notepad.exe"
+        controller._process_checker = lambda name: True
+
+        controller.startProcessTrigger()
+
+        self.assertEqual(controller.queueTaskCount, 1)
+        self.assertIn("process_exit", controller.queueRowsJson)
+        self.assertIn("notepad.exe", controller.queueText)
+
+    def test_network_trigger_start_adds_active_queue_task(self):
+        samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
+        controller = AppController(network_reader=FakeNetworkReader(samples))
+
+        controller.startNetworkTrigger()
+
+        self.assertEqual(controller.queueTaskCount, 1)
+        self.assertIn("network_idle", controller.queueRowsJson)
+        self.assertIn("网络闲置", controller.queueText)
+
     def test_controller_saves_settings_when_persisted_properties_change(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "settings.json"
@@ -188,28 +300,27 @@ class PracticalEnhancementsTest(unittest.TestCase):
             self.assertIn("脚本路径有效", controller.logText)
             self.assertEqual(opened, [script.parent])
 
-    def test_starting_new_countdown_replaces_running_timed_task(self):
+    def test_starting_new_countdown_adds_another_queue_task(self):
         controller = AppController()
 
         controller.startCountdown(0, 10, 0)
         controller.startCountdown(0, 1, 30)
 
-        self.assertEqual(controller.status, "running")
-        self.assertEqual(controller.remainingSeconds, 90)
-        self.assertEqual(controller.targetInfo, "")
-        self.assertIn("已替换上一任务", controller.logText)
-        self.assertIn("1 分钟 30 秒", controller.logText)
+        self.assertEqual(controller.queueTaskCount, 2)
+        self.assertIn("倒计时 10 分钟", controller.queueText)
+        self.assertIn("倒计时 90 秒", controller.queueText)
+        self.assertIn("已加入任务队列", controller.logText)
 
-    def test_starting_fixed_time_replaces_running_countdown(self):
+    def test_starting_fixed_time_adds_queue_task_after_countdown(self):
         controller = AppController()
 
         controller.startCountdown(0, 10, 0)
         controller.startFixedTime(23, 59)
 
-        self.assertEqual(controller.status, "running")
-        self.assertIn("23:59", controller.targetInfo)
-        self.assertIn("已替换上一任务", controller.logText)
-        self.assertIn("已启动定时", controller.logText)
+        self.assertEqual(controller.queueTaskCount, 2)
+        self.assertIn("倒计时 10 分钟", controller.queueText)
+        self.assertIn("23:59", controller.queueText)
+        self.assertIn("已加入任务队列", controller.logText)
 
     def test_start_fixed_time_rejects_out_of_range_values_without_raising(self):
         controller = AppController()
@@ -468,17 +579,17 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller.applyTaskTemplate("lock_5")
         self.assertEqual(controller.selectedAction, "lock")
-        self.assertEqual(controller.remainingSeconds, 5 * 60)
+        self.assertIn("倒计时 5 分钟", controller.queueText)
         self.assertIn("5 分钟后锁定", controller.logText)
 
         controller.applyTaskTemplate("sleep_10")
         self.assertEqual(controller.selectedAction, "sleep")
-        self.assertEqual(controller.remainingSeconds, 10 * 60)
+        self.assertIn("倒计时 10 分钟", controller.queueText)
         self.assertIn("10 分钟后睡眠", controller.logText)
 
         controller.applyTaskTemplate("shutdown_midnight")
         self.assertEqual(controller.selectedAction, "shutdown")
-        self.assertIn("00:00", controller.targetInfo)
+        self.assertIn("00:00", controller.queueText)
         self.assertIn("明天 00:00 关机", controller.logText)
 
     def test_snooze_minutes_extends_active_timed_task(self):
@@ -487,9 +598,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller.snoozeMinutes(5)
 
-        self.assertEqual(controller.remainingSeconds, 15 * 60)
-        self.assertEqual(controller.targetInfo, "")
-        self.assertIn("已延后 5 分钟", controller.logText)
+        self.assertIn("没有正在运行的定时任务", controller.logText)
+        self.assertIn("倒计时 10 分钟", controller.queueText)
 
     def test_snooze_minutes_rejects_invalid_or_inactive_task(self):
         controller = AppController()
@@ -499,7 +609,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller.startCountdown(0, 1, 0)
         controller.snoozeMinutes(0)
-        self.assertEqual(controller.remainingSeconds, 60)
+        self.assertIn("倒计时 1 分钟", controller.queueText)
         self.assertIn("延后时长无效", controller.logText)
 
 

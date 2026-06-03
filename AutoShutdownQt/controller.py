@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer, QCoreApplication
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 import math
 import os
 import subprocess
@@ -9,6 +10,8 @@ import sys
 from network_service import NetworkReader, compute_speed
 from script_service import run_script
 from settings_service import default_settings, load_settings, log_export_path as default_log_export_path, save_settings
+from task_model import RepeatRule, TaskTriggerType
+from task_scheduler import TaskScheduler
 
 
 class AppController(QObject):
@@ -21,6 +24,8 @@ class AppController(QObject):
     processTriggerChanged = Signal()
     networkTriggerChanged = Signal()
     logTextChanged = Signal()
+    taskQueueChanged = Signal()
+    schedulingPausedChanged = Signal()
 
     POWER_ACTIONS = ["shutdown", "sleep", "hibernate", "restart", "logoff", "lock"]
     ACTION_LABELS = {
@@ -64,6 +69,8 @@ class AppController(QObject):
         self._process_checker = self._is_process_running
         self._last_process_check_error = ""
         self._network_reader = network_reader or NetworkReader()
+        self._scheduler = TaskScheduler(now_provider=self._now, diagnostic_logger=self._add_log)
+        self._scheduler.load_from_settings(settings.get("taskQueue"))
         self._log_export_path = log_export_path
         self._open_folder = open_folder
         self._timer = QTimer(self)
@@ -73,6 +80,7 @@ class AppController(QObject):
         self._process_timer.timeout.connect(self._poll_process_trigger)
         self._network_timer = QTimer(self)
         self._network_timer.timeout.connect(self._poll_network_trigger)
+        self._tray_service = None
 
     # --- QML Properties ---
 
@@ -236,6 +244,35 @@ class AppController(QObject):
         return self._diagnostic_text()
     diagnosticText = Property(str, getDiagnosticText, notify=logTextChanged)
 
+    def getQueueTaskCount(self):
+        return len(self._scheduler.tasks)
+    queueTaskCount = Property(int, getQueueTaskCount, notify=taskQueueChanged)
+
+    def getQueueText(self):
+        rows = self._scheduler.rows()
+        if not rows:
+            return "暂无任务"
+        return "\n".join(
+            f"{row['name']} · {row['triggerSummary']} · {row['repeatSummary']} · {row['status']} · {row['nextRunText']}"
+            for row in rows
+        )
+    queueText = Property(str, getQueueText, notify=taskQueueChanged)
+
+    def getQueueRowsJson(self):
+        return json.dumps(self._scheduler.rows(), ensure_ascii=False)
+    queueRowsJson = Property(str, getQueueRowsJson, notify=taskQueueChanged)
+
+    def getSchedulingPaused(self):
+        return self._scheduler.paused
+    schedulingPaused = Property(bool, getSchedulingPaused, notify=schedulingPausedChanged)
+
+    def getTrayService(self):
+        return self._tray_service
+
+    def setTrayService(self, service):
+        self._tray_service = service
+    trayService = property(getTrayService, setTrayService)
+
     # --- Slots ---
 
     @Slot(int, int, int)
@@ -244,38 +281,105 @@ class AppController(QObject):
         if total <= 0:
             self._add_log("倒计时时长无效，已忽略")
             return
-        self._replace_active_timed_task_if_needed()
-        self._remaining_seconds = total
-        self._status = "running"
-        self._target_time_str = ""
+        task = self._scheduler.add_task(
+            f"倒计时 {self._format_duration(total)}",
+            self._selected_action,
+            self._force_close,
+            TaskTriggerType.COUNTDOWN,
+            {"seconds": total},
+            RepeatRule.ONCE,
+        )
+        self._save_settings()
         self._timer.start()
-        self._add_log(f"已启动倒计时：{self._format_duration(total)} 后执行 {self.actionLabel}")
-        self.statusChanged.emit()
-        self.remainingTimeChanged.emit()
-        self.targetInfoChanged.emit()
+        self._add_log(f"已加入任务队列：{task.name} 后执行 {self.actionLabel}")
+        self.taskQueueChanged.emit()
 
     @Slot(int, int)
     def startFixedTime(self, hour, minute):
+        self.addFixedTimeTask(f"固定时间 {hour:02d}:{minute:02d}", hour, minute, RepeatRule.ONCE.value)
+
+    @Slot(str, int, int, str)
+    def addFixedTimeTask(self, name, hour, minute, repeat_rule):
         if hour < 0 or hour > 23 or minute < 0 or minute > 59:
             self._add_log("指定时间无效，已忽略")
             return
-        now = datetime.now()
-        target = datetime(now.year, now.month, now.day, hour, minute, 0)
-        if target <= now:
-            target += timedelta(days=1)
-        delta = int((target - now).total_seconds())
-        if delta <= 0:
-            self._add_log("指定时间无效，已忽略")
+        try:
+            rule = RepeatRule(repeat_rule)
+        except ValueError:
+            self._add_log("重复规则无效，已忽略")
             return
-        self._replace_active_timed_task_if_needed()
-        self._remaining_seconds = delta
-        self._status = "running"
-        self._target_time_str = target.strftime("%Y-%m-%d %H:%M")
+        task = self._scheduler.add_task(
+            name or f"固定时间 {hour:02d}:{minute:02d}",
+            self._selected_action,
+            self._force_close,
+            TaskTriggerType.FIXED_TIME,
+            {"hour": hour, "minute": minute},
+            rule,
+        )
+        self._save_settings()
         self._timer.start()
-        self._add_log(f"已启动定时：{self._target_time_str} 执行 {self.actionLabel}")
-        self.statusChanged.emit()
-        self.remainingTimeChanged.emit()
-        self.targetInfoChanged.emit()
+        self._add_log(f"已加入任务队列：{task.name} 执行 {self.actionLabel}")
+        self.taskQueueChanged.emit()
+
+    @Slot()
+    def pauseScheduling(self):
+        self._scheduler.pause()
+        self._add_log("调度已暂停")
+        self.schedulingPausedChanged.emit()
+        self.taskQueueChanged.emit()
+
+    @Slot()
+    def resumeScheduling(self):
+        self._scheduler.resume()
+        self._add_log("调度已恢复")
+        self.schedulingPausedChanged.emit()
+        self.taskQueueChanged.emit()
+
+    @Slot()
+    def cancelAllTasks(self):
+        for task in list(self._scheduler.tasks):
+            self._scheduler.remove_task(task.id)
+        self.cancel()
+        self._save_settings()
+        self._add_log("已取消所有任务")
+        self.taskQueueChanged.emit()
+
+    @Slot()
+    def requestQuit(self):
+        active = [task for task in self._scheduler.tasks if task.enabled]
+        if active:
+            self._add_log("退出前请确认：仍有启用任务")
+        QCoreApplication.quit()
+
+    @Slot(str, bool)
+    def setQueueTaskEnabled(self, task_id, enabled):
+        try:
+            self._scheduler.set_enabled(task_id, enabled)
+        except KeyError:
+            self._add_log(f"任务不存在：{task_id}")
+            return
+        self._save_settings()
+        self._add_log("任务已启用" if enabled else "任务已禁用")
+        self.taskQueueChanged.emit()
+
+    @Slot(str)
+    def deleteQueueTask(self, task_id):
+        removed = self._scheduler.remove_task(task_id)
+        if not removed:
+            self._add_log(f"任务不存在：{task_id}")
+            return
+        self._save_settings()
+        self._add_log("任务已删除")
+        self.taskQueueChanged.emit()
+
+    @Slot(str)
+    def runQueueTaskDryRunCheck(self, task_id):
+        try:
+            task = self._scheduler.get_task(task_id)
+        except KeyError:
+            self._add_log(f"任务不存在：{task_id}")
+            return
+        self._add_log(f"Dry-run 检查：{task.name} -> {task.action} force={task.force_close}")
 
     @Slot(str)
     def applyTaskTemplate(self, key):
@@ -376,6 +480,16 @@ class AppController(QObject):
             self._add_log(f"进程退出触发已启动：等待进程出现 {name}")
         self._process_timer.setInterval(self._process_poll_seconds * 1000)
         self._process_timer.start()
+        self._scheduler.add_task(
+            f"进程退出：{name}",
+            self._selected_action,
+            self._force_close,
+            TaskTriggerType.PROCESS_EXIT,
+            {"processName": name, "pollSeconds": self._process_poll_seconds},
+            RepeatRule.ONCE,
+        )
+        self._save_settings()
+        self.taskQueueChanged.emit()
         self.processTriggerChanged.emit()
 
     @Slot()
@@ -405,7 +519,22 @@ class AppController(QObject):
         self._network_trigger_status = f"监控中：0/{self._network_idle_seconds} 秒"
         self._network_timer.setInterval(self._network_poll_seconds * 1000)
         self._network_timer.start()
+        self._scheduler.add_task(
+            "网络闲置触发",
+            self._selected_action,
+            self._force_close,
+            TaskTriggerType.NETWORK_IDLE,
+            {
+                "downloadKbps": self._network_download_threshold_kbps,
+                "uploadKbps": self._network_upload_threshold_kbps,
+                "idleSeconds": self._network_idle_seconds,
+                "pollSeconds": self._network_poll_seconds,
+            },
+            RepeatRule.ONCE,
+        )
+        self._save_settings()
         self._add_log("网络闲置触发已启动")
+        self.taskQueueChanged.emit()
         self.networkTriggerChanged.emit()
 
     @Slot()
@@ -493,6 +622,16 @@ class AppController(QObject):
             self._add_log("已替换上一任务")
 
     def _on_tick(self):
+        now = self._now()
+        due_tasks = self._scheduler.due_tasks(now)
+        if due_tasks:
+            for task in due_tasks:
+                self._execute_task(task, now)
+            self._save_settings()
+            self.taskQueueChanged.emit()
+            return
+        if self._remaining_seconds <= 0:
+            return
         self._remaining_seconds -= 1
         self.remainingTimeChanged.emit()
         if self._remaining_seconds <= 0:
@@ -500,6 +639,21 @@ class AppController(QObject):
             self._status = "ready"
             self.statusChanged.emit()
             self._execute_with_script("倒计时结束")
+
+    def _execute_task(self, task, now):
+        previous_action = self._selected_action
+        previous_force_close = self._force_close
+        self._selected_action = task.action
+        self._force_close = task.force_close
+        try:
+            self._execute_with_script(f"任务队列触发：{task.name}")
+            self._scheduler.mark_executed(task.id, now, success=True)
+        except Exception as exc:
+            self._scheduler.mark_executed(task.id, now, success=False, error=exc)
+            self._add_log(f"任务执行失败：{task.name}：{exc}")
+        finally:
+            self._selected_action = previous_action
+            self._force_close = previous_force_close
 
     def _validate_script_before_real_execution(self):
         clean_path = self._script_path.strip()
@@ -693,6 +847,7 @@ class AppController(QObject):
             "networkUploadThresholdKbps": self._network_upload_threshold_kbps,
             "networkIdleSeconds": self._network_idle_seconds,
             "networkPollSeconds": self._network_poll_seconds,
+            "taskQueue": self._scheduler.to_settings(),
         }
 
     def _save_settings(self):
@@ -708,6 +863,9 @@ class AppController(QObject):
             return True
         app = QCoreApplication.instance()
         return bool(app and QCoreApplication.applicationName() == "AutoShutdownQt")
+
+    def _now(self):
+        return datetime.now()
 
     def _coerce_bool(self, value, fallback):
         if isinstance(value, bool):

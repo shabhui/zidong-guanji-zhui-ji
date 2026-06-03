@@ -98,6 +98,24 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             self.assertIn(snippet, main)
         for label in ("下载阈值", "上传阈值", "闲置秒数", "开始网络监控", "停止网络监控", "清空日志", "导出日志", "验证路径", "打开目录"):
             self.assertIn(label, main)
+
+    def test_2_1_queue_and_repeat_controls_are_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            "AutoShutdown v2.1",
+            "v2.1 · Practical Scheduler",
+            "controller.queueRowsJson",
+            "JSON.parse(controller.queueRowsJson)",
+            "controller.addFixedTimeTask(",
+            "controller.setQueueTaskEnabled(",
+            "controller.deleteQueueTask(",
+            "controller.runQueueTaskDryRunCheck(",
+            "repeatRuleCombo",
+        ):
+            self.assertIn(snippet, main)
+        for label in ("任务队列", "重复规则", "仅一次", "每天", "工作日", "周末", "Dry-run 检查", "删除"):
+            self.assertIn(label, main)
     def test_smart_trigger_page_scrolls_to_keep_controls_accessible(self):
         main = MAIN_QML.read_text(encoding="utf-8")
         smart_index = main.index("// Smart triggers page")

@@ -10,12 +10,13 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "AutoShutdown v2.0"
+    title: "AutoShutdown v2.1"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
     property int currentPage: 0
     property bool dryRunSwitchSyncing: false
+    property bool trayCloseRequested: false
     readonly property int topBarHeight: 58
     readonly property int sidebarWidth: 224
     readonly property int outerMargin: 22
@@ -35,6 +36,14 @@ Window {
     function safeFloat(value, fallback) {
         var parsed = parseFloat(value)
         return isNaN(parsed) ? fallback : parsed
+    }
+
+    function queueRows() {
+        try {
+            return JSON.parse(controller.queueRowsJson)
+        } catch (error) {
+            return []
+        }
     }
 
     function toggleMaximized() {
@@ -69,6 +78,13 @@ Window {
         target: controller
         function onDryRunChanged() {
             mainWindow.syncDryRunSwitchState()
+        }
+    }
+
+    onClosing: function(close) {
+        if (!trayCloseRequested) {
+            close.accepted = false
+            mainWindow.hide()
         }
     }
 
@@ -234,7 +250,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v2.0 · Starry Glass"
+                    text: "v2.1 · Practical Scheduler"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -678,12 +694,29 @@ Window {
                         Text { text: "指定时间"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                         Text { text: "设定今天的执行时刻；如果时间已过，会自动排到明天。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         TimeInputPanel { id: fixedInput; Layout.fillWidth: true; Layout.preferredHeight: 126; showSeconds: false; hours: "23"; minutes: "00" }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            Text { text: "重复规则"; color: Theme.textSecondary; font.pixelSize: 13 }
+                            ComboBox {
+                                id: repeatRuleCombo
+                                Layout.preferredWidth: 150
+                                model: [
+                                    { label: "仅一次", value: "once" },
+                                    { label: "每天", value: "daily" },
+                                    { label: "工作日", value: "weekdays" },
+                                    { label: "周末", value: "weekends" }
+                                ]
+                                textRole: "label"
+                                valueRole: "value"
+                            }
+                        }
                         NeonButton {
                             Layout.preferredWidth: 180
                             Layout.preferredHeight: 44
                             variant: "primary"
                             text: "启动定时"
-                            onClicked: controller.startFixedTime(mainWindow.safeInt(fixedInput.hours, 23), mainWindow.safeInt(fixedInput.minutes, 0))
+                            onClicked: controller.addFixedTimeTask("固定时间任务", mainWindow.safeInt(fixedInput.hours, 23), mainWindow.safeInt(fixedInput.minutes, 0), repeatRuleCombo.currentValue)
                         }
                         Text { text: "Dry-run 开启时只验证流程，不会真实执行系统动作。"; color: Theme.success; font.pixelSize: 13 }
                     }
@@ -726,6 +759,37 @@ Window {
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "5 分钟后锁定"; onClicked: controller.applyTaskTemplate("lock_5") }
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "10 分钟后睡眠"; onClicked: controller.applyTaskTemplate("sleep_10") }
                         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "明天 00:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_midnight") }
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
+                    Text { text: "任务队列"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 180
+                        clip: true
+                        model: mainWindow.queueRows()
+                        delegate: Rectangle {
+                            width: ListView.view.width
+                            height: 78
+                            radius: Theme.radiusMd
+                            color: Theme.glassSoft
+                            border.color: Theme.e5BorderSoft
+                            border.width: 1
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 10
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Text { text: modelData.name; color: Theme.textPrimary; font.pixelSize: 14; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Text { text: modelData.triggerSummary + " · " + modelData.repeatSummary; color: Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Text { text: modelData.status + " · " + modelData.nextRunText; color: modelData.enabled ? Theme.warning : Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                                }
+                                FluentSwitch { checked: modelData.enabled; onCheckedChanged: controller.setQueueTaskEnabled(modelData.id, checked) }
+                                NeonButton { Layout.preferredWidth: 110; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "Dry-run 检查"; onClicked: controller.runQueueTaskDryRunCheck(modelData.id) }
+                                NeonButton { Layout.preferredWidth: 70; Layout.preferredHeight: 34; compact: true; variant: "danger"; text: "删除"; onClicked: controller.deleteQueueTask(modelData.id) }
+                            }
+                        }
                     }
                     Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
                     GridLayout {
@@ -1031,7 +1095,7 @@ Window {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。"
+                        text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。关闭窗口会隐藏到托盘；请使用托盘菜单 Quit 显式退出。"
                         color: Theme.danger
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
