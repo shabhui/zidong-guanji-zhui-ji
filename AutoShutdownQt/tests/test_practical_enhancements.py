@@ -200,6 +200,44 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(controller.processTriggerStatus, "已停止")
         self.assertEqual(controller.queueTaskCount, 0)
 
+    def test_starting_second_network_trigger_replaces_previous_network_queue_task(self):
+        samples = [
+            NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0),
+            NetworkSample(True, received_bytes=2, sent_bytes=2, monotonic_seconds=2.0),
+        ]
+        controller = AppController(network_reader=FakeNetworkReader(samples))
+
+        controller.networkIdleSeconds = 60
+        controller.startNetworkTrigger()
+        controller.networkIdleSeconds = 120
+        controller.startNetworkTrigger()
+
+        self.assertEqual(controller.queueTaskCount, 1)
+        self.assertIn("网络闲置 120 秒", controller.queueText)
+
+    def test_stopping_network_trigger_removes_matching_queue_task(self):
+        samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
+        controller = AppController(network_reader=FakeNetworkReader(samples))
+
+        controller.startNetworkTrigger()
+        controller.stopNetworkTrigger()
+
+        self.assertFalse(controller.networkTriggerActive)
+        self.assertNotIn("network_idle", controller.queueRowsJson)
+        self.assertEqual(controller.queueTaskCount, 0)
+
+    def test_deleting_active_network_queue_task_stops_network_monitor(self):
+        samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
+        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller.startNetworkTrigger()
+        task_id = controller._scheduler.tasks[0].id
+
+        controller.deleteQueueTask(task_id)
+
+        self.assertFalse(controller.networkTriggerActive)
+        self.assertEqual(controller.networkTriggerStatus, "已停止")
+        self.assertEqual(controller.queueTaskCount, 0)
+
     def test_controller_saves_settings_when_persisted_properties_change(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "settings.json"

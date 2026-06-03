@@ -528,6 +528,8 @@ class AppController(QObject):
         self._network_trigger_status = f"监控中：0/{self._network_idle_seconds} 秒"
         self._network_timer.setInterval(self._network_poll_seconds * 1000)
         self._network_timer.start()
+        if self._remove_queue_tasks_by_trigger(TaskTriggerType.NETWORK_IDLE):
+            self._add_log("已替换上一网络闲置队列任务")
         self._scheduler.add_task(
             "网络闲置触发",
             self._selected_action,
@@ -548,12 +550,11 @@ class AppController(QObject):
 
     @Slot()
     def stopNetworkTrigger(self):
-        self._network_timer.stop()
-        self._network_trigger_active = False
-        self._network_idle_elapsed = 0.0
-        self._network_previous_sample = None
-        self._network_trigger_status = "已停止"
+        self._stop_network_monitor_without_queue_update()
+        self._remove_queue_tasks_by_trigger(TaskTriggerType.NETWORK_IDLE)
+        self._save_settings()
         self._add_log("网络闲置触发已停止")
+        self.taskQueueChanged.emit()
         self.networkTriggerChanged.emit()
 
     @Slot()
