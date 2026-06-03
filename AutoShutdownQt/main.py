@@ -9,7 +9,7 @@ from tray_service import TrayService
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("AutoShutdownQt")
-    app.setApplicationVersion("2.1")
+    app.setApplicationVersion("2.2")
 
     # PySide6 versions differ in QQuickStyle introspection support.
     # Use Fusion as a safe baseline; QML supplies the custom Fluent Neon visuals.

@@ -8,6 +8,7 @@ dist/
 *.spec
 !AutoShutdownQt/AutoShutdownQt-2.0.spec
 !AutoShutdownQt/AutoShutdownQt-2.1.spec
+!AutoShutdownQt/AutoShutdownQt-2.2.spec
 
 # Publish artifacts
 [Pp]ublish/

@@ -5,16 +5,16 @@ import subprocess
 import sys
 import zipfile
 
-VERSION = "2.1"
+VERSION = "2.2"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-SPEC_FILE = APP_DIR / "AutoShutdownQt-2.1.spec"
+SPEC_FILE = APP_DIR / "AutoShutdownQt-2.2.spec"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "pyinstaller"
-APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.1"
-ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.1.zip"
+APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.2"
+ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.2.zip"
 SHA256SUMS_PATH = DIST_DIR / "SHA256SUMS.txt"
-RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.1.md"
+RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.2.md"
 APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
 REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
@@ -78,11 +78,14 @@ def create_sha256sums(archive_path=ZIP_PATH, target_path=SHA256SUMS_PATH):
 def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
     target = Path(target_path)
     target.write_text(
-        "# AutoShutdownQt 2.1 Release Checklist\n\n"
+        "# AutoShutdownQt 2.2 Release Checklist\n\n"
         "- [ ] Launch app with Dry-run enabled by default.\n"
         "- [ ] Verify countdown task logs dry-run output only.\n"
         "- [ ] Verify fixed-time daily/weekday/weekend tasks compute next run.\n"
-        "- [ ] Verify close hides to tray and tray Quit exits explicitly.\n"
+        "- [ ] Verify process/network trigger rows stay synchronized with monitors.\n"
+        "- [ ] Verify queue persistence across restart.\n"
+        "- [ ] Verify close-to-tray behavior when tray is available.\n"
+        "- [ ] Verify tray Quit exits explicitly.\n"
         "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
         "- [ ] Publish SHA256SUMS.txt next to the zip.\n",
         encoding="utf-8",
