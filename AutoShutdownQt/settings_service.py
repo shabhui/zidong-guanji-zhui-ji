@@ -16,6 +16,14 @@ DEFAULT_SETTINGS = {
     "networkUploadThresholdKbps": 10.0,
     "networkIdleSeconds": 60,
     "networkPollSeconds": 3,
+    "musicAutoplayEnabled": True,
+    "musicVolume": 70,
+    "musicFolder": "",
+    "musicCurrentIndex": 0,
+    "musicPlaybackMode": "sequence",
+    "reminderEnabled": True,
+    "reminderMinutesCsv": "10,5,1",
+    "snoozeMinutes": 15,
     "taskQueue": {"version": 1, "tasks": []},
 }
 

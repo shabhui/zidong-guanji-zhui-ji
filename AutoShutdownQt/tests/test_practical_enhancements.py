@@ -1,3 +1,4 @@
+from datetime import timedelta
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,98 @@ class FakeNetworkReader:
         if not self.samples:
             return NetworkSample(False, message="no more samples")
         return self.samples.pop(0)
+
+
+class FakeSignal:
+    def __init__(self):
+        self.callbacks = []
+
+    def connect(self, callback):
+        self.callbacks.append(callback)
+
+    def emit(self):
+        for callback in list(self.callbacks):
+            callback()
+
+
+class FakeMusicService:
+    def __init__(self, available=True, title="demo.mp3", tracks=None):
+        self.available = available
+        self.title = title
+        self.playing = False
+        self.tracks = tracks or [Path("C:/Music/demo.mp3")]
+        self.current_index = 0 if self.tracks else -1
+        self.folder = Path("C:/Music")
+        self.position_ms = 0
+        self.duration_ms = 0
+        self.position_text = "00:00"
+        self.duration_text = "00:00"
+        self.play_calls = 0
+        self.pause_calls = 0
+        self.stop_calls = 0
+        self.volume_values = []
+        self.playback_mode = "sequence"
+        self.next_calls = 0
+        self.previous_calls = 0
+        self.selected = []
+        self.seek_values = []
+        self.folders = []
+        self.playbackChanged = FakeSignal()
+        self.errorChanged = FakeSignal()
+
+    def play(self):
+        self.play_calls += 1
+        if not self.available:
+            return False
+        self.playing = True
+        return True
+
+    def pause(self):
+        self.pause_calls += 1
+        self.playing = False
+
+    def stop(self):
+        self.stop_calls += 1
+        self.playing = False
+
+    def set_volume(self, value):
+        self.volume_values.append(value)
+
+    def select_track(self, index, autoplay=False):
+        self.selected.append((index, autoplay))
+        if index < 0 or index >= len(self.tracks):
+            return False
+        self.current_index = index
+        self.title = self.tracks[index].name
+        if autoplay:
+            self.playing = True
+        return True
+
+    def next_track(self):
+        self.next_calls += 1
+        if not self.tracks:
+            return False
+        self.current_index = (self.current_index + 1) % len(self.tracks)
+        self.title = self.tracks[self.current_index].name
+        return True
+
+    def previous_track(self):
+        self.previous_calls += 1
+        if not self.tracks:
+            return False
+        self.current_index = (self.current_index - 1) % len(self.tracks)
+        self.title = self.tracks[self.current_index].name
+        return True
+
+    def seek(self, position_ms):
+        self.seek_values.append(position_ms)
+        self.position_ms = position_ms
+        self.position_text = "01:05"
+
+    def set_folder(self, folder, current_index=0):
+        self.folders.append((Path(folder), current_index))
+        self.folder = Path(folder)
+        self.current_index = current_index
 
 
 class PracticalEnhancementsTest(unittest.TestCase):
@@ -55,6 +148,246 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertIn("taskQueue", settings)
         self.assertEqual(settings["taskQueue"], {"version": 1, "tasks": []})
+
+    def test_default_settings_include_music_preferences(self):
+        settings = default_settings()
+
+        self.assertTrue(settings["musicAutoplayEnabled"])
+        self.assertEqual(settings["musicVolume"], 70)
+        self.assertEqual(settings["musicFolder"], "")
+        self.assertEqual(settings["musicCurrentIndex"], 0)
+        self.assertEqual(settings["musicPlaybackMode"], "sequence")
+
+    def test_default_settings_include_reminder_preferences(self):
+        settings = default_settings()
+
+        self.assertTrue(settings["reminderEnabled"])
+        self.assertEqual(settings["reminderMinutesCsv"], "10,5,1")
+        self.assertEqual(settings["snoozeMinutes"], 15)
+
+    def test_controller_exposes_reminder_preferences(self):
+        controller = AppController()
+
+        self.assertTrue(controller.reminderEnabled)
+        self.assertEqual(controller.reminderMinutesCsv, "10,5,1")
+        self.assertEqual(controller.snoozeMinutesValue, 15)
+
+        controller.reminderEnabled = False
+        controller.reminderMinutesCsv = "20, 10, 10, nope, 0, -1, 5"
+        controller.snoozeMinutesValue = 30
+
+        self.assertFalse(controller.reminderEnabled)
+        self.assertEqual(controller.reminderMinutesCsv, "20, 10, 10, nope, 0, -1, 5")
+        self.assertEqual(controller.snoozeMinutesValue, 30)
+        self.assertEqual(controller._reminder_minutes(), [20, 10, 5])
+
+    def test_reminder_fires_once_when_countdown_reaches_threshold(self):
+        controller = AppController()
+        controller.reminderMinutesCsv = "1"
+        emissions = []
+        controller.reminderChanged.connect(lambda: emissions.append(controller.reminderDialogTitle))
+        controller._remaining_seconds = 60
+        controller._status = "running"
+
+        controller._check_execution_reminders()
+        controller._check_execution_reminders()
+
+        self.assertEqual(emissions.count("执行前提醒"), 1)
+        self.assertIn("关机", controller.reminderDialogBody)
+        self.assertIn("Dry-run", controller.reminderDialogBody)
+        self.assertEqual(controller.reminderDialogSnoozeText, "延后 15 分钟")
+
+    def test_reminder_body_distinguishes_real_execution_mode(self):
+        controller = AppController()
+        controller.dryRun = False
+        controller.reminderMinutesCsv = "1"
+        controller._remaining_seconds = 60
+        controller._status = "running"
+
+        controller._check_execution_reminders()
+
+        self.assertIn("真实执行", controller.reminderDialogBody)
+
+    def test_public_countdown_queue_shows_configured_reminder_before_due(self):
+        controller = AppController()
+        controller.reminderMinutesCsv = "1"
+        emissions = []
+        controller.reminderChanged.connect(lambda: emissions.append(controller.reminderDialogTitle))
+
+        controller.startCountdown(0, 1, 0)
+        controller._on_tick()
+
+        self.assertIn("执行前提醒", emissions)
+        self.assertIn("关机", controller.reminderDialogBody)
+        self.assertIn("Dry-run", controller.reminderDialogBody)
+
+    def test_each_queue_task_gets_its_own_reminder_thresholds(self):
+        controller = AppController()
+        controller.reminderMinutesCsv = "1"
+        emissions = []
+        controller.reminderChanged.connect(lambda: emissions.append(controller.reminderDialogTitle))
+        controller.startCountdown(0, 1, 0)
+        controller.startCountdown(0, 2, 0)
+        first, second = controller._scheduler.tasks[0], controller._scheduler.tasks[1]
+
+        controller._on_tick()
+        first.next_run_at = controller._now()
+        controller._on_tick()
+        second.next_run_at = controller._now() + timedelta(seconds=60)
+        controller._on_tick()
+
+        self.assertEqual(emissions.count("执行前提醒"), 2)
+
+    def test_cancel_current_task_removes_reminded_queue_task(self):
+        controller = AppController()
+        controller.reminderMinutesCsv = "1"
+        controller.startCountdown(0, 1, 0)
+        task_id = controller._scheduler.tasks[0].id
+        controller._on_tick()
+
+        controller.cancelCurrentTask()
+
+        self.assertEqual(controller.queueTaskCount, 0)
+        self.assertNotIn(task_id, controller.queueRowsJson)
+        self.assertIn("已取消当前任务", controller.logText)
+
+    def test_snooze_current_task_extends_active_countdown_and_resets_reminders(self):
+        controller = AppController()
+        controller.snoozeMinutesValue = 2
+        controller._remaining_seconds = 60
+        controller._status = "running"
+        controller._shown_reminders.add(1)
+
+        controller.snoozeCurrentTask()
+
+        self.assertEqual(controller.remainingSeconds, 180)
+        self.assertEqual(controller._shown_reminders, set())
+        self.assertIn("已延后 2 分钟", controller.logText)
+
+    def test_snooze_current_task_extends_next_queue_task(self):
+        controller = AppController()
+        controller.snoozeMinutesValue = 5
+        controller.startCountdown(0, 1, 0)
+        task = controller._scheduler.tasks[0]
+        before = task.next_run_at
+
+        controller.snoozeCurrentTask()
+
+        self.assertEqual(task.next_run_at, before + timedelta(minutes=5))
+        self.assertIn("已延后 5 分钟", controller.logText)
+
+    def test_controller_exposes_music_state_and_delegates_slots(self):
+        music = FakeMusicService(available=True, title="demo.mp3")
+        controller = AppController(music_service=music)
+
+        self.assertTrue(controller.musicAvailable)
+        self.assertEqual(controller.musicTitle, "demo.mp3")
+        self.assertTrue(controller.musicAutoplayEnabled)
+        self.assertEqual(controller.musicVolume, 70)
+
+        controller.setMusicVolume(35)
+        controller.playMusic()
+        self.assertTrue(controller.musicPlaying)
+        controller.pauseMusic()
+        self.assertFalse(controller.musicPlaying)
+        controller.stopMusic()
+
+        self.assertEqual(music.volume_values, [70, 35])
+        self.assertEqual(music.play_calls, 1)
+        self.assertEqual(music.pause_calls, 1)
+        self.assertEqual(music.stop_calls, 1)
+
+    def test_controller_exposes_music_playlist_and_seek_state(self):
+        tracks = [Path("C:/Music/a.mp3"), Path("C:/Music/b.mp3")]
+        music = FakeMusicService(title="a.mp3", tracks=tracks)
+        music.duration_ms = 185000
+        music.duration_text = "03:05"
+        controller = AppController(music_service=music)
+
+        self.assertEqual(Path(controller.musicFolder), Path("C:/Music"))
+        self.assertIn('"title": "a.mp3"', controller.musicTracksJson)
+        self.assertIn('"index": 1', controller.musicTracksJson)
+        self.assertEqual(controller.musicCurrentIndex, 0)
+        self.assertEqual(controller.musicPositionMs, 0)
+        self.assertEqual(controller.musicDurationMs, 185000)
+        self.assertEqual(controller.musicPositionText, "00:00")
+        self.assertEqual(controller.musicDurationText, "03:05")
+
+        controller.playMusicTrack(1)
+        controller.seekMusic(65000)
+
+        self.assertEqual(music.selected, [(1, True)])
+        self.assertEqual(music.seek_values, [65000])
+        self.assertEqual(controller.musicCurrentIndex, 1)
+        self.assertEqual(controller.musicPositionMs, 65000)
+
+    def test_controller_music_previous_next_and_playback_mode_delegate_to_service(self):
+        tracks = [Path("C:/Music/a.mp3"), Path("C:/Music/b.mp3")]
+        music = FakeMusicService(title="a.mp3", tracks=tracks)
+        controller = AppController(music_service=music)
+
+        self.assertEqual(controller.musicPlaybackMode, "sequence")
+        controller.nextMusicTrack()
+        self.assertEqual(music.next_calls, 1)
+        self.assertEqual(controller.musicCurrentIndex, 1)
+
+        controller.previousMusicTrack()
+        self.assertEqual(music.previous_calls, 1)
+        self.assertEqual(controller.musicCurrentIndex, 0)
+
+        controller.setMusicPlaybackMode("list_loop")
+        self.assertEqual(controller.musicPlaybackMode, "list_loop")
+        self.assertEqual(music.playback_mode, "list_loop")
+
+    def test_controller_choose_music_folder_updates_service_and_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings_path = Path(tmp) / "settings.json"
+            chosen_folder = Path(tmp) / "Music"
+            chosen_folder.mkdir()
+            music = FakeMusicService()
+            controller = AppController(settings_path=settings_path, music_service=music)
+            controller._folder_picker = lambda: str(chosen_folder)
+
+            controller.chooseMusicFolder()
+            loaded = load_settings(settings_path)
+
+            self.assertEqual(music.folders, [(chosen_folder, 0)])
+            self.assertEqual(loaded["musicFolder"], str(chosen_folder))
+            self.assertEqual(loaded["musicCurrentIndex"], 0)
+
+    def test_controller_emits_music_changed_when_service_position_changes(self):
+        music = FakeMusicService()
+        controller = AppController(music_service=music)
+        emissions = []
+        controller.musicChanged.connect(lambda: emissions.append(controller.musicPositionMs))
+
+        music.position_ms = 42000
+        music.position_text = "00:42"
+        music.playbackChanged.emit()
+
+        self.assertEqual(emissions, [42000])
+        self.assertEqual(controller.musicPositionText, "00:42")
+
+    def test_controller_startup_autoplay_obeys_setting(self):
+        music = FakeMusicService()
+        controller = AppController(music_service=music)
+
+        controller.startMusicAutoplay()
+        self.assertEqual(music.play_calls, 1)
+
+        controller.musicAutoplayEnabled = False
+        controller.startMusicAutoplay()
+        self.assertEqual(music.play_calls, 1)
+
+    def test_controller_does_not_mark_music_playing_when_file_missing(self):
+        music = FakeMusicService(available=False, title="未找到音乐文件")
+        controller = AppController(music_service=music)
+
+        controller.playMusic()
+
+        self.assertFalse(controller.musicAvailable)
+        self.assertFalse(controller.musicPlaying)
+        self.assertIn("未找到音乐文件", controller.logText)
 
     def test_settings_round_trip_preserves_task_queue(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -485,6 +818,16 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("立即执行：执行", controller.logText)
         self.assertIn("电源动作执行失败：power boom", controller.logText)
 
+    def test_power_executor_false_return_is_logged_as_failure(self):
+        controller = AppController()
+        controller.dryRun = False
+        controller.scriptEnabled = False
+        controller._power_executor = lambda action, force: False
+
+        controller.executeNow()
+
+        self.assertIn("电源动作执行失败", controller.logText)
+
     def test_falsey_injected_power_executor_is_still_used(self):
         class FalseyExecutor:
             def __init__(self):
@@ -594,6 +937,61 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertTrue(controller.processTriggerActive)
         self.assertEqual(power_calls, [])
         self.assertEqual(seen_names, ["demo.exe", "demo.exe"])
+
+    def test_controller_restarts_scheduler_timer_for_loaded_pending_tasks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.json"
+            first = AppController(settings_path=path)
+            first.startCountdown(0, 1, 0)
+
+            second = AppController(settings_path=path)
+
+            self.assertTrue(second._timer.isActive())
+
+    def test_controller_does_not_restart_scheduler_timer_for_loaded_completed_tasks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.json"
+            first = AppController(settings_path=path)
+            first.startCountdown(0, 1, 0)
+            task_id = first._scheduler.tasks[0].id
+            first._scheduler.mark_executed(task_id, success=True)
+            first._save_settings()
+
+            second = AppController(settings_path=path)
+
+            self.assertFalse(second._timer.isActive())
+
+    def test_due_queue_task_records_failed_power_action(self):
+        controller = AppController()
+        controller.dryRun = False
+        controller.scriptEnabled = False
+        controller._power_executor = lambda action, force: False
+        controller.startCountdown(0, 0, 1)
+        task = controller._scheduler.tasks[0]
+        task.next_run_at = controller._now()
+
+        controller._on_tick()
+
+        self.assertIn("failed", controller.queueText)
+        self.assertIn("系统拒绝或命令返回失败", controller.queueText)
+
+    def test_due_queue_task_records_failed_power_action_exception(self):
+        controller = AppController()
+        controller.dryRun = False
+        controller.scriptEnabled = False
+
+        def failing_power_executor(action, force):
+            raise RuntimeError("power boom")
+
+        controller._power_executor = failing_power_executor
+        controller.startCountdown(0, 0, 1)
+        task = controller._scheduler.tasks[0]
+        task.next_run_at = controller._now()
+
+        controller._on_tick()
+
+        self.assertIn("failed", controller.queueText)
+        self.assertIn("power boom", controller.queueText)
 
     def test_diagnostic_text_includes_key_runtime_state(self):
         controller = AppController()

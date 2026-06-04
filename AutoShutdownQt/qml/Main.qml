@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import "components"
 
 Window {
@@ -10,17 +11,19 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "AutoShutdown v2.1"
+    title: "AutoShutdown v2.4"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
     property int currentPage: 0
     property bool dryRunSwitchSyncing: false
     property bool trayCloseRequested: false
+    property var queueRowModel: queueRows()
+    property var musicTrackModel: musicTracks()
     readonly property int topBarHeight: 58
-    readonly property int sidebarWidth: 224
+    readonly property int navWidth: 224
     readonly property int outerMargin: 22
-    readonly property var pages: ["总览", "定时", "任务", "智能触发", "脚本", "设置"]
+    readonly property var pageNames: ["总览", "定时", "任务", "智能触发", "脚本", "设置"]
 
     function statusLabel() {
         if (controller.status === "running") return "RUNNING"
@@ -41,6 +44,14 @@ Window {
     function queueRows() {
         try {
             return JSON.parse(controller.queueRowsJson)
+        } catch (error) {
+            return []
+        }
+    }
+
+    function musicTracks() {
+        try {
+            return JSON.parse(controller.musicTracksJson)
         } catch (error) {
             return []
         }
@@ -78,6 +89,17 @@ Window {
         target: controller
         function onDryRunChanged() {
             mainWindow.syncDryRunSwitchState()
+        }
+        function onTaskQueueChanged() {
+            mainWindow.queueRowModel = mainWindow.queueRows()
+        }
+        function onMusicChanged() {
+            mainWindow.musicTrackModel = mainWindow.musicTracks()
+        }
+        function onReminderChanged() {
+            if (controller.reminderDialogTitle !== "") {
+                reminderDialog.open()
+            }
         }
     }
 
@@ -250,7 +272,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v2.1 · Practical Scheduler"
+                    text: "v2.4 · 右侧状态栏"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -291,6 +313,15 @@ Window {
             }
 
             NeonButton {
+                Layout.preferredWidth: 88
+                Layout.preferredHeight: 32
+                compact: true
+                variant: "ghost"
+                text: "音乐"
+                onClicked: musicPlayerWindow.show()
+            }
+
+            NeonButton {
                 Layout.preferredWidth: 38
                 Layout.preferredHeight: 32
                 compact: true
@@ -319,10 +350,10 @@ Window {
 
     // Sidebar
     NeonCard {
-        id: sidebar
+        id: navigationRail
         x: outerMargin
         y: topBarHeight + outerMargin
-        width: sidebarWidth
+        width: navWidth
         height: parent.height - topBarHeight - outerMargin * 2
         z: 1
         cardColor: Theme.shellGlass
@@ -343,7 +374,7 @@ Window {
             }
 
             Repeater {
-                model: pages
+                model: pageNames
                 delegate: Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 48
@@ -415,7 +446,7 @@ Window {
 
     Item {
         id: contentHost
-        x: outerMargin + sidebarWidth + 20
+        x: outerMargin + navWidth + 20
         y: topBarHeight + outerMargin
         width: parent.width - x - outerMargin
         height: parent.height - y - outerMargin
@@ -642,11 +673,33 @@ Window {
                     }
                 }
 
-                StarryMascot {
+                NeonCard {
+                    id: rightStatusPanel
                     Layout.preferredWidth: 286
                     Layout.fillHeight: true
-                    title: "星空守夜中"
-                    subtitle: controller.dryRun ? "Dry-run safety mode" : "Live power mode enabled"
+                    cardColor: Theme.cardGlass
+                    cardBorderColor: Theme.e5BorderPink
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 18
+                        spacing: 10
+                        Text { text: "v2.4 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+                        Text { text: "运行概览"; color: Theme.textPrimary; font.pixelSize: 22; font.weight: Font.Bold }
+                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.7 }
+                        Text { text: "安全模式"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { text: controller.dryRun ? "Dry-run 已开启" : "真实执行模式"; color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 16; font.weight: Font.Bold }
+                        Text { text: "下一任务"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { text: mainWindow.queueRowModel.length > 0 ? mainWindow.queueRowModel[0].name : "无排队任务"; color: Theme.textPrimary; font.pixelSize: 14; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                        Text { text: "队列数量"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { text: String(mainWindow.queueRowModel.length) + " 个任务"; color: Theme.warning; font.pixelSize: 16; font.weight: Font.Bold }
+                        Text { text: "触发器状态"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { text: controller.processTriggerStatus; color: controller.processTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                        Text { text: controller.networkTriggerStatus; color: controller.networkTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                        Text { text: "后台托盘"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { text: "托盘可用时关闭窗口隐藏到后台"; color: Theme.e5Blue; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Text { text: "最近活动"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                        Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 11; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                    }
                 }
             }
         }
@@ -733,106 +786,112 @@ Window {
                 anchors.fill: parent
                 cardColor: Theme.cardGlass
                 cardBorderColor: Theme.e5BorderSoft
-                ColumnLayout {
+                ScrollView {
+                    id: taskCenterScroll
                     anchors.fill: parent
-                    anchors.margins: 24
-                    spacing: 14
-                    Text { text: "任务中心"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
-                    Text {
-                        Layout.fillWidth: true
-                        text: "选择常用模板后会立即按当前安全模式启动任务。Dry-run 开启时不会真实执行系统动作。"
-                        color: Theme.textSecondary
-                        font.pixelSize: 14
-                        wrapMode: Text.WordWrap
-                    }
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
-                    Text { text: "常用任务模板"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        rowSpacing: 10
-                        columnSpacing: 10
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "15 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_15") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "30 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_30") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "1 小时后睡眠"; onClicked: controller.applyTaskTemplate("sleep_60") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "今晚 23:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_2300") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "5 分钟后锁定"; onClicked: controller.applyTaskTemplate("lock_5") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "secondary"; text: "10 分钟后睡眠"; onClicked: controller.applyTaskTemplate("sleep_10") }
-                        NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 44; variant: "primary"; text: "明天 00:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_midnight") }
-                    }
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.62 }
-                    Text { text: "任务队列"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 180
-                        clip: true
-                        model: mainWindow.queueRows()
-                        delegate: Rectangle {
-                            width: ListView.view.width
-                            height: 78
-                            radius: Theme.radiusMd
-                            color: Theme.glassSoft
-                            border.color: Theme.e5BorderSoft
-                            border.width: 1
+                    clip: true
+                    contentWidth: availableWidth
+                    leftPadding: 20
+                    rightPadding: 20
+                    topPadding: 20
+                    bottomPadding: 20
+                    RowLayout {
+                        id: taskCenterColumns
+                        width: taskCenterScroll.availableWidth
+                        spacing: 14
+
+                        ColumnLayout {
+                            id: taskTemplateColumn
+                            Layout.preferredWidth: 330
+                            Layout.fillHeight: true
+                            spacing: 10
+                            Text { text: "任务中心"; color: Theme.textPrimary; font.pixelSize: 24; font.weight: Font.Bold }
+                            Text { Layout.fillWidth: true; text: "常用模板和临时动作放在左侧，队列和日志放在右侧。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                            Text { text: "常用任务模板"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                            GridLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 156
+                                columns: 2
+                                rowSpacing: 6
+                                columnSpacing: 8
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "15 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_15") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "30 分钟后关机"; onClicked: controller.applyTaskTemplate("shutdown_30") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "1 小时后睡眠"; onClicked: controller.applyTaskTemplate("sleep_60") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "今晚 23:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_2300") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "5 分钟后锁定"; onClicked: controller.applyTaskTemplate("lock_5") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "10 分钟后睡眠"; onClicked: controller.applyTaskTemplate("sleep_10") }
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "明天 00:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_midnight") }
+                            }
+                            Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                            GridLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 116
+                                columns: 3
+                                rowSpacing: 6
+                                columnSpacing: 6
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
+                                ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+                            }
                             RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 10
-                                spacing: 10
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 2
-                                    Text { text: modelData.name; color: Theme.textPrimary; font.pixelSize: 14; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Text { text: modelData.triggerSummary + " · " + modelData.repeatSummary; color: Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Text { text: modelData.status + " · " + modelData.nextRunText; color: modelData.enabled ? Theme.warning : Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
-                                }
-                                FluentSwitch { checked: modelData.enabled; onCheckedChanged: controller.setQueueTaskEnabled(modelData.id, checked) }
-                                NeonButton { Layout.preferredWidth: 110; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "Dry-run 检查"; onClicked: controller.runQueueTaskDryRunCheck(modelData.id) }
-                                NeonButton { Layout.preferredWidth: 70; Layout.preferredHeight: 34; compact: true; variant: "danger"; text: "删除"; onClicked: controller.deleteQueueTask(modelData.id) }
+                                spacing: 8
+                                NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 38; compact: true; variant: "danger"; text: "立即执行当前动作"; onClicked: confirmDialog.open() }
+                                NeonButton { Layout.preferredWidth: 94; Layout.preferredHeight: 38; compact: true; variant: "secondary"; text: "取消任务"; enabled: controller.status === "running"; onClicked: controller.cancel() }
                             }
                         }
-                    }
-                    Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 3
-                        rowSpacing: 10
-                        columnSpacing: 10
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 72; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
-                    }
-                    RowLayout {
-                        spacing: 12
-                        NeonButton {
-                            Layout.preferredWidth: 180
-                            Layout.preferredHeight: 44
-                            variant: "danger"
-                            text: "立即执行当前动作"
-                            onClicked: confirmDialog.open()
-                        }
-                        NeonButton {
-                            Layout.preferredWidth: 128
-                            Layout.preferredHeight: 44
-                            variant: "secondary"
-                            text: "取消任务"
-                            enabled: controller.status === "running"
-                            onClicked: controller.cancel()
-                        }
-                    }
-                    NeonCard {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        cardColor: Theme.glassSoft
-                        cardBorderColor: Theme.e5BorderSoft
+
                         ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 6
-                            Text { text: "最近日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                            id: queueAndActivityColumn
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            spacing: 10
+                            Text { text: "Task Queue Dashboard · 任务队列"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                            ListView {
+                                id: taskQueueDashboard
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 140
+                                clip: true
+                                model: mainWindow.queueRowModel
+                                delegate: Rectangle {
+                                    width: ListView.view.width
+                                    height: 64
+                                    radius: Theme.radiusMd
+                                    color: Theme.glassSoft
+                                    border.color: Theme.e5BorderSoft
+                                    border.width: 1
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 8
+                                        spacing: 8
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 1
+                                            Text { text: modelData.name; color: Theme.textPrimary; font.pixelSize: 13; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                            Text { text: modelData.triggerSummary + " · " + modelData.repeatSummary; color: Theme.textSecondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                            Text { text: modelData.status + " · " + modelData.nextRunText; color: modelData.enabled ? Theme.warning : Theme.textSecondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        }
+                                        FluentSwitch { checked: modelData.enabled; onCheckedChanged: controller.setQueueTaskEnabled(modelData.id, checked) }
+                                        NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 30; compact: true; variant: "secondary"; text: "Dry-run 检查"; onClicked: controller.runQueueTaskDryRunCheck(modelData.id) }
+                                        NeonButton { Layout.preferredWidth: 58; Layout.preferredHeight: 30; compact: true; variant: "danger"; text: "删除"; onClicked: controller.deleteQueueTask(modelData.id) }
+                                    }
+                                }
+                            }
+                            NeonCard {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                cardColor: Theme.glassSoft
+                                cardBorderColor: Theme.e5BorderSoft
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "Recent activity · 最近日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                    Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                                }
+                            }
                         }
                     }
                 }
@@ -1093,6 +1152,40 @@ Window {
                         Text { Layout.fillWidth: true; text: "强制关闭应用"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
                         FluentSwitch { checked: controller.forceClose; onCheckedChanged: controller.forceClose = checked }
                     }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "启动时自动播放音乐"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.musicAutoplayEnabled; onCheckedChanged: controller.musicAutoplayEnabled = checked }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "执行前提醒"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.reminderEnabled; onCheckedChanged: controller.reminderEnabled = checked }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Text { Layout.preferredWidth: 90; text: "提醒分钟"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        TextField {
+                            Layout.fillWidth: true
+                            text: controller.reminderMinutesCsv
+                            placeholderText: "10,5,1"
+                            onEditingFinished: controller.reminderMinutesCsv = text
+                        }
+                        Text { Layout.preferredWidth: 210; text: "逗号分隔，例如 10,5,1"; color: Theme.textSecondary; font.pixelSize: 12 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Text { Layout.preferredWidth: 90; text: "默认延后"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        TextField {
+                            Layout.preferredWidth: 96
+                            text: String(controller.snoozeMinutesValue)
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            onEditingFinished: controller.snoozeMinutesValue = mainWindow.safeInt(text, 15)
+                        }
+                        Text { Layout.fillWidth: true; text: "分钟，提醒弹窗按钮会使用这个时长"; color: Theme.textSecondary; font.pixelSize: 12 }
+                    }
                     Text {
                         Layout.fillWidth: true
                         text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。托盘可用时关闭窗口会隐藏到后台；托盘不可用时关闭窗口不会继续后台运行。请使用托盘菜单 Quit 显式退出。"
@@ -1105,10 +1198,273 @@ Window {
         }
     }
 
+    Window {
+        id: musicPlayerWindow
+        width: 560
+        height: 520
+        minimumWidth: 480
+        minimumHeight: 420
+        visible: false
+        title: "音乐播放器"
+        color: Theme.bgDeep
+
+        FolderDialog {
+            id: musicFolderDialog
+            title: "选择音乐文件夹"
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.e5BgA }
+                GradientStop { position: 1.0; color: Theme.e5BgC }
+            }
+        }
+
+        NeonCard {
+            anchors.fill: parent
+            anchors.margins: 18
+            cardColor: Theme.cardGlassActive
+            cardBorderColor: Theme.e5BorderPink
+            radius: Theme.radiusXl
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 22
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        Layout.fillWidth: true
+                        text: "音乐播放器"
+                        color: Theme.textPrimary
+                        font.pixelSize: 24
+                        font.weight: Font.Bold
+                    }
+                    NeonButton {
+                        Layout.preferredWidth: 138
+                        Layout.preferredHeight: 36
+                        compact: true
+                        text: "选择音乐文件夹"
+                        onClicked: controller.chooseMusicFolder()
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: controller.musicAvailable ? controller.musicTitle : "未找到音乐文件"
+                    color: controller.musicAvailable ? Theme.textPrimary : Theme.danger
+                    font.pixelSize: 15
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "文件夹：" + controller.musicFolder
+                    color: Theme.textSecondary
+                    font.pixelSize: 12
+                    elide: Text.ElideMiddle
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "歌曲列表"
+                    color: Theme.textPrimary
+                    font.pixelSize: 14
+                    font.weight: Font.Bold
+                }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 130
+                    clip: true
+                    model: mainWindow.musicTrackModel
+                    delegate: Rectangle {
+                        width: ListView.view.width
+                        height: 34
+                        radius: 10
+                        color: controller.musicCurrentIndex === index ? Theme.cardGlassActive : "transparent"
+                        border.color: controller.musicCurrentIndex === index ? Theme.e5BorderPink : "transparent"
+                        Text {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            verticalAlignment: Text.AlignVCenter
+                            text: modelData.title
+                            color: controller.musicCurrentIndex === index ? Theme.textPrimary : Theme.textSecondary
+                            font.pixelSize: 13
+                            elide: Text.ElideRight
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: controller.playMusicTrack(index)
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        variant: "ghost"
+                        text: "上一首"
+                        onClicked: controller.previousMusicTrack()
+                    }
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        variant: "primary"
+                        text: controller.musicPlaying ? "暂停" : "播放"
+                        onClicked: controller.musicPlaying ? controller.pauseMusic() : controller.playMusic()
+                    }
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        variant: "ghost"
+                        text: "下一首"
+                        onClicked: controller.nextMusicTrack()
+                    }
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        variant: "ghost"
+                        text: "停止"
+                        onClicked: controller.stopMusic()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        compact: true
+                        variant: controller.musicPlaybackMode === "sequence" ? "primary" : "ghost"
+                        text: "顺序播放"
+                        onClicked: controller.setMusicPlaybackMode("sequence")
+                    }
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        compact: true
+                        variant: controller.musicPlaybackMode === "list_loop" ? "primary" : "ghost"
+                        text: "列表循环"
+                        onClicked: controller.setMusicPlaybackMode("list_loop")
+                    }
+                    NeonButton {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        compact: true
+                        variant: controller.musicPlaybackMode === "single_loop" ? "primary" : "ghost"
+                        text: "单曲循环"
+                        onClicked: controller.setMusicPlaybackMode("single_loop")
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "播放进度：" + controller.musicPositionText + " / " + controller.musicDurationText
+                    color: Theme.textSecondary
+                    font.pixelSize: 13
+                }
+
+                Slider {
+                    Layout.fillWidth: true
+                    from: 0
+                    to: Math.max(1, controller.musicDurationMs)
+                    stepSize: 1000
+                    value: controller.musicPositionMs
+                    onMoved: controller.seekMusic(value)
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "音量：" + controller.musicVolume + "%"
+                    color: Theme.textSecondary
+                    font.pixelSize: 13
+                }
+
+                Slider {
+                    Layout.fillWidth: true
+                    from: 0
+                    to: 100
+                    stepSize: 1
+                    value: controller.musicVolume
+                    onMoved: controller.setMusicVolume(value)
+                }
+            }
+        }
+    }
+
     ConfirmDialog {
         id: confirmDialog
         anchors.centerIn: parent
         actionLabel: controller.actionLabel
+    }
+
+    Dialog {
+        id: reminderDialog
+        modal: true
+        title: controller.reminderDialogTitle
+        standardButtons: Dialog.NoButton
+        anchors.centerIn: parent
+        width: 440
+
+        background: Rectangle {
+            radius: Theme.radiusLg
+            color: Theme.cardGlassActive
+            border.color: controller.dryRun ? Theme.success : Theme.danger
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 14
+            Text {
+                Layout.fillWidth: true
+                text: controller.reminderDialogBody
+                color: Theme.textPrimary
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                NeonButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    compact: true
+                    text: controller.reminderDialogSnoozeText
+                    onClicked: {
+                        controller.snoozeCurrentTask()
+                        reminderDialog.close()
+                    }
+                }
+                NeonButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+                    compact: true
+                    variant: "danger"
+                    text: "取消当前任务"
+                    onClicked: {
+                        controller.cancelCurrentTask()
+                        reminderDialog.close()
+                    }
+                }
+                NeonButton {
+                    Layout.preferredWidth: 92
+                    Layout.preferredHeight: 38
+                    compact: true
+                    variant: "secondary"
+                    text: "知道了"
+                    onClicked: reminderDialog.close()
+                }
+            }
+        }
     }
 
     Dialog {

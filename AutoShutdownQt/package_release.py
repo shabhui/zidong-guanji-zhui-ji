@@ -1,20 +1,21 @@
 from pathlib import Path
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import zipfile
 
-VERSION = "2.2"
+VERSION = "2.4"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-SPEC_FILE = APP_DIR / "AutoShutdownQt-2.2.spec"
+SPEC_FILE = APP_DIR / "AutoShutdownQt-2.4.spec"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "pyinstaller"
-APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.2"
-ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.2.zip"
+APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.4"
+ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.4.zip"
 SHA256SUMS_PATH = DIST_DIR / "SHA256SUMS.txt"
-RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.2.md"
+RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.4.md"
 APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
 REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
@@ -23,6 +24,20 @@ QML_PREFIXES = (
     f"{APP_BUNDLE_NAME}/qml/",
 )
 REQUIRED_MAIN_QMLS = tuple(f"{prefix}Main.qml" for prefix in QML_PREFIXES)
+
+
+def root_mp3_files(root=ROOT):
+    return sorted(path for path in Path(root).iterdir() if path.is_file() and path.suffix.lower() == ".mp3")
+
+
+def copy_bundled_music(root=ROOT, bundle_dir=APP_BUNDLE_DIR):
+    bundle = Path(bundle_dir)
+    copied = []
+    for source in root_mp3_files(root):
+        target = bundle / source.name
+        shutil.copy2(source, target)
+        copied.append(target)
+    return copied
 
 
 def run_pyinstaller():
@@ -54,6 +69,7 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
             "executablePresent": (bundle / "AutoShutdownQt.exe").exists(),
             "mainQmlPresent": any(path.exists() for path in main_qml_candidates),
             "taskSchedulerIncluded": True,
+            "bundledMusicPresent": bool(root_mp3_files(bundle)),
         },
         "safetyNotes": [
             "Dry-run is enabled by default.",
@@ -78,14 +94,17 @@ def create_sha256sums(archive_path=ZIP_PATH, target_path=SHA256SUMS_PATH):
 def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
     target = Path(target_path)
     target.write_text(
-        "# AutoShutdownQt 2.2 Release Checklist\n\n"
+        "# AutoShutdownQt 2.4 Release Checklist\n\n"
         "- [ ] Launch app with Dry-run enabled by default.\n"
-        "- [ ] Verify countdown task logs dry-run output only.\n"
-        "- [ ] Verify fixed-time daily/weekday/weekend tasks compute next run.\n"
-        "- [ ] Verify process/network trigger rows stay synchronized with monitors.\n"
-        "- [ ] Verify queue persistence across restart.\n"
-        "- [ ] Verify close-to-tray behavior when tray is available.\n"
-        "- [ ] Verify tray Quit exits explicitly.\n"
+        "- [ ] Verify Command Center safety strip shows dry-run/live state, action, tray, and queue count.\n"
+        "- [ ] Verify Queue health remains readable with empty and populated queues.\n"
+        "- [ ] Verify configurable execution reminders are visible in Settings.\n"
+        "- [ ] Verify a one-minute countdown shows the execution reminder dialog.\n"
+        "- [ ] Verify the reminder dialog distinguishes Dry-run from real execution mode.\n"
+        "- [ ] Verify default snooze extends the queued task and does not duplicate reminders.\n"
+        "- [ ] Verify each queued task gets its own reminder threshold.\n"
+        "- [ ] Verify Task Queue Dashboard empty and populated states.\n"
+        "- [ ] Verify Recent activity shows logs and export/clear controls.\n"
         "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
         "- [ ] Publish SHA256SUMS.txt next to the zip.\n",
         encoding="utf-8",
@@ -150,6 +169,10 @@ def validate_zip_contents(zip_path=ZIP_PATH):
         expected = " or ".join(REQUIRED_MAIN_QMLS)
         raise RuntimeError(f"Archive is missing required QML entrypoint: {expected}")
 
+    bundled_music_present = any(name.startswith(f"{APP_BUNDLE_NAME}/") and name.lower().endswith(".mp3") for name in names)
+    if not bundled_music_present:
+        raise RuntimeError("Archive is missing bundled music mp3")
+
     if not isinstance(manifest, dict):
         raise RuntimeError(f"Archive manifest must be a JSON object: {target}")
     _require_manifest_value(manifest, "version", VERSION)
@@ -159,6 +182,7 @@ def validate_zip_contents(zip_path=ZIP_PATH):
     _require_manifest_check(manifest, "executablePresent", REQUIRED_EXE in names)
     _require_manifest_check(manifest, "mainQmlPresent", main_qml_present)
     _require_manifest_check(manifest, "taskSchedulerIncluded", True)
+    _require_manifest_check(manifest, "bundledMusicPresent", bundled_music_present)
 
     return True
 
@@ -167,6 +191,7 @@ def main():
     run_pyinstaller()
     if not APP_BUNDLE_DIR.exists():
         raise SystemExit(f"Missing build output: {APP_BUNDLE_DIR}")
+    copy_bundled_music(ROOT, APP_BUNDLE_DIR)
     create_release_manifest(APP_BUNDLE_DIR)
     zip_path = create_zip()
     validate_zip_contents(zip_path)

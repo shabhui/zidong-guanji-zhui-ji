@@ -29,38 +29,38 @@ def _enable_shutdown_privilege():
         return False
     tp = (luid, SE_PRIVILEGE_ENABLED)
     advapi32.AdjustTokenPrivileges(hToken, False, ctypes.byref(tp), 0, None, None)
+    success = kernel32.GetLastError() == 0
     kernel32.CloseHandle(hToken)
-    return True
+    return success
 
 
 def execute_power_action(action: str, force: bool = False):
     if action == "logoff":
         _enable_shutdown_privilege()
-        ctypes.windll.user32.ExitWindowsEx(EWX_LOGOFF, 0)
-        return
+        return bool(ctypes.windll.user32.ExitWindowsEx(EWX_LOGOFF, 0))
 
     if action == "lock":
-        ctypes.windll.user32.LockWorkStation()
-        return
+        return bool(ctypes.windll.user32.LockWorkStation())
 
     if action == "sleep":
-        subprocess.run(
+        completed = subprocess.run(
             ["rundll32.exe", "powrprof.dll,SetSuspendState", "0", "1", "0"],
             check=False,
         )
-        return
+        return completed.returncode == 0
 
     if action == "hibernate":
-        subprocess.run(
+        completed = subprocess.run(
             ["rundll32.exe", "powrprof.dll,SetSuspendState", "0", "0", "0"],
             check=False,
         )
-        return
+        return completed.returncode == 0
 
-    flags_map = {"shutdown": EWX_SHUTDOWN, "restart": EWX_REBOOT}
-    flags = flags_map.get(action, 0)
-    if force and action in ("shutdown", "restart"):
-        flags |= EWX_FORCE | EWX_FORCEIFHUNG
-    if flags:
-        _enable_shutdown_privilege()
-        ctypes.windll.user32.ExitWindowsEx(flags, 0)
+    if action in ("shutdown", "restart"):
+        args = ["shutdown.exe", "/s" if action == "shutdown" else "/r", "/t", "0"]
+        if force:
+            args.append("/f")
+        completed = subprocess.run(args, check=False)
+        return completed.returncode == 0
+
+    return False

@@ -4,12 +4,13 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from controller import AppController
+from music_service import MusicService
 from tray_service import TrayService
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("AutoShutdownQt")
-    app.setApplicationVersion("2.2")
+    app.setApplicationVersion("2.4")
 
     # PySide6 versions differ in QQuickStyle introspection support.
     # Use Fusion as a safe baseline; QML supplies the custom Fluent Neon visuals.
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     except Exception:
         pass
 
-    controller = AppController()
+    controller = AppController(music_service=MusicService(Path(__file__).resolve().parents[1]))
 
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("controller", controller)
@@ -31,6 +32,8 @@ if __name__ == "__main__":
 
     if not engine.rootObjects():
         sys.exit(-1)
+
+    controller.startMusicAutoplay()
 
     window = engine.rootObjects()[0]
     tray_service = TrayService(controller, window, logger=controller._add_log)

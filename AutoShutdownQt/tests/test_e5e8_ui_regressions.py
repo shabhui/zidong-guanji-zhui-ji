@@ -46,8 +46,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
         title_index = main.index('Text { text: "电源动作"')
         power_index = main.rindex("NeonCard {", 0, title_index)
-        mascot_index = main.index("StarryMascot {", power_index)
-        power_section = main[power_index:mascot_index]
+        status_panel_index = main.index("id: rightStatusPanel", power_index)
+        power_section = main[power_index:status_panel_index]
 
         self.assertIn("Layout.preferredHeight: 252", main, "hero card should be compact enough for 720px windows")
         self.assertIn("Layout.preferredHeight: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
@@ -103,8 +103,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            "AutoShutdown v2.1",
-            "v2.1 · Practical Scheduler",
+            "AutoShutdown v2.4",
+            "v2.4 · 右侧状态栏",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -117,6 +117,22 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         for label in ("任务队列", "重复规则", "仅一次", "每天", "工作日", "周末", "Dry-run 检查", "删除"):
             self.assertIn(label, main)
 
+    def test_task_queue_list_model_refreshes_when_controller_queue_changes(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("property var queueRowModel", main)
+        self.assertIn("queueRowModel: queueRows()", main)
+        self.assertIn("function onTaskQueueChanged()", main)
+        self.assertIn("mainWindow.queueRowModel = mainWindow.queueRows()", main)
+        self.assertIn("model: mainWindow.queueRowModel", main)
+        self.assertNotIn("model: mainWindow.queueRows()", main)
+
+    def test_neon_card_hover_layer_does_not_steal_child_clicks(self):
+        card = (QML / "components" / "NeonCard.qml").read_text(encoding="utf-8")
+
+        self.assertNotIn("MouseArea {", card)
+        self.assertIn("HoverHandler {", card)
+
     def test_2_2_tray_copy_mentions_availability_and_explicit_quit(self):
         main = MAIN_QML.read_text(encoding="utf-8")
 
@@ -125,6 +141,146 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("托盘菜单 Quit", main)
         self.assertIn("trayCloseRequested", main)
         self.assertIn("mainWindow.hide()", main)
+
+    def test_main_starts_music_autoplay_after_qml_loads(self):
+        main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
+
+        self.assertIn("from music_service import MusicService", main_py)
+        self.assertIn("controller = AppController(music_service=MusicService(Path(__file__).resolve().parents[1]))", main_py)
+        self.assertIn("controller.startMusicAutoplay()", main_py)
+        self.assertGreater(main_py.index("engine.load(str(main_qml))"), main_py.index("engine.rootContext().setContextProperty"))
+        self.assertGreater(main_py.index("controller.startMusicAutoplay()"), main_py.index("if not engine.rootObjects():"))
+
+    def test_2_4_reminder_snooze_ui_is_wired_to_controller(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            "controller.reminderEnabled",
+            "controller.reminderMinutesCsv",
+            "controller.snoozeMinutesValue",
+            "controller.reminderDialogTitle",
+            "controller.reminderDialogBody",
+            "controller.reminderDialogSnoozeText",
+            "controller.snoozeCurrentTask()",
+            "controller.cancelCurrentTask()",
+            "function onReminderChanged()",
+            "reminderDialog.open()",
+        ):
+            self.assertIn(snippet, main)
+        for label in ("执行前提醒", "提醒分钟", "默认延后", "取消当前任务", "知道了"):
+            self.assertIn(label, main)
+
+    def test_music_player_ui_is_wired_to_controller(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            "id: musicPlayerWindow",
+            "controller.musicTitle",
+            "controller.musicAvailable",
+            "controller.musicPlaying",
+            "controller.playMusic()",
+            "controller.pauseMusic()",
+            "controller.stopMusic()",
+            "controller.setMusicVolume(",
+            "controller.musicPlaybackMode",
+            "controller.previousMusicTrack()",
+            "controller.nextMusicTrack()",
+            "controller.setMusicPlaybackMode(",
+            "上一首",
+            "下一首",
+            "顺序播放",
+            "列表循环",
+            "单曲循环",
+            "controller.musicAutoplayEnabled",
+            "controller.musicTracksJson",
+            "controller.musicCurrentIndex",
+            "controller.musicPositionMs",
+            "controller.musicDurationMs",
+            "controller.musicPositionText",
+            "controller.musicDurationText",
+            "controller.chooseMusicFolder()",
+            "controller.playMusicTrack(index)",
+            "controller.seekMusic(",
+            "FolderDialog",
+            "选择音乐文件夹",
+            "歌曲列表",
+            "播放进度",
+            "启动时自动播放音乐",
+            "音乐播放器",
+        ):
+            self.assertIn(snippet, main)
+
+    def test_2_3_right_status_panel_copy_is_chinese_and_visible(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        for snippet in (
+            'title: "AutoShutdown v2.4"',
+            'v2.4 · 右侧状态栏',
+            'id: rightStatusPanel',
+            '安全模式',
+            'Dry-run 已开启',
+            '下一任务',
+            '队列数量',
+            '触发器状态',
+            '后台托盘',
+            '最近活动',
+        ):
+            self.assertIn(snippet, main)
+
+        self.assertNotIn('AutoShutdown v2.4 · Command Center', main)
+        self.assertNotIn('Text { text: "Command Center"', main)
+        self.assertNotIn('Text { text: "Next task"', main)
+        self.assertNotIn('Text { text: "Active triggers"', main)
+        self.assertNotIn('Text { text: "Queue health"', main)
+
+    def test_2_3_status_panel_does_not_push_overview_below_fold(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn('id: rightStatusPanel', main)
+        self.assertNotIn("id: safetyStrip", main)
+        self.assertNotIn("id: commandCardsRow", main)
+        self.assertNotIn("id: commandCenterScroll", main)
+        self.assertIn('Text { text: "快捷倒计时"', main)
+        self.assertIn('Layout.preferredHeight: 252', main)
+        self.assertIn('Layout.preferredHeight: 150', main)
+
+    def test_2_3_task_center_keeps_primary_controls_in_default_window(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        tasks_index = main.index("// Tasks page")
+        smart_index = main.index("// Smart triggers page", tasks_index)
+        tasks_section = main[tasks_index:smart_index]
+
+        self.assertIn("ScrollView {", tasks_section)
+        self.assertIn("id: taskCenterScroll", tasks_section)
+        self.assertIn("contentWidth: availableWidth", tasks_section)
+        self.assertIn('Layout.preferredHeight: 140', tasks_section)
+        self.assertIn('Layout.preferredHeight: 116', tasks_section)
+        self.assertIn('Task Queue Dashboard · 任务队列', tasks_section)
+        self.assertIn('Recent activity · 最近日志', tasks_section)
+
+    def test_2_3_task_center_uses_two_columns_to_avoid_below_fold_content(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        tasks_index = main.index("// Tasks page")
+        smart_index = main.index("// Smart triggers page", tasks_index)
+        tasks_section = main[tasks_index:smart_index]
+
+        self.assertIn("id: taskCenterColumns", tasks_section)
+        self.assertIn("id: taskTemplateColumn", tasks_section)
+        self.assertIn("id: queueAndActivityColumn", tasks_section)
+        self.assertIn("Layout.preferredWidth: 330", tasks_section)
+        self.assertIn('Layout.preferredHeight: 156', tasks_section)
+        self.assertIn('Layout.preferredHeight: 116', tasks_section)
+        self.assertIn('Layout.preferredHeight: 140', tasks_section)
+
+    def test_2_3_task_center_scrollview_closes_before_smart_triggers(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        tasks_index = main.index("// Tasks page")
+        smart_index = main.index("// Smart triggers page", tasks_index)
+        between = main[tasks_index:smart_index]
+
+        self.assertIn("id: taskCenterScroll", between)
+        self.assertIn("\n                }\n            }\n        }\n", between)
+
     def test_smart_trigger_page_scrolls_to_keep_controls_accessible(self):
         main = MAIN_QML.read_text(encoding="utf-8")
         smart_index = main.index("// Smart triggers page")

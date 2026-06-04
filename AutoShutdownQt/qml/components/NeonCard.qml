@@ -12,12 +12,12 @@ Rectangle {
     property bool active: false
     property color activeBorderColor: Theme.e5BorderPink
 
-    color: active ? Theme.cardGlassActive : (hoverArea.containsMouse && hoverable ? hoverColor : cardColor)
+    color: active ? Theme.cardGlassActive : (hoverHandler.hovered && hoverable ? hoverColor : cardColor)
     radius: Theme.radiusLg
-    border.color: active ? activeBorderColor : (hoverArea.containsMouse && hoverable ? Theme.e5BorderStrong : cardBorderColor)
+    border.color: active ? activeBorderColor : (hoverHandler.hovered && hoverable ? Theme.e5BorderStrong : cardBorderColor)
     border.width: active ? 2 : 1
     antialiasing: true
-    scale: hoverArea.containsMouse && hoverable ? 1.008 : 1.0
+    scale: hoverHandler.hovered && hoverable ? 1.008 : 1.0
 
     // Soft glass highlight across the top edge.
     Rectangle {
@@ -40,7 +40,7 @@ Rectangle {
         anchors.rightMargin: -width * 0.32
         anchors.topMargin: -width * 0.38
         color: Theme.e5Blue
-        opacity: hoverArea.containsMouse && hoverable ? 0.18 : 0.09
+        opacity: hoverHandler.hovered && hoverable ? 0.18 : 0.09
     }
 
     Rectangle {
@@ -52,14 +52,11 @@ Rectangle {
         anchors.leftMargin: -width * 0.42
         anchors.bottomMargin: -width * 0.48
         color: Theme.e5Pink
-        opacity: hoverArea.containsMouse && hoverable ? 0.12 : 0.055
+        opacity: hoverHandler.hovered && hoverable ? 0.12 : 0.055
     }
 
-    MouseArea {
-        id: hoverArea
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
+    HoverHandler {
+        id: hoverHandler
     }
 
     SequentialAnimation on opacity {

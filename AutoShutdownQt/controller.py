@@ -1,4 +1,5 @@
 from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer, QCoreApplication
+from PySide6.QtWidgets import QFileDialog
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
@@ -8,6 +9,7 @@ import subprocess
 import sys
 
 from network_service import NetworkReader, compute_speed
+from music_service import NullMusicService
 from script_service import run_script
 from settings_service import default_settings, load_settings, log_export_path as default_log_export_path, save_settings
 from task_model import RepeatRule, TaskTriggerType
@@ -26,6 +28,8 @@ class AppController(QObject):
     logTextChanged = Signal()
     taskQueueChanged = Signal()
     schedulingPausedChanged = Signal()
+    musicChanged = Signal()
+    reminderChanged = Signal()
 
     POWER_ACTIONS = ["shutdown", "sleep", "hibernate", "restart", "logoff", "lock"]
     ACTION_LABELS = {
@@ -33,7 +37,7 @@ class AppController(QObject):
         "restart": "重启", "logoff": "注销", "lock": "锁定",
     }
 
-    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None):
+    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None):
         super().__init__(parent)
         self._settings_path = settings_path
         self._persist_settings = self._should_persist_settings(settings_path)
@@ -58,6 +62,20 @@ class AppController(QObject):
         self._network_upload_threshold_kbps = self._coerce_float(settings.get("networkUploadThresholdKbps"), 10.0, minimum=0.0)
         self._network_idle_seconds = self._coerce_int(settings.get("networkIdleSeconds"), 60, minimum=1)
         self._network_poll_seconds = self._coerce_int(settings.get("networkPollSeconds"), 3, minimum=1)
+        self._music_autoplay_enabled = self._coerce_bool(settings.get("musicAutoplayEnabled"), True)
+        self._music_volume = self._coerce_int(settings.get("musicVolume"), 70, minimum=0)
+        self._music_volume = min(100, self._music_volume)
+        self._music_folder = str(settings.get("musicFolder") or "")
+        self._music_current_index = self._coerce_int(settings.get("musicCurrentIndex"), 0, minimum=0)
+        self._music_playback_mode = self._coerce_music_playback_mode(settings.get("musicPlaybackMode"))
+        self._reminder_enabled = self._coerce_bool(settings.get("reminderEnabled"), True)
+        self._reminder_minutes_csv = str(settings.get("reminderMinutesCsv") or "10,5,1")
+        self._snooze_minutes_value = self._coerce_int(settings.get("snoozeMinutes"), 15, minimum=1)
+        self._shown_reminders = set()
+        self._queue_reminder_task_id = ""
+        self._reminder_dialog_title = ""
+        self._reminder_dialog_body = ""
+        self._reminder_dialog_snooze_text = ""
         self._network_trigger_active = False
         self._network_trigger_status = "未启动"
         self._network_speed_text = "等待网络监控"
@@ -69,13 +87,23 @@ class AppController(QObject):
         self._process_checker = self._is_process_running
         self._last_process_check_error = ""
         self._network_reader = network_reader or NetworkReader()
+        self._music_service = music_service or NullMusicService()
+        if self._music_folder:
+            self._music_service.set_folder(self._music_folder, self._music_current_index)
+        self._music_service.playback_mode = self._music_playback_mode
+        self._music_service.set_volume(self._music_volume)
+        if hasattr(self._music_service, "playbackChanged"):
+            self._music_service.playbackChanged.connect(self.musicChanged.emit)
         self._scheduler = TaskScheduler(now_provider=self._now, diagnostic_logger=self._add_log)
         self._scheduler.load_from_settings(settings.get("taskQueue"))
         self._log_export_path = log_export_path
         self._open_folder = open_folder
+        self._folder_picker = folder_picker or self._pick_music_folder
         self._timer = QTimer(self)
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self._on_tick)
+        if any(task.next_run_at for task in self._scheduler.tasks):
+            self._timer.start()
         self._process_timer = QTimer(self)
         self._process_timer.timeout.connect(self._poll_process_trigger)
         self._network_timer = QTimer(self)
@@ -237,6 +265,94 @@ class AppController(QObject):
     def getNetworkSpeedText(self): return self._network_speed_text
     networkSpeedText = Property(str, getNetworkSpeedText, notify=networkTriggerChanged)
 
+    def getMusicAutoplayEnabled(self): return self._music_autoplay_enabled
+    def setMusicAutoplayEnabled(self, v):
+        v = bool(v)
+        if self._music_autoplay_enabled != v:
+            self._music_autoplay_enabled = v
+            self._add_log("启动自动播放音乐已开启" if v else "启动自动播放音乐已关闭")
+            self._save_settings()
+            self.musicChanged.emit()
+    musicAutoplayEnabled = Property(bool, getMusicAutoplayEnabled, setMusicAutoplayEnabled, notify=musicChanged)
+
+    def getMusicAvailable(self): return bool(self._music_service.available)
+    musicAvailable = Property(bool, getMusicAvailable, notify=musicChanged)
+
+    def getMusicTitle(self): return self._music_service.title
+    musicTitle = Property(str, getMusicTitle, notify=musicChanged)
+
+    def getMusicPlaying(self): return bool(self._music_service.playing)
+    musicPlaying = Property(bool, getMusicPlaying, notify=musicChanged)
+
+    def getMusicVolume(self): return self._music_volume
+    musicVolume = Property(int, getMusicVolume, notify=musicChanged)
+
+    def getMusicFolder(self): return str(getattr(self._music_service, "folder", self._music_folder))
+    musicFolder = Property(str, getMusicFolder, notify=musicChanged)
+
+    def getMusicCurrentIndex(self): return int(getattr(self._music_service, "current_index", self._music_current_index))
+    musicCurrentIndex = Property(int, getMusicCurrentIndex, notify=musicChanged)
+
+    def getMusicPositionMs(self): return int(getattr(self._music_service, "position_ms", 0))
+    musicPositionMs = Property(int, getMusicPositionMs, notify=musicChanged)
+
+    def getMusicDurationMs(self): return int(getattr(self._music_service, "duration_ms", 0))
+    musicDurationMs = Property(int, getMusicDurationMs, notify=musicChanged)
+
+    def getMusicPositionText(self): return str(getattr(self._music_service, "position_text", "00:00"))
+    musicPositionText = Property(str, getMusicPositionText, notify=musicChanged)
+
+    def getMusicDurationText(self): return str(getattr(self._music_service, "duration_text", "00:00"))
+    musicDurationText = Property(str, getMusicDurationText, notify=musicChanged)
+
+    def getMusicTracksJson(self):
+        return json.dumps([
+            {"index": index, "title": Path(track).name, "path": str(track)}
+            for index, track in enumerate(getattr(self._music_service, "tracks", []))
+        ], ensure_ascii=False)
+    musicTracksJson = Property(str, getMusicTracksJson, notify=musicChanged)
+
+    def getMusicPlaybackMode(self): return str(getattr(self._music_service, "playback_mode", self._music_playback_mode))
+    musicPlaybackMode = Property(str, getMusicPlaybackMode, notify=musicChanged)
+
+    def getReminderEnabled(self): return self._reminder_enabled
+    def setReminderEnabled(self, v):
+        v = bool(v)
+        if self._reminder_enabled != v:
+            self._reminder_enabled = v
+            self._save_settings()
+            self.reminderChanged.emit()
+    reminderEnabled = Property(bool, getReminderEnabled, setReminderEnabled, notify=reminderChanged)
+
+    def getReminderMinutesCsv(self): return self._reminder_minutes_csv
+    def setReminderMinutesCsv(self, v):
+        v = str(v or "")
+        if self._reminder_minutes_csv != v:
+            self._reminder_minutes_csv = v
+            self._save_settings()
+            self.reminderChanged.emit()
+    reminderMinutesCsv = Property(str, getReminderMinutesCsv, setReminderMinutesCsv, notify=reminderChanged)
+
+    def getSnoozeMinutesValue(self): return self._snooze_minutes_value
+    def setSnoozeMinutesValue(self, v):
+        v = self._coerce_int(v, 15, minimum=None)
+        if v < 1:
+            v = 15
+        if self._snooze_minutes_value != v:
+            self._snooze_minutes_value = v
+            self._save_settings()
+            self.reminderChanged.emit()
+    snoozeMinutesValue = Property(int, getSnoozeMinutesValue, setSnoozeMinutesValue, notify=reminderChanged)
+
+    def getReminderDialogTitle(self): return self._reminder_dialog_title
+    reminderDialogTitle = Property(str, getReminderDialogTitle, notify=reminderChanged)
+
+    def getReminderDialogBody(self): return self._reminder_dialog_body
+    reminderDialogBody = Property(str, getReminderDialogBody, notify=reminderChanged)
+
+    def getReminderDialogSnoozeText(self): return self._reminder_dialog_snooze_text
+    reminderDialogSnoozeText = Property(str, getReminderDialogSnoozeText, notify=reminderChanged)
+
     def getLogText(self): return "\n".join(self._logs[-8:])
     logText = Property(str, getLogText, notify=logTextChanged)
 
@@ -254,6 +370,7 @@ class AppController(QObject):
             return "暂无任务"
         return "\n".join(
             f"{row['name']} · {row['triggerSummary']} · {row['repeatSummary']} · {row['status']} · {row['nextRunText']}"
+            + (f" · {row['lastError']}" if row.get("lastError") else "")
             for row in rows
         )
     queueText = Property(str, getQueueText, notify=taskQueueChanged)
@@ -420,6 +537,96 @@ class AppController(QObject):
         if not self._dry_run:
             self._add_log("真实执行模式已开启：请确认动作、触发器、脚本路径和未保存工作")
 
+    @Slot()
+    def startMusicAutoplay(self):
+        if self._music_autoplay_enabled:
+            self.playMusic()
+
+    @Slot()
+    def playMusic(self):
+        if self._music_service.play():
+            self._add_log(f"开始播放音乐：{self._music_service.title}")
+        else:
+            self._add_log("未找到音乐文件，无法播放")
+        self.musicChanged.emit()
+
+    @Slot()
+    def pauseMusic(self):
+        self._music_service.pause()
+        self._add_log("音乐已暂停")
+        self.musicChanged.emit()
+
+    @Slot()
+    def stopMusic(self):
+        self._music_service.stop()
+        self._add_log("音乐已停止")
+        self.musicChanged.emit()
+
+    @Slot(int)
+    def setMusicVolume(self, value):
+        value = self._coerce_int(value, 70, minimum=0)
+        value = min(100, value)
+        if self._music_volume != value:
+            self._music_volume = value
+            self._music_service.set_volume(value)
+            self._save_settings()
+            self.musicChanged.emit()
+
+    @Slot(int)
+    def playMusicTrack(self, index):
+        if self._music_service.select_track(index, autoplay=True):
+            self._music_current_index = int(getattr(self._music_service, "current_index", index))
+            self._save_settings()
+            self._add_log(f"开始播放音乐：{self._music_service.title}")
+        else:
+            self._add_log(f"音乐序号无效：{index}")
+        self.musicChanged.emit()
+
+    @Slot(int)
+    def seekMusic(self, position_ms):
+        self._music_service.seek(position_ms)
+        self.musicChanged.emit()
+
+    @Slot()
+    def chooseMusicFolder(self):
+        folder = self._folder_picker()
+        if not folder:
+            return
+        self._music_folder = str(folder)
+        self._music_current_index = 0
+        self._music_service.set_folder(self._music_folder, self._music_current_index)
+        self._save_settings()
+        self._add_log(f"已选择音乐文件夹：{self._music_folder}")
+        self.musicChanged.emit()
+
+    @Slot()
+    def nextMusicTrack(self):
+        if self._music_service.next_track():
+            self._music_current_index = int(getattr(self._music_service, "current_index", self._music_current_index))
+            self._save_settings()
+            self._add_log(f"下一首：{self._music_service.title}")
+        else:
+            self._add_log("没有可播放的下一首")
+        self.musicChanged.emit()
+
+    @Slot()
+    def previousMusicTrack(self):
+        if self._music_service.previous_track():
+            self._music_current_index = int(getattr(self._music_service, "current_index", self._music_current_index))
+            self._save_settings()
+            self._add_log(f"上一首：{self._music_service.title}")
+        else:
+            self._add_log("没有可播放的上一首")
+        self.musicChanged.emit()
+
+    @Slot(str)
+    def setMusicPlaybackMode(self, mode):
+        mode = self._coerce_music_playback_mode(mode)
+        self._music_playback_mode = mode
+        self._music_service.playback_mode = mode
+        self._save_settings()
+        self.musicChanged.emit()
+
     @Slot(int)
     def snoozeMinutes(self, minutes):
         minutes = self._coerce_int(minutes, 0, minimum=0)
@@ -431,9 +638,54 @@ class AppController(QObject):
             return
         self._remaining_seconds += minutes * 60
         self._target_time_str = ""
+        self._shown_reminders.clear()
         self._add_log(f"已延后 {minutes} 分钟")
         self.remainingTimeChanged.emit()
         self.targetInfoChanged.emit()
+
+    @Slot()
+    def snoozeCurrentTask(self):
+        minutes = self._snooze_minutes_value
+        if self._status == "running":
+            self._remaining_seconds += minutes * 60
+            self._target_time_str = ""
+            self._shown_reminders.clear()
+            self._add_log(f"已延后 {minutes} 分钟")
+            self.remainingTimeChanged.emit()
+            self.targetInfoChanged.emit()
+            self.reminderChanged.emit()
+            return
+        task = self._next_snoozable_task()
+        if task is None:
+            self._add_log("没有可延后的任务")
+            return
+        task.next_run_at = task.next_run_at + timedelta(minutes=minutes)
+        if task.trigger_type == TaskTriggerType.COUNTDOWN:
+            task.trigger_config["seconds"] = max(1, int(task.trigger_config.get("seconds", 0))) + minutes * 60
+        self._shown_reminders.clear()
+        self._save_settings()
+        self._add_log(f"已延后 {minutes} 分钟")
+        self.taskQueueChanged.emit()
+        self.reminderChanged.emit()
+
+    def _next_snoozable_task(self):
+        candidates = [task for task in self._scheduler.tasks if task.enabled and task.next_run_at]
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda task: (task.next_run_at, task.created_order))[0]
+
+    @Slot()
+    def cancelCurrentTask(self):
+        if self._queue_reminder_task_id:
+            if self._scheduler.remove_task(self._queue_reminder_task_id):
+                self._queue_reminder_task_id = ""
+                self._shown_reminders.clear()
+                self._save_settings()
+                self._add_log("已取消当前任务")
+                self.taskQueueChanged.emit()
+                self.reminderChanged.emit()
+                return
+        self.cancel()
 
     @Slot()
     def cancel(self):
@@ -441,6 +693,7 @@ class AppController(QObject):
         self._remaining_seconds = 0
         self._status = "ready"
         self._target_time_str = ""
+        self._shown_reminders.clear()
         self._add_log("已取消当前任务")
         self.statusChanged.emit()
         self.remainingTimeChanged.emit()
@@ -640,15 +893,59 @@ class AppController(QObject):
             self._save_settings()
             self.taskQueueChanged.emit()
             return
+        self._check_queue_execution_reminders(now)
         if self._remaining_seconds <= 0:
             return
         self._remaining_seconds -= 1
         self.remainingTimeChanged.emit()
+        self._check_execution_reminders()
         if self._remaining_seconds <= 0:
             self._timer.stop()
             self._status = "ready"
+            self._shown_reminders.clear()
             self.statusChanged.emit()
             self._execute_with_script("倒计时结束")
+
+    def _check_execution_reminders(self):
+        if not self._reminder_enabled or self._status != "running" or self._remaining_seconds <= 0:
+            return
+        for minute in self._reminder_minutes():
+            threshold_seconds = minute * 60
+            if self._remaining_seconds <= threshold_seconds and minute not in self._shown_reminders:
+                self._shown_reminders.add(minute)
+                self._show_execution_reminder(minute)
+                return
+
+    def _show_execution_reminder(self, minute):
+        mode_text = "Dry-run：到点只记录将要执行的动作，不会真实执行。" if self._dry_run else "真实执行：到点会执行系统动作，请确认未保存工作。"
+        self._reminder_dialog_title = "执行前提醒"
+        self._reminder_dialog_body = f"{self.actionLabel} 将在 {self.remainingText} 后执行。\n{mode_text}"
+        self._reminder_dialog_snooze_text = f"延后 {self._snooze_minutes_value} 分钟"
+        self._add_log(f"执行前提醒：剩余 {minute} 分钟")
+        self.reminderChanged.emit()
+
+    def _check_queue_execution_reminders(self, now):
+        task = self._next_snoozable_task()
+        if task is None or not task.next_run_at:
+            return
+        previous_action = self._selected_action
+        previous_force_close = self._force_close
+        previous_remaining = self._remaining_seconds
+        previous_status = self._status
+        if self._queue_reminder_task_id != task.id:
+            self._queue_reminder_task_id = task.id
+            self._shown_reminders.clear()
+        self._selected_action = task.action
+        self._force_close = task.force_close
+        self._remaining_seconds = max(0, int((task.next_run_at - now).total_seconds()))
+        self._status = "running"
+        try:
+            self._check_execution_reminders()
+        finally:
+            self._selected_action = previous_action
+            self._force_close = previous_force_close
+            self._remaining_seconds = previous_remaining
+            self._status = previous_status
 
     def _queue_tasks_by_trigger(self, trigger_type):
         return [task for task in self._scheduler.tasks if task.trigger_type == trigger_type]
@@ -679,8 +976,8 @@ class AppController(QObject):
         self._selected_action = task.action
         self._force_close = task.force_close
         try:
-            self._execute_with_script(f"任务队列触发：{task.name}")
-            self._scheduler.mark_executed(task.id, now, success=True)
+            success, error = self._execute_with_script(f"任务队列触发：{task.name}")
+            self._scheduler.mark_executed(task.id, now, success=success, error=error)
         except Exception as exc:
             self._scheduler.mark_executed(task.id, now, success=False, error=exc)
             self._add_log(f"任务执行失败：{task.name}：{exc}")
@@ -706,22 +1003,29 @@ class AppController(QObject):
             else:
                 script_path = self._validate_script_before_real_execution()
                 if not script_path:
-                    return
+                    return False, "脚本路径无效"
                 result = self._script_runner(script_path, self._script_timeout_seconds)
                 self._add_log(result.message)
                 if not result.ok:
                     self._add_log("脚本失败，已阻止电源动作")
-                    return
+                    return False, result.message
         if self._dry_run:
             message = f"[dryRun] Would execute: {self._selected_action} force={self._force_close}"
             print(message)
             self._add_log(message)
-            return
+            return True, ""
         self._add_log(f"{reason}：执行 {self.actionLabel}")
         try:
-            self._execute_power_action()
+            result = self._execute_power_action()
+            if result is False:
+                error = "系统拒绝或命令返回失败"
+                self._add_log(f"电源动作执行失败：{error}")
+                return False, error
         except Exception as exc:
-            self._add_log(f"电源动作执行失败：{exc}")
+            error = str(exc) or exc.__class__.__name__
+            self._add_log(f"电源动作执行失败：{error}")
+            return False, error
+        return True, ""
 
     def _poll_process_trigger(self):
         if not self._process_trigger_active:
@@ -813,10 +1117,9 @@ class AppController(QObject):
 
     def _execute_power_action(self):
         if self._power_executor is not None:
-            self._power_executor(self._selected_action, self._force_close)
-            return
+            return self._power_executor(self._selected_action, self._force_close)
         from power_service import execute_power_action
-        execute_power_action(self._selected_action, self._force_close)
+        return execute_power_action(self._selected_action, self._force_close)
 
     def _check_process_running(self, process_name):
         self._last_process_check_error = ""
@@ -880,6 +1183,14 @@ class AppController(QObject):
             "networkUploadThresholdKbps": self._network_upload_threshold_kbps,
             "networkIdleSeconds": self._network_idle_seconds,
             "networkPollSeconds": self._network_poll_seconds,
+            "musicAutoplayEnabled": self._music_autoplay_enabled,
+            "musicVolume": self._music_volume,
+            "musicFolder": self._music_folder,
+            "musicCurrentIndex": self._music_current_index,
+            "musicPlaybackMode": self._music_playback_mode,
+            "reminderEnabled": self._reminder_enabled,
+            "reminderMinutesCsv": self._reminder_minutes_csv,
+            "snoozeMinutes": self._snooze_minutes_value,
             "taskQueue": self._scheduler.to_settings(),
         }
 
@@ -897,8 +1208,29 @@ class AppController(QObject):
         app = QCoreApplication.instance()
         return bool(app and QCoreApplication.applicationName() == "AutoShutdownQt")
 
+    def _pick_music_folder(self):
+        return QFileDialog.getExistingDirectory(None, "选择音乐文件夹", self.musicFolder or str(Path(__file__).resolve().parents[1]))
+
     def _now(self):
         return datetime.now()
+
+    def _reminder_minutes(self):
+        values = []
+        for token in self._reminder_minutes_csv.split(","):
+            try:
+                value = int(str(token).strip())
+            except ValueError:
+                continue
+            if value > 0:
+                values.append(value)
+        unique = sorted(set(values), reverse=True)
+        return unique or [10, 5, 1]
+
+    def _coerce_music_playback_mode(self, value):
+        value = str(value or "")
+        if value in {"sequence", "list_loop", "single_loop"}:
+            return value
+        return "sequence"
 
     def _coerce_bool(self, value, fallback):
         if isinstance(value, bool):
