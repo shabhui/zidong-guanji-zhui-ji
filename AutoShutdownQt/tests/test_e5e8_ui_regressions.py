@@ -103,8 +103,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            "AutoShutdown v2.4",
-            "v2.4 · 右侧状态栏",
+            "定时关机助手 v3.0",
+            "v3.0 · 右侧状态栏",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -139,17 +139,43 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("托盘可用时关闭窗口会隐藏到后台", main)
         self.assertIn("托盘不可用时关闭窗口不会继续后台运行", main)
         self.assertIn("托盘菜单 Quit", main)
-        self.assertIn("trayCloseRequested", main)
-        self.assertIn("mainWindow.hide()", main)
+        self.assertIn("if (controller.trayAvailable && !trayCloseRequested)", main)
+        self.assertIn("controller.minimizeToTray()", main)
 
     def test_main_starts_music_autoplay_after_qml_loads(self):
         main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
 
         self.assertIn("from music_service import MusicService", main_py)
-        self.assertIn("controller = AppController(music_service=MusicService(Path(__file__).resolve().parents[1]))", main_py)
+        self.assertIn("from notification_service import NotificationService", main_py)
+        self.assertIn("from startup_service import StartupService", main_py)
+        self.assertIn("startup_service=StartupService()", main_py)
+        self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service, logger=controller._add_log)", main_py)
+        self.assertNotIn("if controller.startMinimizedToTray and tray_service.available:", main_py)
+        self.assertNotIn("window.hide()", main_py)
         self.assertIn("controller.startMusicAutoplay()", main_py)
         self.assertGreater(main_py.index("engine.load(str(main_qml))"), main_py.index("engine.rootContext().setContextProperty"))
         self.assertGreater(main_py.index("controller.startMusicAutoplay()"), main_py.index("if not engine.rootObjects():"))
+
+    def test_main_sets_application_and_window_icon_from_packaged_image(self):
+        main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("from PySide6.QtGui import QIcon", main_py)
+        self.assertIn('APP_ICON_PATH = Path(__file__).parent / "app_icon.png"', main_py)
+        self.assertIn("app.setWindowIcon(QIcon(str(APP_ICON_PATH)))", main_py)
+        self.assertIn("window.setIcon(QIcon(str(APP_ICON_PATH)))", main_py)
+        self.assertIn("TrayService(controller, window, icon_path=APP_ICON_PATH", main_py)
+        self.assertNotIn('icon: "../app_icon.png"', main)
+
+    def test_title_bar_close_hides_to_tray_and_minimize_keeps_taskbar_behavior(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertNotIn("function minimizeWindow()", main)
+        self.assertIn("mainWindow.showMinimized()", main)
+        self.assertIn("onClicked: mainWindow.showMinimized()", main)
+        self.assertIn("onClicked: mainWindow.close()", main)
+        self.assertIn("if (controller.trayAvailable && !trayCloseRequested)", main)
+        self.assertIn("controller.minimizeToTray()", main)
 
     def test_2_4_reminder_snooze_ui_is_wired_to_controller(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -169,6 +195,33 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             self.assertIn(snippet, main)
         for label in ("执行前提醒", "提醒分钟", "默认延后", "取消当前任务", "知道了"):
             self.assertIn(label, main)
+
+    def test_2_5_background_experience_ui_is_wired_to_controller(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("controller.windowsNotificationsEnabled", main)
+        self.assertIn("controller.startWithWindows", main)
+        self.assertIn("controller.taskHistoryLimit", main)
+        self.assertIn("controller.historyRowsJson", main)
+        self.assertIn("controller.clearHistory()", main)
+        self.assertIn("controller.exportHistory()", main)
+        self.assertIn("function historyRows()", main)
+        self.assertIn("onHistoryChanged", main)
+        self.assertNotIn("controller.startMinimizedToTray", main)
+        for label in ("Windows 原生通知", "开机自动启动", "任务历史", "清空历史", "导出历史"):
+            self.assertIn(label, main)
+        self.assertNotIn("启动后最小化到托盘", main)
+
+    def test_2_5_main_wires_notifications_startup_and_start_minimized(self):
+        main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
+
+        self.assertIn('app.setApplicationVersion("3.0")', main_py)
+        self.assertIn("from notification_service import NotificationService", main_py)
+        self.assertIn("from startup_service import StartupService", main_py)
+        self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service", main_py)
+        self.assertIn("startup_service=StartupService()", main_py)
+        self.assertNotIn("if controller.startMinimizedToTray and tray_service.available:", main_py)
+        self.assertNotIn("window.hide()", main_py)
 
     def test_music_player_ui_is_wired_to_controller(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -214,8 +267,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            'title: "AutoShutdown v2.4"',
-            'v2.4 · 右侧状态栏',
+            'title: "定时关机助手 v3.0"',
+            'v3.0 · 右侧状态栏',
             'id: rightStatusPanel',
             '安全模式',
             'Dry-run 已开启',
@@ -227,7 +280,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         ):
             self.assertIn(snippet, main)
 
-        self.assertNotIn('AutoShutdown v2.4 · Command Center', main)
+        self.assertNotIn('定时关机助手 v3.0 · Command Center', main)
         self.assertNotIn('Text { text: "Command Center"', main)
         self.assertNotIn('Text { text: "Next task"', main)
         self.assertNotIn('Text { text: "Active triggers"', main)

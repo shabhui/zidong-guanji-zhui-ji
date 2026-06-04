@@ -11,7 +11,7 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "AutoShutdown v2.4"
+    title: "定时关机助手 v3.0"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
@@ -20,6 +20,7 @@ Window {
     property bool trayCloseRequested: false
     property var queueRowModel: queueRows()
     property var musicTrackModel: musicTracks()
+    property var historyRowModel: historyRows()
     readonly property int topBarHeight: 58
     readonly property int navWidth: 224
     readonly property int outerMargin: 22
@@ -52,6 +53,14 @@ Window {
     function musicTracks() {
         try {
             return JSON.parse(controller.musicTracksJson)
+        } catch (error) {
+            return []
+        }
+    }
+
+    function historyRows() {
+        try {
+            return JSON.parse(controller.historyRowsJson)
         } catch (error) {
             return []
         }
@@ -101,12 +110,15 @@ Window {
                 reminderDialog.open()
             }
         }
+        function onHistoryChanged() {
+            mainWindow.historyRowModel = mainWindow.historyRows()
+        }
     }
 
     onClosing: function(close) {
-        if (!trayCloseRequested) {
+        if (controller.trayAvailable && !trayCloseRequested) {
             close.accepted = false
-            mainWindow.hide()
+            controller.minimizeToTray()
         }
     }
 
@@ -272,7 +284,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v2.4 · 右侧状态栏"
+                    text: "v3.0 · 右侧状态栏"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -343,7 +355,7 @@ Window {
                 compact: true
                 variant: "danger"
                 text: "×"
-                onClicked: Qt.quit()
+                onClicked: mainWindow.close()
             }
         }
     }
@@ -683,7 +695,7 @@ Window {
                         anchors.fill: parent
                         anchors.margins: 18
                         spacing: 10
-                        Text { text: "v2.4 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+                        Text { text: "v3.0 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
                         Text { text: "运行概览"; color: Theme.textPrimary; font.pixelSize: 22; font.weight: Font.Bold }
                         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.7 }
                         Text { text: "安全模式"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
@@ -1185,6 +1197,36 @@ Window {
                             onEditingFinished: controller.snoozeMinutesValue = mainWindow.safeInt(text, 15)
                         }
                         Text { Layout.fillWidth: true; text: "分钟，提醒弹窗按钮会使用这个时长"; color: Theme.textSecondary; font.pixelSize: 12 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "Windows 原生通知"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.windowsNotificationsEnabled; onCheckedChanged: controller.windowsNotificationsEnabled = checked }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "开机自动启动"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.startWithWindows; onCheckedChanged: controller.startWithWindows = checked }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Text { Layout.preferredWidth: 90; text: "任务历史"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        TextField {
+                            Layout.preferredWidth: 96
+                            text: String(controller.taskHistoryLimit)
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            onEditingFinished: controller.taskHistoryLimit = mainWindow.safeInt(text, 500)
+                        }
+                        NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "secondary"; text: "清空历史"; onClicked: controller.clearHistory() }
+                        NeonButton { Layout.preferredWidth: 96; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "导出历史"; onClicked: controller.exportHistory() }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: mainWindow.historyRowModel.length > 0 ? ("最近历史：" + mainWindow.historyRowModel[0].message) : "任务历史：暂无记录"
+                        color: Theme.textSecondary
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
                     }
                     Text {
                         Layout.fillWidth: true

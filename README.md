@@ -1,18 +1,20 @@
-# AutoShutdownQt 2.4
+# 定时关机助手 3.0
 
-AutoShutdownQt 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。2.4 是 2.3 command center UI polish release 之后的提醒与延后执行版本，重点新增执行前提醒、默认延后、音乐播放器和更完整的本地任务队列体验。
+定时关机助手 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。3.0 是正式安装包版本，修复关闭窗口隐藏到右下角小图标的后台体验，并新增 Inno Setup 安装器，同时继续保留便携 zip。
 
-> 安全提示：AutoShutdownQt 2.4 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
+> 安全提示：定时关机助手 3.0 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
 
 ## Current release
 
-AutoShutdownQt 2.4 is the current reminder, snooze, and local music playback release.
+定时关机助手 3.0 is the current formal installer release with right-bottom tray icon behavior, startup/background options, task history, and Windows notifications.
 
-- Download: `AutoShutdownQt-2.4.zip`
+- Download installer: `AutoShutdownQt-3.0-Setup.exe`
+- Portable zip: `AutoShutdownQt-3.0.zip`
 - Verify checksum with `SHA256SUMS.txt`
 - Dry-run is enabled by default.
-- Execution reminders can warn before queued tasks run and use the configured default snooze duration.
-- The bundled local music player supports folder selection, playlist switching, seek, volume, previous/next, and playback modes.
+- Windows native notifications can be enabled for execution reminders when tray support is available.
+- Task history can be reviewed, cleared, and exported as JSON.
+- Close button hides the app to the right-bottom tray icon when tray support is available; double-click the icon to restore, right-click and choose Quit to exit.
 
 ## 功能特性
 
@@ -22,6 +24,10 @@ AutoShutdownQt 2.4 is the current reminder, snooze, and local music playback rel
 - **电源动作**：关机、睡眠、休眠、重启、注销、锁定。
 - **任务模板**：15 分钟后关机、30 分钟后关机、1 小时后睡眠、今晚 23:00 关机等。
 - **执行前提醒**：可配置提醒分钟列表，默认 `10,5,1`。
+- **Windows 原生通知**：可在系统托盘可用时为执行前提醒发送原生通知。
+- **开机自动启动**：可选择写入当前用户 Windows Run 项，便携版默认不启用。
+- **右下角小图标后台运行**：点击右上角关闭按钮会隐藏到右下角小图标；双击小图标恢复窗口，右键小图标选择 Quit 才彻底退出。
+- **任务历史**：记录创建、延后、取消和执行事件，支持清空与 JSON 导出。
 - **默认延后**：提醒弹窗可按配置的默认分钟数延后当前任务，默认 `15` 分钟。
 - **任务队列隔离提醒**：每个队列任务的每个提醒点只提醒一次，延后后会重新计算提醒点。
 - **本地音乐播放器**：支持启动自动播放、选择音乐文件夹、歌曲列表、播放/暂停/停止、音量、进度拖动、上一首/下一首、顺序播放/列表循环/单曲循环。
@@ -46,7 +52,8 @@ AutoShutdownQt/
 ├── task_scheduler.py       # 任务队列调度
 ├── tray_service.py         # 系统托盘服务
 ├── package_release.py      # 打包脚本
-├── AutoShutdownQt-2.4.spec # PyInstaller 打包配置
+├── AutoShutdownQt-3.0.spec # PyInstaller 打包配置
+├── AutoShutdownQt-3.0.iss  # Inno Setup 安装器配置
 ├── qml/                    # QML 界面和组件
 └── tests/                  # 单元测试和 QML 静态回归测试
 ```
@@ -74,9 +81,9 @@ python AutoShutdownQt/main.py
 python -m unittest discover AutoShutdownQt/tests -v
 ```
 
-## 打包 2.4 发布包
+## 打包 3.0 发布包
 
-先确保 PyInstaller 可用：
+先确保 PyInstaller 可用；如果要生成安装器，还需要安装 Inno Setup 并确保 `ISCC.exe` 在 PATH 中：
 
 ```bash
 python -m pip install pyinstaller
@@ -91,24 +98,25 @@ python AutoShutdownQt/package_release.py
 生成产物：
 
 ```text
-dist/AutoShutdownQt-2.4/
-dist/AutoShutdownQt-2.4.zip
+dist/AutoShutdownQt-3.0/
+dist/AutoShutdownQt-3.0.zip
+dist/AutoShutdownQt-3.0-Setup.exe
 dist/SHA256SUMS.txt
-dist/release-checklist-v2.4.md
+dist/release-checklist-v3.0.md
 ```
 
 说明：
 
 - `dist/`、`build/` 和 `*.zip` 已被 `.gitignore` 忽略，不会随源码提交。
-- 当前发布包是便携版，不是安装器。
-- 当前 exe 未做代码签名，Windows 首次运行时可能出现安全提示。
+- 3.0 同时发布安装器和便携 zip。
+- 当前 exe/安装器未做代码签名，Windows 首次运行时可能出现安全提示。
 - zip 内会包含 `release-manifest.json`，用于记录版本、关键文件和安全说明。
 - 根目录 `.mp3` 文件会被打进发布包。
-- 更多发布说明见 `RELEASE_NOTES_v2.4.md`。
+- 更多发布说明见 `RELEASE_NOTES_v3.0.md`。
 
 ## 安全模式说明
 
-AutoShutdownQt 面向电源动作自动化，默认安全策略是：
+定时关机助手 面向电源动作自动化，默认安全策略是：
 
 1. 默认 `dryRun = true`。
 2. dry-run 下不会真实执行关机、重启、注销等系统动作。
@@ -124,4 +132,4 @@ AutoShutdownQt 面向电源动作自动化，默认安全策略是：
 main
 ```
 
-本仓库提交发布配置和源码，不直接提交本地 zip 包。正式 GitHub Release 使用 `v2.4` tag，并上传 `dist/AutoShutdownQt-2.4.zip` 与 `dist/SHA256SUMS.txt`。
+本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.0` tag，并上传 `dist/AutoShutdownQt-3.0-Setup.exe`、`dist/AutoShutdownQt-3.0.zip` 与 `dist/SHA256SUMS.txt`。

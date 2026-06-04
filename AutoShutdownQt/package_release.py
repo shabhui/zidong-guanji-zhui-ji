@@ -1,21 +1,24 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import zipfile
 
-VERSION = "2.4"
+VERSION = "3.0"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-SPEC_FILE = APP_DIR / "AutoShutdownQt-2.4.spec"
+SPEC_FILE = APP_DIR / "AutoShutdownQt-3.0.spec"
+INNO_SCRIPT = APP_DIR / "AutoShutdownQt-3.0.iss"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "pyinstaller"
-APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-2.4"
-ZIP_PATH = DIST_DIR / "AutoShutdownQt-2.4.zip"
+APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-3.0"
+ZIP_PATH = DIST_DIR / "AutoShutdownQt-3.0.zip"
+SETUP_PATH = DIST_DIR / "AutoShutdownQt-3.0-Setup.exe"
 SHA256SUMS_PATH = DIST_DIR / "SHA256SUMS.txt"
-RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.4.md"
+RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v3.0.md"
 APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
 REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
@@ -104,7 +107,7 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
     bundle = Path(bundle_dir)
     main_qml_candidates = [bundle / "_internal" / "qml" / "Main.qml", bundle / "qml" / "Main.qml"]
     manifest = {
-        "app": "AutoShutdownQt",
+        "app": "定时关机助手",
         "version": VERSION,
         "bundle": APP_BUNDLE_NAME,
         "executable": "AutoShutdownQt.exe",
@@ -127,18 +130,51 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
     return target
 
 
-def create_sha256sums(archive_path=ZIP_PATH, target_path=SHA256SUMS_PATH):
-    archive = Path(archive_path)
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+def inno_compiler_candidates():
+    candidates = [Path("ISCC.exe"), Path("iscc")]
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(Path(local_app_data) / "Programs" / "Inno Setup 6" / "ISCC.exe")
+    candidates.extend(
+        [
+            Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
+            Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Inno Setup 6" / "ISCC.exe",
+        ]
+    )
+    return candidates
+
+
+def build_inno_installer():
+    last_error = None
+    for executable in inno_compiler_candidates():
+        try:
+            subprocess.run([str(executable), str(INNO_SCRIPT)], cwd=ROOT, check=True)
+            return SETUP_PATH
+        except FileNotFoundError as exc:
+            last_error = exc
+        except subprocess.CalledProcessError:
+            raise
+    raise RuntimeError("Inno Setup compiler not found. Install Inno Setup and ensure ISCC.exe is on PATH.") from last_error
+
+
+def create_sha256sums(artifact_paths=ZIP_PATH, target_path=SHA256SUMS_PATH):
+    if isinstance(artifact_paths, (str, Path)):
+        paths = [Path(artifact_paths)]
+    else:
+        paths = [Path(path) for path in artifact_paths]
     target = Path(target_path)
-    target.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+    lines = []
+    for artifact in paths:
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {artifact.name}")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return target
 
 
 def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
     target = Path(target_path)
     target.write_text(
-        "# AutoShutdownQt 2.4 Release Checklist\n\n"
+        "# 定时关机助手 3.0 Release Checklist\n\n"
         "- [ ] Launch app with Dry-run enabled by default.\n"
         "- [ ] Verify Command Center safety strip shows dry-run/live state, action, tray, and queue count.\n"
         "- [ ] Verify Queue health remains readable with empty and populated queues.\n"
@@ -149,8 +185,14 @@ def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
         "- [ ] Verify each queued task gets its own reminder threshold.\n"
         "- [ ] Verify Task Queue Dashboard empty and populated states.\n"
         "- [ ] Verify Recent activity shows logs and export/clear controls.\n"
+        "- [ ] Verify Windows native notification fallback does not hide the in-app reminder.\n"
+        "- [ ] Verify task history records create, snooze, cancel, and Dry-run execution events.\n"
+        "- [ ] Verify task history clear and JSON export controls.\n"
+        "- [ ] Verify startup option writes/removes the current-user Run entry.\n"
+        "- [ ] Verify close button hides the window only when the right-bottom tray icon is visible.\n"
+        "- [ ] Verify double-clicking the tray icon restores the window and tray menu Quit exits.\n"
         "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
-        "- [ ] Publish SHA256SUMS.txt next to the zip.\n",
+        "- [ ] Publish SHA256SUMS.txt next to the zip and installer.\n",
         encoding="utf-8",
     )
     return target
@@ -244,11 +286,13 @@ def main():
     create_release_manifest(APP_BUNDLE_DIR)
     zip_path = create_zip()
     validate_zip_contents(zip_path)
-    sums_path = create_sha256sums(zip_path)
+    setup_path = build_inno_installer()
+    sums_path = create_sha256sums([zip_path, setup_path])
     checklist_path = create_release_checklist()
     print(f"Built AutoShutdownQt {VERSION}: {APP_BUNDLE_DIR}")
     print(f"Pruned unused Qt payload files: {removed_qt_payload}")
     print(f"Created archive: {zip_path}")
+    print(f"Created installer: {setup_path}")
     print(f"Created checksum file: {sums_path}")
     print(f"Created release checklist: {checklist_path}")
 

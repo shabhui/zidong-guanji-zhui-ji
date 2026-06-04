@@ -1,16 +1,22 @@
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from controller import AppController
 from music_service import MusicService
+from notification_service import NotificationService
+from startup_service import StartupService
 from tray_service import TrayService
+
+APP_ICON_PATH = Path(__file__).parent / "app_icon.png"
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName("AutoShutdownQt")
-    app.setApplicationVersion("2.4")
+    app.setApplicationName("定时关机助手")
+    app.setApplicationVersion("3.0")
+    app.setWindowIcon(QIcon(str(APP_ICON_PATH)))
 
     # PySide6 versions differ in QQuickStyle introspection support.
     # Use Fusion as a safe baseline; QML supplies the custom Fluent Neon visuals.
@@ -19,7 +25,10 @@ if __name__ == "__main__":
     except Exception:
         pass
 
-    controller = AppController(music_service=MusicService(Path(__file__).resolve().parents[1]))
+    controller = AppController(
+        music_service=MusicService(Path(__file__).resolve().parents[1]),
+        startup_service=StartupService(),
+    )
 
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("controller", controller)
@@ -36,8 +45,10 @@ if __name__ == "__main__":
     controller.startMusicAutoplay()
 
     window = engine.rootObjects()[0]
-    tray_service = TrayService(controller, window, logger=controller._add_log)
+    window.setIcon(QIcon(str(APP_ICON_PATH)))
+    tray_service = TrayService(controller, window, icon_path=APP_ICON_PATH, logger=controller._add_log)
     controller.trayService = tray_service
     tray_service.setup()
+    controller.notificationService = NotificationService(tray_service=tray_service, logger=controller._add_log)
 
     sys.exit(app.exec())

@@ -11,6 +11,9 @@ dist/
 !AutoShutdownQt/AutoShutdownQt-2.2.spec
 !AutoShutdownQt/AutoShutdownQt-2.3.spec
 !AutoShutdownQt/AutoShutdownQt-2.4.spec
+!AutoShutdownQt/AutoShutdownQt-2.5.spec
+!AutoShutdownQt/AutoShutdownQt-3.0.spec
+!AutoShutdownQt/AutoShutdownQt-3.0.iss
 
 # Publish artifacts
 [Pp]ublish/

@@ -118,6 +118,25 @@ class FakeMusicService:
         self.current_index = current_index
 
 
+
+
+class FakeNotificationService:
+    def __init__(self):
+        self.reminders = []
+
+    def show_reminder(self, title, body):
+        self.reminders.append((title, body))
+        return True
+
+
+class FakeStartupService:
+    def __init__(self):
+        self.enabled_values = []
+
+    def set_enabled(self, enabled):
+        self.enabled_values.append(bool(enabled))
+        return True
+
 class PracticalEnhancementsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -164,6 +183,66 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertTrue(settings["reminderEnabled"])
         self.assertEqual(settings["reminderMinutesCsv"], "10,5,1")
         self.assertEqual(settings["snoozeMinutes"], 15)
+
+    def test_default_settings_include_2_5_background_preferences(self):
+        settings = default_settings()
+
+        self.assertTrue(settings["windowsNotificationsEnabled"])
+        self.assertFalse(settings["startWithWindows"])
+        self.assertFalse(settings["startMinimizedToTray"])
+        self.assertEqual(settings["taskHistory"], [])
+        self.assertEqual(settings["taskHistoryLimit"], 500)
+
+    def test_controller_records_history_and_notifies_for_reminder(self):
+        notifier = FakeNotificationService()
+        controller = AppController(notification_service=notifier)
+        controller.reminderMinutesCsv = "1"
+        controller._remaining_seconds = 60
+        controller._status = "running"
+
+        controller._check_execution_reminders()
+
+        self.assertEqual(notifier.reminders[0][0], "执行前提醒")
+        self.assertIn("执行前提醒", controller.historyRowsJson)
+
+    def test_controller_clear_and_export_history_slots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "logs.txt"
+            controller = AppController(log_export_path=target)
+            controller._record_history("created", "shutdown", "countdown", "task-a", "created task")
+
+            controller.exportHistory()
+            controller.clearHistory()
+
+            self.assertEqual(controller.historyRowsJson, "[]")
+            self.assertTrue(target.with_name("AutoShutdownQt-history.json").exists())
+
+    def test_controller_startup_preferences_delegate_to_service(self):
+        startup = FakeStartupService()
+        controller = AppController(startup_service=startup)
+
+        controller.startWithWindows = True
+        controller.startMinimizedToTray = True
+
+        self.assertEqual(startup.enabled_values, [True])
+        self.assertTrue(controller.startWithWindows)
+        self.assertTrue(controller.startMinimizedToTray)
+
+    def test_controller_records_create_snooze_cancel_and_dry_run_history(self):
+        controller = AppController()
+
+        controller.startCountdown(0, 1, 0)
+        task_id = controller._scheduler.tasks[0].id
+        controller._queue_reminder_task_id = task_id
+        controller.snoozeCurrentTask()
+        controller.cancelCurrentTask()
+        controller.executeNow()
+
+        history = controller.historyRowsJson
+        self.assertIn("已加入任务队列", history)
+        self.assertIn("已延后", history)
+        self.assertIn("已取消当前任务", history)
+        self.assertIn("Dry-run", history)
 
     def test_controller_exposes_reminder_preferences(self):
         controller = AppController()
@@ -1001,7 +1080,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         diagnostics = controller.diagnosticText
 
-        self.assertIn("AutoShutdownQt 2.0", diagnostics)
+        self.assertIn("定时关机助手 3.0", diagnostics)
         self.assertIn("Dry-run: True", diagnostics)
         self.assertIn("Action: sleep", diagnostics)
         self.assertIn("Script enabled: True", diagnostics)
@@ -1018,7 +1097,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             exported = target.read_text(encoding="utf-8")
 
             self.assertIn("=== Diagnostics ===", exported)
-            self.assertIn("AutoShutdownQt 2.0", exported)
+            self.assertIn("定时关机助手 3.0", exported)
             self.assertIn("=== Recent Logs ===", exported)
             self.assertIn("15 分钟后关机", exported)
 
@@ -1031,7 +1110,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             diagnostics_target = Path(tmp) / "logs-diagnostics.txt"
 
             self.assertTrue(diagnostics_target.exists())
-            self.assertIn("AutoShutdownQt 2.0", diagnostics_target.read_text(encoding="utf-8"))
+            self.assertIn("定时关机助手 3.0", diagnostics_target.read_text(encoding="utf-8"))
             self.assertIn("诊断已导出", controller.logText)
 
     def test_request_dry_run_change_logs_live_mode_warning(self):

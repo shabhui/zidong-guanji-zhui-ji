@@ -25,6 +25,11 @@ DEFAULT_SETTINGS = {
     "reminderMinutesCsv": "10,5,1",
     "snoozeMinutes": 15,
     "taskQueue": {"version": 1, "tasks": []},
+    "taskHistory": [],
+    "taskHistoryLimit": 500,
+    "windowsNotificationsEnabled": True,
+    "startWithWindows": False,
+    "startMinimizedToTray": False,
 }
 
 

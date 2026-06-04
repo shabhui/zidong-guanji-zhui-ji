@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 
+from history_service import HistoryEvent, append_history_event, clear_history, export_history_json, history_rows_json
 from network_service import NetworkReader, compute_speed
 from music_service import NullMusicService
 from script_service import run_script
@@ -30,6 +31,8 @@ class AppController(QObject):
     schedulingPausedChanged = Signal()
     musicChanged = Signal()
     reminderChanged = Signal()
+    historyChanged = Signal()
+    startupChanged = Signal()
 
     POWER_ACTIONS = ["shutdown", "sleep", "hibernate", "restart", "logoff", "lock"]
     ACTION_LABELS = {
@@ -37,7 +40,7 @@ class AppController(QObject):
         "restart": "重启", "logoff": "注销", "lock": "锁定",
     }
 
-    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None):
+    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None):
         super().__init__(parent)
         self._settings_path = settings_path
         self._persist_settings = self._should_persist_settings(settings_path)
@@ -71,6 +74,15 @@ class AppController(QObject):
         self._reminder_enabled = self._coerce_bool(settings.get("reminderEnabled"), True)
         self._reminder_minutes_csv = str(settings.get("reminderMinutesCsv") or "10,5,1")
         self._snooze_minutes_value = self._coerce_int(settings.get("snoozeMinutes"), 15, minimum=1)
+        self._history_settings = settings
+        self._history_limit = self._coerce_int(settings.get("taskHistoryLimit"), 500, minimum=1)
+        self._windows_notifications_enabled = self._coerce_bool(settings.get("windowsNotificationsEnabled"), True)
+        self._start_with_windows = self._coerce_bool(settings.get("startWithWindows"), False)
+        self._start_minimized_to_tray = self._coerce_bool(settings.get("startMinimizedToTray"), False)
+        self._notification_service = notification_service
+        self._startup_service = startup_service
+        if self._startup_service is not None and hasattr(self._startup_service, "is_enabled"):
+            self._start_with_windows = self._startup_service.is_enabled()
         self._shown_reminders = set()
         self._queue_reminder_task_id = ""
         self._reminder_dialog_title = ""
@@ -344,8 +356,55 @@ class AppController(QObject):
             self.reminderChanged.emit()
     snoozeMinutesValue = Property(int, getSnoozeMinutesValue, setSnoozeMinutesValue, notify=reminderChanged)
 
+    def getHistoryRowsJson(self):
+        return history_rows_json(self._history_settings)
+    historyRowsJson = Property(str, getHistoryRowsJson, notify=historyChanged)
+
+    def getTaskHistoryLimit(self): return self._history_limit
+    def setTaskHistoryLimit(self, v):
+        v = self._coerce_int(v, 500, minimum=1)
+        if self._history_limit != v:
+            self._history_limit = v
+            self._history_settings["taskHistoryLimit"] = v
+            self._trim_history_to_limit()
+            self._save_settings()
+            self.historyChanged.emit()
+    taskHistoryLimit = Property(int, getTaskHistoryLimit, setTaskHistoryLimit, notify=historyChanged)
+
+    def getWindowsNotificationsEnabled(self): return self._windows_notifications_enabled
+    def setWindowsNotificationsEnabled(self, v):
+        v = bool(v)
+        if self._windows_notifications_enabled != v:
+            self._windows_notifications_enabled = v
+            self._save_settings()
+            self.reminderChanged.emit()
+    windowsNotificationsEnabled = Property(bool, getWindowsNotificationsEnabled, setWindowsNotificationsEnabled, notify=reminderChanged)
+
+    def getStartWithWindows(self): return self._start_with_windows
+    def setStartWithWindows(self, v):
+        v = bool(v)
+        if self._start_with_windows == v:
+            return
+        if self._startup_service is not None and not self._startup_service.set_enabled(v):
+            self._add_log("开机启动设置失败")
+            return
+        self._start_with_windows = v
+        self._save_settings()
+        self.startupChanged.emit()
+    startWithWindows = Property(bool, getStartWithWindows, setStartWithWindows, notify=startupChanged)
+
+    def getStartMinimizedToTray(self): return self._start_minimized_to_tray
+    def setStartMinimizedToTray(self, v):
+        v = bool(v)
+        if self._start_minimized_to_tray != v:
+            self._start_minimized_to_tray = v
+            self._save_settings()
+            self.startupChanged.emit()
+    startMinimizedToTray = Property(bool, getStartMinimizedToTray, setStartMinimizedToTray, notify=startupChanged)
+
     def getReminderDialogTitle(self): return self._reminder_dialog_title
     reminderDialogTitle = Property(str, getReminderDialogTitle, notify=reminderChanged)
+
 
     def getReminderDialogBody(self): return self._reminder_dialog_body
     reminderDialogBody = Property(str, getReminderDialogBody, notify=reminderChanged)
@@ -388,7 +447,29 @@ class AppController(QObject):
 
     def setTrayService(self, service):
         self._tray_service = service
+        self.startupChanged.emit()
     trayService = property(getTrayService, setTrayService)
+
+    def getTrayAvailable(self):
+        return bool(self._tray_service is not None and getattr(self._tray_service, "available", False))
+    trayAvailable = Property(bool, getTrayAvailable, notify=startupChanged)
+
+    @Slot(result=bool)
+    def minimizeToTray(self):
+        if self._tray_service is None:
+            self._add_log("最小化到托盘已跳过：托盘不可用")
+            return False
+        minimized = self._tray_service.minimize_to_tray()
+        if not minimized:
+            self._add_log("最小化到托盘已跳过：托盘不可用")
+        return minimized
+
+    def getNotificationService(self):
+        return self._notification_service
+
+    def setNotificationService(self, service):
+        self._notification_service = service
+    notificationService = property(getNotificationService, setNotificationService)
 
     # --- Slots ---
 
@@ -409,6 +490,7 @@ class AppController(QObject):
         self._save_settings()
         self._timer.start()
         self._add_log(f"已加入任务队列：{task.name} 后执行 {self.actionLabel}")
+        self._record_history("created", task.action, task.trigger_type.value, task.id, f"已加入任务队列：{task.name}")
         self.taskQueueChanged.emit()
 
     @Slot(int, int)
@@ -436,6 +518,7 @@ class AppController(QObject):
         self._save_settings()
         self._timer.start()
         self._add_log(f"已加入任务队列：{task.name} 执行 {self.actionLabel}")
+        self._record_history("created", task.action, task.trigger_type.value, task.id, f"已加入任务队列：{task.name}")
         self.taskQueueChanged.emit()
 
     @Slot()
@@ -640,6 +723,7 @@ class AppController(QObject):
         self._target_time_str = ""
         self._shown_reminders.clear()
         self._add_log(f"已延后 {minutes} 分钟")
+        self._record_history("snoozed", self._selected_action, "active-countdown", "", f"已延后 {minutes} 分钟")
         self.remainingTimeChanged.emit()
         self.targetInfoChanged.emit()
 
@@ -651,6 +735,7 @@ class AppController(QObject):
             self._target_time_str = ""
             self._shown_reminders.clear()
             self._add_log(f"已延后 {minutes} 分钟")
+            self._record_history("snoozed", self._selected_action, "active-countdown", "", f"已延后 {minutes} 分钟")
             self.remainingTimeChanged.emit()
             self.targetInfoChanged.emit()
             self.reminderChanged.emit()
@@ -665,6 +750,7 @@ class AppController(QObject):
         self._shown_reminders.clear()
         self._save_settings()
         self._add_log(f"已延后 {minutes} 分钟")
+        self._record_history("snoozed", task.action, task.trigger_type.value, task.id, f"已延后 {minutes} 分钟")
         self.taskQueueChanged.emit()
         self.reminderChanged.emit()
 
@@ -678,10 +764,12 @@ class AppController(QObject):
     def cancelCurrentTask(self):
         if self._queue_reminder_task_id:
             if self._scheduler.remove_task(self._queue_reminder_task_id):
+                cancelled_task_id = self._queue_reminder_task_id
                 self._queue_reminder_task_id = ""
                 self._shown_reminders.clear()
                 self._save_settings()
                 self._add_log("已取消当前任务")
+                self._record_history("cancelled", self._selected_action, "queue", cancelled_task_id, "已取消当前任务")
                 self.taskQueueChanged.emit()
                 self.reminderChanged.emit()
                 return
@@ -695,6 +783,7 @@ class AppController(QObject):
         self._target_time_str = ""
         self._shown_reminders.clear()
         self._add_log("已取消当前任务")
+        self._record_history("cancelled", self._selected_action, "active-countdown", "", "已取消当前任务")
         self.statusChanged.emit()
         self.remainingTimeChanged.emit()
         self.targetInfoChanged.emit()
@@ -841,6 +930,24 @@ class AppController(QObject):
         self._add_log(f"诊断已导出：{target}")
 
     @Slot()
+    def clearHistory(self):
+        clear_history(self._history_settings)
+        self._save_settings()
+        self.historyChanged.emit()
+        self._add_log("历史记录已清空")
+
+    @Slot()
+    def exportHistory(self):
+        log_target = Path(self._log_export_path) if self._log_export_path is not None else default_log_export_path()
+        target = log_target.expanduser().with_name("AutoShutdownQt-history.json")
+        try:
+            export_history_json(self._history_settings, target)
+        except Exception as exc:
+            self._add_log(f"历史导出失败：{exc}")
+            return
+        self._add_log(f"历史已导出：{target}")
+
+    @Slot()
     def validateScriptPath(self):
         clean_path = self._script_path.strip()
         if not clean_path:
@@ -922,6 +1029,9 @@ class AppController(QObject):
         self._reminder_dialog_body = f"{self.actionLabel} 将在 {self.remainingText} 后执行。\n{mode_text}"
         self._reminder_dialog_snooze_text = f"延后 {self._snooze_minutes_value} 分钟"
         self._add_log(f"执行前提醒：剩余 {minute} 分钟")
+        self._record_history("reminder", self._selected_action, "reminder", self._queue_reminder_task_id, f"执行前提醒：剩余 {minute} 分钟")
+        if self._windows_notifications_enabled and self._notification_service is not None:
+            self._notification_service.show_reminder(self._reminder_dialog_title, self._reminder_dialog_body)
         self.reminderChanged.emit()
 
     def _check_queue_execution_reminders(self, now):
@@ -1013,6 +1123,7 @@ class AppController(QObject):
             message = f"[dryRun] Would execute: {self._selected_action} force={self._force_close}"
             print(message)
             self._add_log(message)
+            self._record_history("dry-run", self._selected_action, reason, "", f"Dry-run：{message}")
             return True, ""
         self._add_log(f"{reason}：执行 {self.actionLabel}")
         try:
@@ -1101,7 +1212,7 @@ class AppController(QObject):
 
     def _diagnostic_text(self):
         return "\n".join([
-            "AutoShutdownQt 2.0 Diagnostics",
+            "定时关机助手 3.0 Diagnostics",
             f"Dry-run: {self._dry_run}",
             f"Status: {self._status}",
             f"Remaining seconds: {self._remaining_seconds}",
@@ -1150,6 +1261,28 @@ class AppController(QObject):
             return False
         return any(line.lower().startswith(f'"{clean_name}"') for line in completed.stdout.splitlines())
 
+    def _record_history(self, event, action, source, task_id, message):
+        self._history_settings["taskHistoryLimit"] = self._history_limit
+        append_history_event(
+            self._history_settings,
+            HistoryEvent(
+                datetime.now().isoformat(timespec="seconds"),
+                event,
+                action,
+                source,
+                "dry-run" if self._dry_run else "live",
+                task_id or "",
+                message,
+            ),
+        )
+        self._save_settings()
+        self.historyChanged.emit()
+
+    def _trim_history_to_limit(self):
+        rows = self._history_settings.setdefault("taskHistory", [])
+        if len(rows) > self._history_limit:
+            del rows[: len(rows) - self._history_limit]
+
     def _add_log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self._logs.append(f"{timestamp} · {message}")
@@ -1192,6 +1325,11 @@ class AppController(QObject):
             "reminderMinutesCsv": self._reminder_minutes_csv,
             "snoozeMinutes": self._snooze_minutes_value,
             "taskQueue": self._scheduler.to_settings(),
+            "taskHistory": self._history_settings.get("taskHistory", []),
+            "taskHistoryLimit": self._history_limit,
+            "windowsNotificationsEnabled": self._windows_notifications_enabled,
+            "startWithWindows": self._start_with_windows,
+            "startMinimizedToTray": self._start_minimized_to_tray,
         }
 
     def _save_settings(self):
@@ -1206,7 +1344,7 @@ class AppController(QObject):
         if settings_path is not None:
             return True
         app = QCoreApplication.instance()
-        return bool(app and QCoreApplication.applicationName() == "AutoShutdownQt")
+        return bool(app and QCoreApplication.applicationName() == "定时关机助手")
 
     def _pick_music_folder(self):
         return QFileDialog.getExistingDirectory(None, "选择音乐文件夹", self.musicFolder or str(Path(__file__).resolve().parents[1]))
