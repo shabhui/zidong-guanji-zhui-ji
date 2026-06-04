@@ -19,6 +19,30 @@ RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v2.4.md"
 APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
 REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
+UNUSED_QT_PAYLOAD_MARKERS = (
+    "/PySide6/Qt6Quick3D",
+    "/PySide6/Qt6VirtualKeyboard",
+    "/PySide6/Qt6WebEngine",
+    "/PySide6/Qt6Pdf",
+    "/PySide6/Qt63D",
+    "/PySide6/Qt6Charts",
+    "/PySide6/Qt6Graphs",
+    "/PySide6/Qt6DataVisualization",
+    "/PySide6/Qt6Location",
+    "/PySide6/qml/QtQuick/VirtualKeyboard/",
+    "/PySide6/qml/QtQuick3D/",
+    "/PySide6/qml/Qt3D/",
+    "/PySide6/qml/QtCharts/",
+    "/PySide6/qml/QtDataVisualization/",
+    "/PySide6/qml/QtGraphs/",
+    "/PySide6/qml/QtLocation/",
+    "/PySide6/qml/QtMultimedia/SpatialAudio/",
+    "/PySide6/qml/QtPositioning/",
+    "/PySide6/qml/QtQuick/Pdf/",
+    "/PySide6/qml/QtQuick3DPhysics/",
+    "/PySide6/qml/QtWebEngine/",
+    "/PySide6/qml/QtWebView/",
+)
 QML_PREFIXES = (
     f"{APP_BUNDLE_NAME}/_internal/qml/",
     f"{APP_BUNDLE_NAME}/qml/",
@@ -54,6 +78,26 @@ def run_pyinstaller():
         str(SPEC_FILE),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
+
+
+def _is_unused_qt_payload(path_text):
+    normalized = path_text.replace("\\", "/")
+    return any(marker in normalized for marker in UNUSED_QT_PAYLOAD_MARKERS)
+
+
+def prune_unused_qt_payload(bundle_dir=APP_BUNDLE_DIR):
+    bundle = Path(bundle_dir)
+    removed = 0
+    for path in sorted(bundle.rglob("*"), reverse=True):
+        if path.is_file() and _is_unused_qt_payload(str(path.relative_to(bundle))):
+            path.unlink()
+            removed += 1
+    for path in sorted((p for p in bundle.rglob("*") if p.is_dir()), reverse=True):
+        try:
+            path.rmdir()
+        except OSError:
+            pass
+    return removed
 
 
 def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
@@ -173,6 +217,10 @@ def validate_zip_contents(zip_path=ZIP_PATH):
     if not bundled_music_present:
         raise RuntimeError("Archive is missing bundled music mp3")
 
+    unused_qt_payload = [name for name in names if _is_unused_qt_payload(name)]
+    if unused_qt_payload:
+        raise RuntimeError(f"Archive contains unused Qt payload: {unused_qt_payload[0]}")
+
     if not isinstance(manifest, dict):
         raise RuntimeError(f"Archive manifest must be a JSON object: {target}")
     _require_manifest_value(manifest, "version", VERSION)
@@ -191,6 +239,7 @@ def main():
     run_pyinstaller()
     if not APP_BUNDLE_DIR.exists():
         raise SystemExit(f"Missing build output: {APP_BUNDLE_DIR}")
+    removed_qt_payload = prune_unused_qt_payload(APP_BUNDLE_DIR)
     copy_bundled_music(ROOT, APP_BUNDLE_DIR)
     create_release_manifest(APP_BUNDLE_DIR)
     zip_path = create_zip()
@@ -198,6 +247,7 @@ def main():
     sums_path = create_sha256sums(zip_path)
     checklist_path = create_release_checklist()
     print(f"Built AutoShutdownQt {VERSION}: {APP_BUNDLE_DIR}")
+    print(f"Pruned unused Qt payload files: {removed_qt_payload}")
     print(f"Created archive: {zip_path}")
     print(f"Created checksum file: {sums_path}")
     print(f"Created release checklist: {checklist_path}")

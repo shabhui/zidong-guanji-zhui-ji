@@ -99,6 +99,51 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertEqual(copied, [bundle / "theme.mp3"])
             self.assertEqual((bundle / "theme.mp3").read_bytes(), b"mp3")
 
+    def test_release_script_prunes_unused_qt_payload_after_pyinstaller(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp) / "AutoShutdownQt-2.4"
+            keep_file = bundle / "_internal" / "PySide6" / "Qt6Quick.dll"
+            webengine_file = bundle / "_internal" / "PySide6" / "Qt6WebEngineCore.dll"
+            virtual_keyboard_file = bundle / "_internal" / "PySide6" / "qml" / "QtQuick" / "VirtualKeyboard" / "qtvkbplugin.dll"
+            virtual_keyboard_runtime_file = bundle / "_internal" / "PySide6" / "Qt6VirtualKeyboard.dll"
+            quick3d_file = bundle / "_internal" / "PySide6" / "qml" / "QtQuick3D" / "qtquick3dplugin.dll"
+            quick3d_runtime_file = bundle / "_internal" / "PySide6" / "Qt6Quick3DRuntimeRender.dll"
+            music_file = bundle / "theme.mp3"
+            for path in (keep_file, webengine_file, virtual_keyboard_file, virtual_keyboard_runtime_file, quick3d_file, quick3d_runtime_file, music_file):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"payload")
+
+            removed = package_release.prune_unused_qt_payload(bundle)
+
+            self.assertFalse(webengine_file.exists())
+            self.assertFalse(virtual_keyboard_file.exists())
+            self.assertFalse(virtual_keyboard_runtime_file.exists())
+            self.assertFalse(quick3d_file.exists())
+            self.assertFalse(quick3d_runtime_file.exists())
+            self.assertTrue(keep_file.exists())
+            self.assertTrue(music_file.exists())
+            self.assertEqual(removed, 5)
+
+    def test_release_archive_validation_rejects_pruned_qt_payload_regressions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_path = Path(tmp) / "AutoShutdownQt-2.4.zip"
+            self._write_valid_archive(archive_path)
+            with zipfile.ZipFile(archive_path, "a") as archive:
+                archive.writestr("AutoShutdownQt-2.4/_internal/PySide6/Qt6WebEngineCore.dll", b"web")
+
+            with self.assertRaisesRegex(RuntimeError, "unused Qt payload"):
+                package_release.validate_zip_contents(archive_path)
+
+    def test_release_archive_validation_passes_with_required_qt_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_path = Path(tmp) / "AutoShutdownQt-2.4.zip"
+            self._write_valid_archive(archive_path)
+            with zipfile.ZipFile(archive_path, "a") as archive:
+                archive.writestr("AutoShutdownQt-2.4/_internal/PySide6/Qt6Quick.dll", b"quick")
+                archive.writestr("AutoShutdownQt-2.4/_internal/PySide6/qml/QtQuick/Controls/qmldir", b"controls")
+
+            self.assertTrue(package_release.validate_zip_contents(archive_path))
+
     def test_release_archive_validation_fails_when_music_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive_path = Path(tmp) / "AutoShutdownQt-2.4.zip"
