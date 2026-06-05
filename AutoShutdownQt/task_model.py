@@ -9,6 +9,7 @@ class TaskTriggerType(str, Enum):
     FIXED_TIME = "fixed_time"
     PROCESS_EXIT = "process_exit"
     NETWORK_IDLE = "network_idle"
+    IDLE = "idle"
 
 
 class RepeatRule(str, Enum):
@@ -145,6 +146,8 @@ class ScheduledTask:
             return f"进程退出 {self.trigger_config.get('processName', '')}"
         if self.trigger_type == TaskTriggerType.NETWORK_IDLE:
             return f"网络闲置 {int(self.trigger_config.get('idleSeconds', 0))} 秒"
+        if self.trigger_type == TaskTriggerType.IDLE:
+            return f"空闲 {int(self.trigger_config.get('idleMinutes', 0))} 分钟"
         return self.trigger_type.value
 
     def repeat_summary(self):

@@ -103,8 +103,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            "定时关机助手 v3.0",
-            "v3.0 · 右侧状态栏",
+            "定时关机助手 v3.1",
+            "v3.1 · 右侧状态栏",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -215,7 +215,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
     def test_2_5_main_wires_notifications_startup_and_start_minimized(self):
         main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
 
-        self.assertIn('app.setApplicationVersion("3.0")', main_py)
+        self.assertIn('app.setApplicationVersion("3.1")', main_py)
         self.assertIn("from notification_service import NotificationService", main_py)
         self.assertIn("from startup_service import StartupService", main_py)
         self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service", main_py)
@@ -267,8 +267,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            'title: "定时关机助手 v3.0"',
-            'v3.0 · 右侧状态栏',
+            'title: "定时关机助手 v3.1"',
+            'v3.1 · 右侧状态栏',
             'id: rightStatusPanel',
             '安全模式',
             'Dry-run 已开启',
@@ -280,7 +280,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         ):
             self.assertIn(snippet, main)
 
-        self.assertNotIn('定时关机助手 v3.0 · Command Center', main)
+        self.assertNotIn('定时关机助手 v3.1 · Command Center', main)
         self.assertNotIn('Text { text: "Command Center"', main)
         self.assertNotIn('Text { text: "Next task"', main)
         self.assertNotIn('Text { text: "Active triggers"', main)
@@ -343,6 +343,35 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("ScrollView {", smart_section)
         self.assertIn("contentWidth: availableWidth", smart_section)
         self.assertIn("clip: true", smart_section)
+
+    def test_smart_trigger_page_exposes_idle_shutdown_controls(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        smart_index = main.index("// Smart triggers page")
+        script_index = main.index("// Script page", smart_index)
+        smart_section = main[smart_index:script_index]
+
+        for snippet in (
+            "controller.idleTriggerEnabled",
+            "controller.idleMinutes",
+            "controller.idlePollSeconds",
+            "controller.idleAction",
+            "controller.startIdleTrigger()",
+            "controller.stopIdleTrigger()",
+            "controller.idleTriggerStatus",
+        ):
+            self.assertIn(snippet, smart_section)
+
+        for label in ("空闲自动关机", "空闲分钟", "轮询秒", "开始空闲检测", "停止空闲检测"):
+            self.assertIn(label, smart_section)
+
+    def test_idle_action_combo_does_not_overwrite_saved_action_during_initial_sync(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        combo_index = main.index("id: idleActionCombo")
+        combo_section = main[combo_index:main.index("NeonButton { Layout.preferredWidth: 142", combo_index)]
+
+        self.assertIn("property bool syncing: true", combo_section)
+        self.assertIn("if (!syncing) controller.idleAction = currentValue", combo_section)
+        self.assertIn("syncing = false", combo_section)
 
     def test_dry_run_switch_requires_confirmation_before_live_mode(self):
         main = MAIN_QML.read_text(encoding="utf-8")

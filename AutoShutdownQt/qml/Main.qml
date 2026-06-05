@@ -11,7 +11,7 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "定时关机助手 v3.0"
+    title: "定时关机助手 v3.1"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
@@ -284,7 +284,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v3.0 · 右侧状态栏"
+                    text: "v3.1 · 右侧状态栏"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -695,7 +695,7 @@ Window {
                         anchors.fill: parent
                         anchors.margins: 18
                         spacing: 10
-                        Text { text: "v3.0 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+                        Text { text: "v3.1 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
                         Text { text: "运行概览"; color: Theme.textPrimary; font.pixelSize: 22; font.weight: Font.Bold }
                         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.7 }
                         Text { text: "安全模式"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
@@ -1038,6 +1038,71 @@ Window {
                                     Text { text: controller.networkTriggerStatus; color: controller.networkTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
                                 }
                                 Text { text: controller.networkSpeedText; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
+                            }
+                        }
+                        NeonCard {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 220
+                            cardColor: Theme.cardGlass
+                            cardBorderColor: Theme.e5BorderBlue
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
+                                spacing: 8
+                                Text { text: "空闲自动关机"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                Text { text: "检测键鼠无操作时间；达到阈值后把任务加入队列，继续复用 Dry-run、提醒、历史和取消逻辑。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 6
+                                    rowSpacing: 8
+                                    columnSpacing: 8
+                                    Text { text: "启用"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    FluentSwitch { checked: controller.idleTriggerEnabled; onCheckedChanged: controller.idleTriggerEnabled = checked }
+                                    Text { text: "空闲分钟"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.idleMinutes)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                        onTextChanged: controller.idleMinutes = mainWindow.safeInt(text, 30)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                    Text { text: "轮询秒"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    TextField {
+                                        Layout.preferredWidth: 76
+                                        text: String(controller.idlePollSeconds)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: Theme.textPrimary
+                                        validator: RegularExpressionValidator { regularExpression: /[0-9]*/ }
+                                        onTextChanged: controller.idlePollSeconds = mainWindow.safeInt(text, 10)
+                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                    }
+                                }
+                                RowLayout {
+                                    spacing: 10
+                                    Text { text: "动作"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                    ComboBox {
+                                        id: idleActionCombo
+                                        property bool syncing: true
+                                        Layout.preferredWidth: 128
+                                        model: [
+                                            { label: "关机", value: "shutdown" },
+                                            { label: "睡眠", value: "sleep" },
+                                            { label: "锁定", value: "lock" }
+                                        ]
+                                        textRole: "label"
+                                        valueRole: "value"
+                                        onCurrentValueChanged: if (!syncing) controller.idleAction = currentValue
+                                        Component.onCompleted: {
+                                            currentIndex = controller.idleAction === "sleep" ? 1 : (controller.idleAction === "lock" ? 2 : 0)
+                                            syncing = false
+                                        }
+                                    }
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "primary"; text: "开始空闲检测"; enabled: controller.idleTriggerEnabled && !controller.idleTriggerActive; onClicked: controller.startIdleTrigger() }
+                                    NeonButton { Layout.preferredWidth: 142; Layout.preferredHeight: 40; variant: "secondary"; text: "停止空闲检测"; enabled: controller.idleTriggerActive; onClicked: controller.stopIdleTrigger() }
+                                    Text { text: controller.idleTriggerStatus; color: controller.idleTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                                }
                             }
                         }
                         NeonCard {

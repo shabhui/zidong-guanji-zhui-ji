@@ -1,15 +1,15 @@
-# 定时关机助手 3.0
+# 定时关机助手 3.1
 
-定时关机助手 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。3.0 是正式安装包版本，修复关闭窗口隐藏到右下角小图标的后台体验，并新增 Inno Setup 安装器，同时继续保留便携 zip。
+定时关机助手 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。3.1 是正式安装包版本，新增可设置的空闲自动关机，同时继续保留右下角托盘后台、Inno Setup 安装器和便携 zip。
 
-> 安全提示：定时关机助手 3.0 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
+> 安全提示：定时关机助手 3.1 默认开启 **Dry-run 安全模式**。在 dry-run 下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动关闭 dry-run 后，才会执行真实系统动作。
 
 ## Current release
 
-定时关机助手 3.0 is the current formal installer release with right-bottom tray icon behavior, startup/background options, task history, and Windows notifications.
+定时关机助手 3.1 is the current formal installer release with configurable idle auto-shutdown, right-bottom tray icon behavior, startup/background options, task history, and Windows notifications.
 
-- Download installer: `AutoShutdownQt-3.0-Setup.exe`
-- Portable zip: `AutoShutdownQt-3.0.zip`
+- Download installer: `定时关机助手-3.1-Setup.exe`
+- Portable zip: `定时关机助手-3.1.zip`
 - Verify checksum with `SHA256SUMS.txt`
 - Dry-run is enabled by default.
 - Windows native notifications can be enabled for execution reminders when tray support is available.
@@ -33,6 +33,7 @@
 - **本地音乐播放器**：支持启动自动播放、选择音乐文件夹、歌曲列表、播放/暂停/停止、音量、进度拖动、上一首/下一首、顺序播放/列表循环/单曲循环。
 - **进程退出触发**：监控指定进程，进程出现后再退出时触发当前电源动作。
 - **网络闲置触发**：当下载/上传速度持续低于阈值达到设定秒数后触发当前电源动作。
+- **空闲自动关机**：可设置启用、空闲分钟、轮询秒和触发动作；达到键鼠无操作阈值后加入现有任务队列。
 - **执行前脚本**：真实执行电源动作前可运行脚本；dry-run 下不会启动脚本。
 - **配置持久化**：保存 dry-run、动作、脚本、触发器阈值、任务队列、提醒、延后和音乐设置等常用设置。
 - **日志工具**：支持清空日志、导出日志和导出诊断。
@@ -52,8 +53,8 @@ AutoShutdownQt/
 ├── task_scheduler.py       # 任务队列调度
 ├── tray_service.py         # 系统托盘服务
 ├── package_release.py      # 打包脚本
-├── AutoShutdownQt-3.0.spec # PyInstaller 打包配置
-├── AutoShutdownQt-3.0.iss  # Inno Setup 安装器配置
+├── AutoShutdownQt-3.1.spec # PyInstaller 打包配置
+├── AutoShutdownQt-3.1.iss  # Inno Setup 安装器配置
 ├── qml/                    # QML 界面和组件
 └── tests/                  # 单元测试和 QML 静态回归测试
 ```
@@ -81,7 +82,7 @@ python AutoShutdownQt/main.py
 python -m unittest discover AutoShutdownQt/tests -v
 ```
 
-## 打包 3.0 发布包
+## 打包 3.1 发布包
 
 先确保 PyInstaller 可用；如果要生成安装器，还需要安装 Inno Setup 并确保 `ISCC.exe` 在 PATH 中：
 
@@ -98,21 +99,21 @@ python AutoShutdownQt/package_release.py
 生成产物：
 
 ```text
-dist/AutoShutdownQt-3.0/
-dist/AutoShutdownQt-3.0.zip
-dist/AutoShutdownQt-3.0-Setup.exe
+dist/定时关机助手-3.1/
+dist/定时关机助手-3.1.zip
+dist/定时关机助手-3.1-Setup.exe
 dist/SHA256SUMS.txt
-dist/release-checklist-v3.0.md
+dist/release-checklist-v3.1.md
 ```
 
 说明：
 
 - `dist/`、`build/` 和 `*.zip` 已被 `.gitignore` 忽略，不会随源码提交。
-- 3.0 同时发布安装器和便携 zip。
+- 3.1 同时发布安装器和便携 zip。
 - 当前 exe/安装器未做代码签名，Windows 首次运行时可能出现安全提示。
 - zip 内会包含 `release-manifest.json`，用于记录版本、关键文件和安全说明。
 - 根目录 `.mp3` 文件会被打进发布包。
-- 更多发布说明见 `RELEASE_NOTES_v3.0.md`。
+- 更多发布说明见 `RELEASE_NOTES_v3.1.md`。
 
 ## 安全模式说明
 
@@ -132,4 +133,4 @@ dist/release-checklist-v3.0.md
 main
 ```
 
-本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.0` tag，并上传 `dist/AutoShutdownQt-3.0-Setup.exe`、`dist/AutoShutdownQt-3.0.zip` 与 `dist/SHA256SUMS.txt`。
+本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.1` tag，并上传 `dist/定时关机助手-3.1-Setup.exe`、`dist/定时关机助手-3.1.zip` 与 `dist/SHA256SUMS.txt`。

@@ -12,8 +12,19 @@ APP_DIR = ROOT / "AutoShutdownQt"
 sys.path.insert(0, str(APP_DIR))
 
 from controller import AppController
+from idle_service import IdleSample, StaticIdleReader
 from network_service import NetworkSample, compute_speed
 from settings_service import default_settings, load_settings, save_settings
+
+
+class FakeIdleReader:
+    def __init__(self, samples):
+        self.samples = list(samples)
+
+    def sample(self):
+        if not self.samples:
+            return IdleSample(False, 0, "no more samples")
+        return self.samples.pop(0)
 
 
 class FakeNetworkReader:
@@ -192,6 +203,96 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertFalse(settings["startMinimizedToTray"])
         self.assertEqual(settings["taskHistory"], [])
         self.assertEqual(settings["taskHistoryLimit"], 500)
+
+    def test_default_settings_include_idle_trigger_preferences(self):
+        settings = default_settings()
+
+        self.assertFalse(settings["idleTriggerEnabled"])
+        self.assertEqual(settings["idleMinutes"], 30)
+        self.assertEqual(settings["idlePollSeconds"], 10)
+        self.assertEqual(settings["idleAction"], "shutdown")
+
+    def test_controller_exposes_configurable_idle_trigger_preferences(self):
+        controller = AppController(idle_reader=StaticIdleReader(0))
+
+        self.assertFalse(controller.idleTriggerEnabled)
+        self.assertEqual(controller.idleMinutes, 30)
+        self.assertEqual(controller.idlePollSeconds, 10)
+        self.assertEqual(controller.idleAction, "shutdown")
+        self.assertEqual(controller.idleTriggerStatus, "未启动")
+
+        controller.idleTriggerEnabled = True
+        controller.idleMinutes = 45
+        controller.idlePollSeconds = 15
+        controller.idleAction = "sleep"
+
+        self.assertTrue(controller.idleTriggerEnabled)
+        self.assertEqual(controller.idleMinutes, 45)
+        self.assertEqual(controller.idlePollSeconds, 15)
+        self.assertEqual(controller.idleAction, "sleep")
+
+    def test_idle_trigger_adds_queue_task_when_idle_threshold_is_reached(self):
+        reader = FakeIdleReader([IdleSample(True, 0, ""), IdleSample(True, 1800, "")])
+        controller = AppController(idle_reader=reader)
+        controller.idleMinutes = 30
+        controller.idleAction = "sleep"
+
+        controller.startIdleTrigger()
+        controller._poll_idle_trigger()
+
+        self.assertFalse(controller.idleTriggerActive)
+        self.assertIn("空闲触发", controller.queueText)
+        self.assertIn("sleep", controller.queueRowsJson)
+        self.assertIn("已空闲 30 / 30 分钟", controller.idleTriggerStatus)
+
+    def test_idle_trigger_queue_task_executes_on_next_tick(self):
+        reader = FakeIdleReader([IdleSample(True, 0, ""), IdleSample(True, 1800, "")])
+        controller = AppController(idle_reader=reader)
+        controller.dryRun = False
+        controller.scriptEnabled = False
+        power_calls = []
+        controller._power_executor = lambda action, force: power_calls.append((action, force)) or True
+        controller.idleMinutes = 30
+        controller.idleAction = "sleep"
+
+        controller.startIdleTrigger()
+        controller._poll_idle_trigger()
+        controller._on_tick()
+
+        self.assertEqual(power_calls, [("sleep", False)])
+
+    def test_idle_trigger_does_not_emit_when_polled_status_is_unchanged(self):
+        reader = FakeIdleReader([IdleSample(True, 120, ""), IdleSample(True, 120, "")])
+        controller = AppController(idle_reader=reader)
+        controller.idleMinutes = 30
+        emissions = []
+
+        controller.startIdleTrigger()
+        controller.idleTriggerChanged.connect(lambda: emissions.append(controller.idleTriggerStatus))
+        controller._poll_idle_trigger()
+
+        self.assertEqual(emissions, [])
+
+    def test_idle_trigger_waits_when_user_is_not_idle_long_enough(self):
+        reader = FakeIdleReader([IdleSample(True, 0, ""), IdleSample(True, 120, "")])
+        controller = AppController(idle_reader=reader)
+        controller.idleMinutes = 30
+
+        controller.startIdleTrigger()
+        controller._poll_idle_trigger()
+
+        self.assertTrue(controller.idleTriggerActive)
+        self.assertNotIn("空闲触发", controller.queueText)
+        self.assertEqual(controller.idleTriggerStatus, "已空闲 2 / 30 分钟")
+
+    def test_idle_trigger_reports_unavailable_reader(self):
+        reader = FakeIdleReader([IdleSample(False, 0, "no user32")])
+        controller = AppController(idle_reader=reader)
+
+        controller.startIdleTrigger()
+
+        self.assertFalse(controller.idleTriggerActive)
+        self.assertIn("空闲检测不可用", controller.idleTriggerStatus)
 
     def test_controller_records_history_and_notifies_for_reminder(self):
         notifier = FakeNotificationService()
@@ -1080,12 +1181,13 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         diagnostics = controller.diagnosticText
 
-        self.assertIn("定时关机助手 3.0", diagnostics)
+        self.assertIn("定时关机助手 3.1", diagnostics)
         self.assertIn("Dry-run: True", diagnostics)
         self.assertIn("Action: sleep", diagnostics)
         self.assertIn("Script enabled: True", diagnostics)
         self.assertIn("Process trigger", diagnostics)
         self.assertIn("Network trigger", diagnostics)
+        self.assertIn("Idle trigger", diagnostics)
 
     def test_export_logs_includes_diagnostics_header(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1097,7 +1199,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             exported = target.read_text(encoding="utf-8")
 
             self.assertIn("=== Diagnostics ===", exported)
-            self.assertIn("定时关机助手 3.0", exported)
+            self.assertIn("定时关机助手 3.1", exported)
             self.assertIn("=== Recent Logs ===", exported)
             self.assertIn("15 分钟后关机", exported)
 
@@ -1110,7 +1212,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             diagnostics_target = Path(tmp) / "logs-diagnostics.txt"
 
             self.assertTrue(diagnostics_target.exists())
-            self.assertIn("定时关机助手 3.0", diagnostics_target.read_text(encoding="utf-8"))
+            self.assertIn("定时关机助手 3.1", diagnostics_target.read_text(encoding="utf-8"))
             self.assertIn("诊断已导出", controller.logText)
 
     def test_request_dry_run_change_logs_live_mode_warning(self):

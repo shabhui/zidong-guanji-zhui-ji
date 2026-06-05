@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from history_service import HistoryEvent, append_history_event, clear_history, export_history_json, history_rows_json
+from idle_service import WindowsIdleReader, format_idle_status
 from network_service import NetworkReader, compute_speed
 from music_service import NullMusicService
 from script_service import run_script
@@ -26,6 +27,7 @@ class AppController(QObject):
     scriptConfigChanged = Signal()
     processTriggerChanged = Signal()
     networkTriggerChanged = Signal()
+    idleTriggerChanged = Signal()
     logTextChanged = Signal()
     taskQueueChanged = Signal()
     schedulingPausedChanged = Signal()
@@ -40,7 +42,7 @@ class AppController(QObject):
         "restart": "重启", "logoff": "注销", "lock": "锁定",
     }
 
-    def __init__(self, parent=None, settings_path=None, network_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None):
+    def __init__(self, parent=None, settings_path=None, network_reader=None, idle_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None):
         super().__init__(parent)
         self._settings_path = settings_path
         self._persist_settings = self._should_persist_settings(settings_path)
@@ -65,6 +67,10 @@ class AppController(QObject):
         self._network_upload_threshold_kbps = self._coerce_float(settings.get("networkUploadThresholdKbps"), 10.0, minimum=0.0)
         self._network_idle_seconds = self._coerce_int(settings.get("networkIdleSeconds"), 60, minimum=1)
         self._network_poll_seconds = self._coerce_int(settings.get("networkPollSeconds"), 3, minimum=1)
+        self._idle_trigger_enabled = self._coerce_bool(settings.get("idleTriggerEnabled"), False)
+        self._idle_minutes = self._coerce_int(settings.get("idleMinutes"), 30, minimum=1)
+        self._idle_poll_seconds = self._coerce_int(settings.get("idlePollSeconds"), 10, minimum=1)
+        self._idle_action = self._coerce_action(settings.get("idleAction"), "shutdown")
         self._music_autoplay_enabled = self._coerce_bool(settings.get("musicAutoplayEnabled"), True)
         self._music_volume = self._coerce_int(settings.get("musicVolume"), 70, minimum=0)
         self._music_volume = min(100, self._music_volume)
@@ -93,6 +99,9 @@ class AppController(QObject):
         self._network_speed_text = "等待网络监控"
         self._network_previous_sample = None
         self._network_idle_elapsed = 0.0
+        self._idle_trigger_active = False
+        self._idle_trigger_status = "未启动"
+        self._idle_reader = idle_reader or WindowsIdleReader()
         self._logs = ["READY · Dry-run 已开启" if self._dry_run else "READY · 真实执行模式"]
         self._script_runner = run_script
         self._power_executor = None
@@ -120,6 +129,8 @@ class AppController(QObject):
         self._process_timer.timeout.connect(self._poll_process_trigger)
         self._network_timer = QTimer(self)
         self._network_timer.timeout.connect(self._poll_network_trigger)
+        self._idle_timer = QTimer(self)
+        self._idle_timer.timeout.connect(self._poll_idle_trigger)
         self._tray_service = None
 
     # --- QML Properties ---
@@ -276,6 +287,50 @@ class AppController(QObject):
 
     def getNetworkSpeedText(self): return self._network_speed_text
     networkSpeedText = Property(str, getNetworkSpeedText, notify=networkTriggerChanged)
+
+    def getIdleTriggerEnabled(self): return self._idle_trigger_enabled
+    def setIdleTriggerEnabled(self, v):
+        v = bool(v)
+        if self._idle_trigger_enabled != v:
+            self._idle_trigger_enabled = v
+            self._save_settings()
+            self.idleTriggerChanged.emit()
+    idleTriggerEnabled = Property(bool, getIdleTriggerEnabled, setIdleTriggerEnabled, notify=idleTriggerChanged)
+
+    def getIdleMinutes(self): return self._idle_minutes
+    def setIdleMinutes(self, v):
+        v = self._coerce_int(v, 30, minimum=1)
+        if self._idle_minutes != v:
+            self._idle_minutes = v
+            self._save_settings()
+            self.idleTriggerChanged.emit()
+    idleMinutes = Property(int, getIdleMinutes, setIdleMinutes, notify=idleTriggerChanged)
+
+    def getIdlePollSeconds(self): return self._idle_poll_seconds
+    def setIdlePollSeconds(self, v):
+        v = self._coerce_int(v, 10, minimum=1)
+        if self._idle_poll_seconds != v:
+            self._idle_poll_seconds = v
+            if self._idle_trigger_active:
+                self._idle_timer.setInterval(v * 1000)
+            self._save_settings()
+            self.idleTriggerChanged.emit()
+    idlePollSeconds = Property(int, getIdlePollSeconds, setIdlePollSeconds, notify=idleTriggerChanged)
+
+    def getIdleAction(self): return self._idle_action
+    def setIdleAction(self, v):
+        v = self._coerce_action(v, "shutdown")
+        if self._idle_action != v:
+            self._idle_action = v
+            self._save_settings()
+            self.idleTriggerChanged.emit()
+    idleAction = Property(str, getIdleAction, setIdleAction, notify=idleTriggerChanged)
+
+    def getIdleTriggerActive(self): return self._idle_trigger_active
+    idleTriggerActive = Property(bool, getIdleTriggerActive, notify=idleTriggerChanged)
+
+    def getIdleTriggerStatus(self): return self._idle_trigger_status
+    idleTriggerStatus = Property(str, getIdleTriggerStatus, notify=idleTriggerChanged)
 
     def getMusicAutoplayEnabled(self): return self._music_autoplay_enabled
     def setMusicAutoplayEnabled(self, v):
@@ -900,6 +955,37 @@ class AppController(QObject):
         self.networkTriggerChanged.emit()
 
     @Slot()
+    def startIdleTrigger(self):
+        sample = self._idle_reader.sample()
+        if not sample.available:
+            self._idle_trigger_active = False
+            self._idle_trigger_status = format_idle_status(None, self._idle_minutes * 60, sample.message)
+            self._add_log(f"空闲触发未启动：{self._idle_trigger_status}")
+            self.idleTriggerChanged.emit()
+            return
+        self._idle_trigger_enabled = True
+        self._idle_trigger_active = True
+        self._idle_trigger_status = format_idle_status(sample.idle_seconds, self._idle_minutes * 60)
+        self._idle_timer.setInterval(self._idle_poll_seconds * 1000)
+        self._idle_timer.start()
+        if self._remove_queue_tasks_by_trigger(TaskTriggerType.IDLE):
+            self._add_log("已替换上一空闲触发队列任务")
+        self._save_settings()
+        self._add_log("空闲触发已启动")
+        self.taskQueueChanged.emit()
+        self.idleTriggerChanged.emit()
+
+    @Slot()
+    def stopIdleTrigger(self):
+        self._stop_idle_monitor_without_queue_update()
+        removed_tasks = self._remove_queue_tasks_by_trigger(TaskTriggerType.IDLE)
+        self._save_settings()
+        self._add_log("空闲触发已停止")
+        if removed_tasks:
+            self.taskQueueChanged.emit()
+        self.idleTriggerChanged.emit()
+
+    @Slot()
     def clearLogs(self):
         self._logs = ["READY · 日志已清空"]
         self.logTextChanged.emit()
@@ -1080,6 +1166,11 @@ class AppController(QObject):
         self._network_previous_sample = None
         self._network_trigger_status = "已停止"
 
+    def _stop_idle_monitor_without_queue_update(self):
+        self._idle_timer.stop()
+        self._idle_trigger_active = False
+        self._idle_trigger_status = "已停止"
+
     def _execute_task(self, task, now):
         previous_action = self._selected_action
         previous_force_close = self._force_close
@@ -1210,9 +1301,48 @@ class AppController(QObject):
             self._network_trigger_status = f"网络忙碌：0/{self._network_idle_seconds} 秒"
         self.networkTriggerChanged.emit()
 
+    def _poll_idle_trigger(self):
+        if not self._idle_trigger_active:
+            return
+        sample = self._idle_reader.sample()
+        if not sample.available:
+            self._idle_timer.stop()
+            self._idle_trigger_active = False
+            self._idle_trigger_status = format_idle_status(None, self._idle_minutes * 60, sample.message)
+            self._add_log(f"空闲触发已停止：{self._idle_trigger_status}")
+            self.idleTriggerChanged.emit()
+            return
+
+        threshold_seconds = self._idle_minutes * 60
+        previous_status = self._idle_trigger_status
+        self._idle_trigger_status = format_idle_status(sample.idle_seconds, threshold_seconds)
+        changed = self._idle_trigger_status != previous_status
+        if sample.idle_seconds >= threshold_seconds:
+            self._idle_timer.stop()
+            self._idle_trigger_active = False
+            changed = True
+            if self._remove_queue_tasks_by_trigger(TaskTriggerType.IDLE):
+                self._add_log("已替换上一空闲触发队列任务")
+            self._scheduler.add_task(
+                "空闲触发",
+                self._idle_action,
+                self._force_close,
+                TaskTriggerType.IDLE,
+                {
+                    "idleMinutes": self._idle_minutes,
+                    "pollSeconds": self._idle_poll_seconds,
+                },
+                RepeatRule.ONCE,
+            )
+            self._save_settings()
+            self._add_log("空闲触发：达到设定空闲时长，已加入任务队列")
+            self.taskQueueChanged.emit()
+        if changed:
+            self.idleTriggerChanged.emit()
+
     def _diagnostic_text(self):
         return "\n".join([
-            "定时关机助手 3.0 Diagnostics",
+            "定时关机助手 3.1 Diagnostics",
             f"Dry-run: {self._dry_run}",
             f"Status: {self._status}",
             f"Remaining seconds: {self._remaining_seconds}",
@@ -1224,6 +1354,7 @@ class AppController(QObject):
             f"Script timeout seconds: {self._script_timeout_seconds}",
             f"Process trigger: active={self._process_trigger_active}, name={self._process_name or '(empty)'}, target={self._process_target_name or '(none)'}, status={self._process_trigger_status}",
             f"Network trigger: active={self._network_trigger_active}, down<{self._network_download_threshold_kbps} KB/s, up<{self._network_upload_threshold_kbps} KB/s, idle={self._network_idle_seconds}s, poll={self._network_poll_seconds}s, status={self._network_trigger_status}, speed={self._network_speed_text}",
+            f"Idle trigger: enabled={self._idle_trigger_enabled}, active={self._idle_trigger_active}, minutes={self._idle_minutes}, poll={self._idle_poll_seconds}s, action={self._idle_action}, status={self._idle_trigger_status}",
         ])
 
     def _execute_power_action(self):
@@ -1316,6 +1447,10 @@ class AppController(QObject):
             "networkUploadThresholdKbps": self._network_upload_threshold_kbps,
             "networkIdleSeconds": self._network_idle_seconds,
             "networkPollSeconds": self._network_poll_seconds,
+            "idleTriggerEnabled": self._idle_trigger_enabled,
+            "idleMinutes": self._idle_minutes,
+            "idlePollSeconds": self._idle_poll_seconds,
+            "idleAction": self._idle_action,
             "musicAutoplayEnabled": self._music_autoplay_enabled,
             "musicVolume": self._music_volume,
             "musicFolder": self._music_folder,

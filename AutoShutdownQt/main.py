@@ -15,7 +15,7 @@ APP_ICON_PATH = Path(__file__).parent / "app_icon.png"
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("定时关机助手")
-    app.setApplicationVersion("3.0")
+    app.setApplicationVersion("3.1")
     app.setWindowIcon(QIcon(str(APP_ICON_PATH)))
 
     # PySide6 versions differ in QQuickStyle introspection support.

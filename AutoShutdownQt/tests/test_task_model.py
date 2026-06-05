@@ -84,8 +84,19 @@ class TaskModelTest(unittest.TestCase):
             created_order=2,
         )
 
+        idle_task = ScheduledTask.create(
+            name="空闲触发",
+            action="shutdown",
+            force_close=False,
+            trigger_type=TaskTriggerType.IDLE,
+            trigger_config={"idleMinutes": 30, "pollSeconds": 10},
+            repeat_rule=RepeatRule.ONCE,
+            created_order=3,
+        )
+
         self.assertEqual(process_task.trigger_summary(), "进程退出 notepad.exe")
         self.assertEqual(network_task.trigger_summary(), "网络闲置 60 秒")
+        self.assertEqual(idle_task.trigger_summary(), "空闲 30 分钟")
 
 
 if __name__ == "__main__":

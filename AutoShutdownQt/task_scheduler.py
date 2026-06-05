@@ -140,6 +140,8 @@ class TaskScheduler:
             task.next_run_at = now + timedelta(seconds=max(1, int(task.trigger_config.get("seconds", 0))))
         elif task.trigger_type == TaskTriggerType.FIXED_TIME:
             task.next_run_at = self._next_fixed_time(task, now)
+        elif task.trigger_type == TaskTriggerType.IDLE:
+            task.next_run_at = now
         else:
             task.next_run_at = None
             task.status = TaskStatus.ACTIVE if task.enabled else TaskStatus.PAUSED

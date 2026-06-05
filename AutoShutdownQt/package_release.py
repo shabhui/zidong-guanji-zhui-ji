@@ -7,20 +7,21 @@ import subprocess
 import sys
 import zipfile
 
-VERSION = "3.0"
+VERSION = "3.1"
+APP_DISPLAY_NAME = "定时关机助手"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
-SPEC_FILE = APP_DIR / "AutoShutdownQt-3.0.spec"
-INNO_SCRIPT = APP_DIR / "AutoShutdownQt-3.0.iss"
+SPEC_FILE = APP_DIR / f"AutoShutdownQt-{VERSION}.spec"
+INNO_SCRIPT = APP_DIR / f"AutoShutdownQt-{VERSION}.iss"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "pyinstaller"
-APP_BUNDLE_DIR = DIST_DIR / "AutoShutdownQt-3.0"
-ZIP_PATH = DIST_DIR / "AutoShutdownQt-3.0.zip"
-SETUP_PATH = DIST_DIR / "AutoShutdownQt-3.0-Setup.exe"
+APP_BUNDLE_NAME = f"{APP_DISPLAY_NAME}-{VERSION}"
+APP_BUNDLE_DIR = DIST_DIR / APP_BUNDLE_NAME
+ZIP_PATH = DIST_DIR / f"{APP_BUNDLE_NAME}.zip"
+SETUP_PATH = DIST_DIR / f"{APP_BUNDLE_NAME}-Setup.exe"
 SHA256SUMS_PATH = DIST_DIR / "SHA256SUMS.txt"
-RELEASE_CHECKLIST_PATH = DIST_DIR / "release-checklist-v3.0.md"
-APP_BUNDLE_NAME = f"AutoShutdownQt-{VERSION}"
-REQUIRED_EXE = f"{APP_BUNDLE_NAME}/AutoShutdownQt.exe"
+RELEASE_CHECKLIST_PATH = DIST_DIR / f"release-checklist-v{VERSION}.md"
+REQUIRED_EXE = f"{APP_BUNDLE_NAME}/定时关机助手.exe"
 REQUIRED_MANIFEST = f"{APP_BUNDLE_NAME}/release-manifest.json"
 UNUSED_QT_PAYLOAD_MARKERS = (
     "/PySide6/Qt6Quick3D",
@@ -110,10 +111,10 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
         "app": "定时关机助手",
         "version": VERSION,
         "bundle": APP_BUNDLE_NAME,
-        "executable": "AutoShutdownQt.exe",
+        "executable": "定时关机助手.exe",
         "archive": ZIP_PATH.name,
         "checks": {
-            "executablePresent": (bundle / "AutoShutdownQt.exe").exists(),
+            "executablePresent": (bundle / "定时关机助手.exe").exists(),
             "mainQmlPresent": any(path.exists() for path in main_qml_candidates),
             "taskSchedulerIncluded": True,
             "bundledMusicPresent": bool(root_mp3_files(bundle)),
@@ -174,7 +175,7 @@ def create_sha256sums(artifact_paths=ZIP_PATH, target_path=SHA256SUMS_PATH):
 def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
     target = Path(target_path)
     target.write_text(
-        "# 定时关机助手 3.0 Release Checklist\n\n"
+        f"# 定时关机助手 {VERSION} Release Checklist\n\n"
         "- [ ] Launch app with Dry-run enabled by default.\n"
         "- [ ] Verify Command Center safety strip shows dry-run/live state, action, tray, and queue count.\n"
         "- [ ] Verify Queue health remains readable with empty and populated queues.\n"
@@ -191,6 +192,8 @@ def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
         "- [ ] Verify startup option writes/removes the current-user Run entry.\n"
         "- [ ] Verify close button hides the window only when the right-bottom tray icon is visible.\n"
         "- [ ] Verify double-clicking the tray icon restores the window and tray menu Quit exits.\n"
+        "- [ ] Verify idle auto-shutdown can be configured with idle minutes, poll seconds, and action.\n"
+        "- [ ] Verify idle queue task appears and can be cancelled before execution.\n"
         "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
         "- [ ] Publish SHA256SUMS.txt next to the zip and installer.\n",
         encoding="utf-8",
@@ -267,7 +270,7 @@ def validate_zip_contents(zip_path=ZIP_PATH):
         raise RuntimeError(f"Archive manifest must be a JSON object: {target}")
     _require_manifest_value(manifest, "version", VERSION)
     _require_manifest_value(manifest, "bundle", APP_BUNDLE_NAME)
-    _require_manifest_value(manifest, "executable", "AutoShutdownQt.exe")
+    _require_manifest_value(manifest, "executable", "定时关机助手.exe")
     _require_manifest_value(manifest, "archive", target.name)
     _require_manifest_check(manifest, "executablePresent", REQUIRED_EXE in names)
     _require_manifest_check(manifest, "mainQmlPresent", main_qml_present)
