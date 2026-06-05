@@ -382,8 +382,10 @@ class ReleasePackagingTest(unittest.TestCase):
     def test_readme_github_release_instructions_use_v3_1_artifacts(self):
         readme = README.read_text(encoding="utf-8")
         self.assertIn("`v3.1` tag", readme)
-        self.assertIn("dist/定时关机助手-3.1-Setup.exe", readme)
-        self.assertIn("dist/定时关机助手-3.1.zip", readme)
+        self.assertIn("AutoShutdownQt-3.1-Setup.exe", readme)
+        self.assertIn("AutoShutdownQt-3.1.zip", readme)
+        self.assertIn("显示名称：定时关机助手-3.1-Setup.exe", readme)
+        self.assertIn("显示名称：定时关机助手-3.1.zip", readme)
         self.assertNotIn("`v3.0` tag", readme)
         self.assertNotIn("dist/AutoShutdownQt-3.0-Setup.exe", readme)
         self.assertNotIn("dist/AutoShutdownQt-3.0.zip", readme)
