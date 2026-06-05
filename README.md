@@ -8,8 +8,8 @@
 
 定时关机助手 3.1 is the current formal installer release with configurable idle auto-shutdown, right-bottom tray icon behavior, startup/background options, task history, and Windows notifications.
 
-- Download installer: `AutoShutdownQt-3.1-Setup.exe`（显示名称：定时关机助手-3.1-Setup.exe）
-- Portable zip: `AutoShutdownQt-3.1.zip`（显示名称：定时关机助手-3.1.zip）
+- Download installer: `定时关机助手-3.1-Setup.exe`
+- Portable zip: `定时关机助手-3.1.zip`
 - Verify checksum with `SHA256SUMS.txt`
 - Dry-run is enabled by default.
 - Windows native notifications can be enabled for execution reminders when tray support is available.
@@ -133,4 +133,4 @@ dist/release-checklist-v3.1.md
 main
 ```
 
-本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.1` tag，并上传 `dist/AutoShutdownQt-3.1-Setup.exe`、`dist/AutoShutdownQt-3.1.zip` 与 `dist/SHA256SUMS.txt`；GitHub 页面显示名称保留为 `定时关机助手-3.1-Setup.exe` 和 `定时关机助手-3.1.zip`。
+本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.1` tag，并上传 `dist/定时关机助手-3.1-Setup.exe`、`dist/定时关机助手-3.1.zip` 与 `dist/SHA256SUMS.txt`。
