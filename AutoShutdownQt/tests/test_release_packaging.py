@@ -390,6 +390,19 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertNotIn("dist/AutoShutdownQt-3.0-Setup.exe", readme)
         self.assertNotIn("dist/AutoShutdownQt-3.0.zip", readme)
 
+    def test_readme_current_release_section_is_chinese(self):
+        readme = README.read_text(encoding="utf-8")
+        current = readme[readme.index("## Current release"):readme.index("## 功能特性")]
+
+        self.assertIn("当前版本", current)
+        self.assertIn("下载安装器", current)
+        self.assertIn("便携版 zip", current)
+        self.assertIn("校验文件", current)
+        self.assertNotIn("Download installer", current)
+        self.assertNotIn("Portable zip", current)
+        self.assertNotIn("Verify checksum", current)
+        self.assertNotIn("Dry-run is enabled by default", current)
+
     def test_inno_setup_script_builds_installable_3_0_setup(self):
         script = INNO_SCRIPT.read_text(encoding="utf-8")
 

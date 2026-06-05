@@ -6,15 +6,15 @@
 
 ## Current release
 
-定时关机助手 3.1 is the current formal installer release with configurable idle auto-shutdown, right-bottom tray icon behavior, startup/background options, task history, and Windows notifications.
+当前版本是 **定时关机助手 3.1**，这是正式安装包版本，新增可设置的空闲自动关机，并继续支持右下角托盘后台运行、开机启动、任务历史和 Windows 原生通知。
 
-- Download installer: `定时关机助手-3.1-Setup.exe`
-- Portable zip: `定时关机助手-3.1.zip`
-- Verify checksum with `SHA256SUMS.txt`
-- Dry-run is enabled by default.
-- Windows native notifications can be enabled for execution reminders when tray support is available.
-- Task history can be reviewed, cleared, and exported as JSON.
-- Close button hides the app to the right-bottom tray icon when tray support is available; double-click the icon to restore, right-click and choose Quit to exit.
+- 下载安装器：`定时关机助手-3.1-Setup.exe`
+- 便携版 zip：`定时关机助手-3.1.zip`
+- 校验文件：`SHA256SUMS.txt`
+- 默认开启 Dry-run 安全模式。
+- 系统托盘可用时，可为执行前提醒发送 Windows 原生通知。
+- 可查看、清空任务历史，并导出 JSON。
+- 托盘可用时，点击关闭按钮会隐藏到右下角小图标；双击小图标恢复窗口，右键选择 Quit 才彻底退出。
 
 ## 功能特性
 
