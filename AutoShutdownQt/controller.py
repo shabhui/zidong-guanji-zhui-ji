@@ -18,12 +18,26 @@ from task_model import RepeatRule, TaskTriggerType
 from task_scheduler import TaskScheduler
 
 
+TASK_SOURCE_LABELS = {
+    "countdown": "手动倒计时",
+    "clock": "指定时间",
+    "template": "模板任务",
+    "process": "进程退出触发",
+    "network": "网络闲置触发",
+    "idle": "空闲触发",
+    "queue": "队列任务",
+    "reminder": "执行前提醒",
+    "active-countdown": "手动倒计时",
+}
+
+
 class AppController(QObject):
     remainingTimeChanged = Signal()
     statusChanged = Signal()
     targetInfoChanged = Signal()
     dryRunChanged = Signal()
     forceCloseChanged = Signal()
+    closeAppsChanged = Signal()
     scriptConfigChanged = Signal()
     processTriggerChanged = Signal()
     networkTriggerChanged = Signal()
@@ -54,6 +68,8 @@ class AppController(QObject):
         self._remaining_seconds = 0
         self._target_time_str = ""
         self._force_close = self._coerce_bool(settings.get("forceClose"), False)
+        self._close_apps_before_action = self._coerce_bool(settings.get("closeAppsBeforeAction"), False)
+        self._close_apps_timeout_seconds = self._coerce_int(settings.get("closeAppsTimeoutSeconds"), 20, minimum=1)
         self._script_enabled = self._coerce_bool(settings.get("scriptEnabled"), False)
         self._script_path = str(settings.get("scriptPath") or "")
         self._script_timeout_seconds = self._coerce_int(settings.get("scriptTimeoutSeconds"), 10, minimum=1)
@@ -85,6 +101,8 @@ class AppController(QObject):
         self._windows_notifications_enabled = self._coerce_bool(settings.get("windowsNotificationsEnabled"), True)
         self._start_with_windows = self._coerce_bool(settings.get("startWithWindows"), False)
         self._start_minimized_to_tray = self._coerce_bool(settings.get("startMinimizedToTray"), False)
+        self._first_run_safety_guide_shown = self._coerce_bool(settings.get("firstRunSafetyGuideShown"), False)
+        self._tray_close_hint_shown = self._coerce_bool(settings.get("trayCloseHintShown"), False)
         self._notification_service = notification_service
         self._startup_service = startup_service
         if self._startup_service is not None and hasattr(self._startup_service, "is_enabled"):
@@ -105,6 +123,7 @@ class AppController(QObject):
         self._logs = ["READY · Dry-run 已开启" if self._dry_run else "READY · 真实执行模式"]
         self._script_runner = run_script
         self._power_executor = None
+        self._app_closer = None
         self._process_checker = self._is_process_running
         self._last_process_check_error = ""
         self._network_reader = network_reader or NetworkReader()
@@ -176,6 +195,25 @@ class AppController(QObject):
             self._save_settings()
             self.forceCloseChanged.emit()
     forceClose = Property(bool, getForceClose, setForceClose, notify=forceCloseChanged)
+
+    def getCloseAppsBeforeAction(self): return self._close_apps_before_action
+    def setCloseAppsBeforeAction(self, v):
+        v = bool(v)
+        if self._close_apps_before_action != v:
+            self._close_apps_before_action = v
+            self._add_log("关机前优雅关闭应用已开启" if v else "关机前优雅关闭应用已关闭")
+            self._save_settings()
+            self.closeAppsChanged.emit()
+    closeAppsBeforeAction = Property(bool, getCloseAppsBeforeAction, setCloseAppsBeforeAction, notify=closeAppsChanged)
+
+    def getCloseAppsTimeoutSeconds(self): return self._close_apps_timeout_seconds
+    def setCloseAppsTimeoutSeconds(self, v):
+        v = self._coerce_int(v, 20, minimum=1)
+        if self._close_apps_timeout_seconds != v:
+            self._close_apps_timeout_seconds = v
+            self._save_settings()
+            self.closeAppsChanged.emit()
+    closeAppsTimeoutSeconds = Property(int, getCloseAppsTimeoutSeconds, setCloseAppsTimeoutSeconds, notify=closeAppsChanged)
 
     def getActionLabel(self): return self.ACTION_LABELS.get(self._selected_action, "")
     actionLabel = Property(str, getActionLabel, notify=targetInfoChanged)
@@ -457,6 +495,24 @@ class AppController(QObject):
             self.startupChanged.emit()
     startMinimizedToTray = Property(bool, getStartMinimizedToTray, setStartMinimizedToTray, notify=startupChanged)
 
+    def getFirstRunSafetyGuideShown(self): return self._first_run_safety_guide_shown
+    @Slot()
+    def acknowledgeFirstRunSafetyGuide(self):
+        if not self._first_run_safety_guide_shown:
+            self._first_run_safety_guide_shown = True
+            self._save_settings()
+            self.startupChanged.emit()
+    firstRunSafetyGuideShown = Property(bool, getFirstRunSafetyGuideShown, notify=startupChanged)
+
+    def getTrayCloseHintShown(self): return self._tray_close_hint_shown
+    @Slot()
+    def acknowledgeTrayCloseHint(self):
+        if not self._tray_close_hint_shown:
+            self._tray_close_hint_shown = True
+            self._save_settings()
+            self.startupChanged.emit()
+    trayCloseHintShown = Property(bool, getTrayCloseHintShown, notify=startupChanged)
+
     def getReminderDialogTitle(self): return self._reminder_dialog_title
     reminderDialogTitle = Property(str, getReminderDialogTitle, notify=reminderChanged)
 
@@ -508,6 +564,10 @@ class AppController(QObject):
     def getTrayAvailable(self):
         return bool(self._tray_service is not None and getattr(self._tray_service, "available", False))
     trayAvailable = Property(bool, getTrayAvailable, notify=startupChanged)
+
+    @Slot(str, result=str)
+    def taskSourceLabel(self, source):
+        return TASK_SOURCE_LABELS.get(str(source), str(source))
 
     @Slot(result=bool)
     def minimizeToTray(self):
@@ -1210,6 +1270,7 @@ class AppController(QObject):
                 if not result.ok:
                     self._add_log("脚本失败，已阻止电源动作")
                     return False, result.message
+        self._maybe_close_apps()
         if self._dry_run:
             message = f"[dryRun] Would execute: {self._selected_action} force={self._force_close}"
             print(message)
@@ -1342,13 +1403,14 @@ class AppController(QObject):
 
     def _diagnostic_text(self):
         return "\n".join([
-            "定时关机助手 3.1 Diagnostics",
+            "定时关机助手 3.2 Diagnostics",
             f"Dry-run: {self._dry_run}",
             f"Status: {self._status}",
             f"Remaining seconds: {self._remaining_seconds}",
             f"Target info: {self._target_time_str or '(none)'}",
             f"Action: {self._selected_action} ({self.actionLabel})",
             f"Force close: {self._force_close}",
+            f"Close apps before action: {self._close_apps_before_action} (timeout {self._close_apps_timeout_seconds}s)",
             f"Script enabled: {self._script_enabled}",
             f"Script path: {self._script_path or '(empty)'}",
             f"Script timeout seconds: {self._script_timeout_seconds}",
@@ -1362,6 +1424,50 @@ class AppController(QObject):
             return self._power_executor(self._selected_action, self._force_close)
         from power_service import execute_power_action
         return execute_power_action(self._selected_action, self._force_close)
+
+    def _close_apps_supported(self, action):
+        # Only session-ending actions benefit from closing apps beforehand.
+        return action in ("shutdown", "restart", "logoff")
+
+    def _get_app_closer(self):
+        if self._app_closer is None:
+            from app_close_service import WindowsAppCloser
+            self._app_closer = WindowsAppCloser()
+        return self._app_closer
+
+    def _maybe_close_apps(self):
+        """Gracefully ask running apps to close before a session-ending action.
+
+        Mirrors a normal manual shutdown (apps get a chance to save). Honors
+        dry-run: only logs the apps that *would* be closed, never closes them.
+        """
+        if not self._close_apps_before_action or not self._close_apps_supported(self._selected_action):
+            return
+        try:
+            closer = self._get_app_closer()
+        except Exception as exc:
+            self._add_log(f"优雅关闭应用不可用：{exc}")
+            return
+        if self._dry_run:
+            try:
+                windows = list(closer.list_app_windows())
+            except Exception as exc:
+                self._add_log(f"Dry-run：枚举待关闭应用失败：{exc}")
+                return
+            if not windows:
+                self._add_log("Dry-run：没有需要优雅关闭的应用")
+                return
+            names = "、".join(w.title for w in windows[:8])
+            suffix = " 等" if len(windows) > 8 else ""
+            self._add_log(f"Dry-run：将优雅关闭 {len(windows)} 个应用：{names}{suffix}")
+            return
+        try:
+            from app_close_service import close_user_apps
+            result = close_user_apps(closer, self._close_apps_timeout_seconds)
+        except Exception as exc:
+            self._add_log(f"优雅关闭应用失败：{exc}")
+            return
+        self._add_log(f"优雅关闭应用：{result.message}")
 
     def _check_process_running(self, process_name):
         self._last_process_check_error = ""
@@ -1394,6 +1500,8 @@ class AppController(QObject):
 
     def _record_history(self, event, action, source, task_id, message):
         self._history_settings["taskHistoryLimit"] = self._history_limit
+        source_label = self.taskSourceLabel(source)
+        display_message = message if message.startswith(source_label) else f"{source_label}：{message}"
         append_history_event(
             self._history_settings,
             HistoryEvent(
@@ -1403,7 +1511,7 @@ class AppController(QObject):
                 source,
                 "dry-run" if self._dry_run else "live",
                 task_id or "",
-                message,
+                display_message,
             ),
         )
         self._save_settings()
@@ -1437,6 +1545,8 @@ class AppController(QObject):
         return {
             "dryRun": self._dry_run,
             "forceClose": self._force_close,
+            "closeAppsBeforeAction": self._close_apps_before_action,
+            "closeAppsTimeoutSeconds": self._close_apps_timeout_seconds,
             "selectedAction": self._selected_action,
             "scriptEnabled": self._script_enabled,
             "scriptPath": self._script_path,
@@ -1465,6 +1575,8 @@ class AppController(QObject):
             "windowsNotificationsEnabled": self._windows_notifications_enabled,
             "startWithWindows": self._start_with_windows,
             "startMinimizedToTray": self._start_minimized_to_tray,
+            "firstRunSafetyGuideShown": self._first_run_safety_guide_shown,
+            "trayCloseHintShown": self._tray_close_hint_shown,
         }
 
     def _save_settings(self):

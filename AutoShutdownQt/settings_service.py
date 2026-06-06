@@ -6,6 +6,8 @@ from pathlib import Path
 DEFAULT_SETTINGS = {
     "dryRun": True,
     "forceClose": False,
+    "closeAppsBeforeAction": False,
+    "closeAppsTimeoutSeconds": 20,
     "selectedAction": "shutdown",
     "scriptEnabled": False,
     "scriptPath": "",
@@ -34,6 +36,8 @@ DEFAULT_SETTINGS = {
     "windowsNotificationsEnabled": True,
     "startWithWindows": False,
     "startMinimizedToTray": False,
+    "firstRunSafetyGuideShown": False,
+    "trayCloseHintShown": False,
 }
 
 

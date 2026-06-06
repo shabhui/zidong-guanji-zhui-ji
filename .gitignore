@@ -16,12 +16,28 @@ dist/
 !AutoShutdownQt/AutoShutdownQt-3.0.iss
 !AutoShutdownQt/AutoShutdownQt-3.1.spec
 !AutoShutdownQt/AutoShutdownQt-3.1.iss
+!AutoShutdownQt/AutoShutdownQt-3.2.spec
+!AutoShutdownQt/AutoShutdownQt-3.2.iss
 
 # Publish artifacts
 [Pp]ublish/
 *.zip
 
 # Local agent settings
+.superpowers/
+
+# Claude Code agent worktrees and local overrides (machine-specific, never commit)
+.claude/worktrees/
+.claude/settings.local.json
+spaces/
+
+# Local tool caches and one-off backups (never commit)
+.codegraph/
+.reasonix/
+*.bundle
+
+# Generated design artifacts
+canvas-image-image-*.png
 
 # IDE/user files
 .vs/

@@ -11,7 +11,7 @@ Window {
     minimumWidth: 1040
     minimumHeight: 680
     visible: true
-    title: "定时关机助手 v3.1"
+    title: "定时关机助手 v3.2"
     color: Theme.bgDeep
     flags: Qt.Window | Qt.FramelessWindowHint
 
@@ -115,10 +115,20 @@ Window {
         }
     }
 
+    Component.onCompleted: {
+        if (!controller.firstRunSafetyGuideShown) {
+            firstRunSafetyGuideDialog.open()
+        }
+    }
+
     onClosing: function(close) {
         if (controller.trayAvailable && !trayCloseRequested) {
             close.accepted = false
-            controller.minimizeToTray()
+            if (!controller.trayCloseHintShown) {
+                trayCloseHintDialog.open()
+            } else {
+                controller.minimizeToTray()
+            }
         }
     }
 
@@ -284,7 +294,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v3.1 · 右侧状态栏"
+                    text: "v3.2 · 右侧状态栏"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -555,6 +565,14 @@ Window {
                                     text: "立即执行当前动作"
                                     onClicked: confirmDialog.open()
                                 }
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: !controller.dryRun
+                                    text: "真实执行模式：请确认未保存工作，当前动作可能立即影响系统电源状态。"
+                                    color: Theme.danger
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                }
                                 NeonButton {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 44
@@ -695,7 +713,7 @@ Window {
                         anchors.fill: parent
                         anchors.margins: 18
                         spacing: 10
-                        Text { text: "v3.1 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+                        Text { text: "v3.2 · 右侧状态栏"; color: Theme.primary; font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 1.2 }
                         Text { text: "运行概览"; color: Theme.textPrimary; font.pixelSize: 22; font.weight: Font.Bold }
                         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.e5BorderSoft; opacity: 0.7 }
                         Text { text: "安全模式"; color: Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
@@ -852,6 +870,14 @@ Window {
                                 spacing: 8
                                 NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 38; compact: true; variant: "danger"; text: "立即执行当前动作"; onClicked: confirmDialog.open() }
                                 NeonButton { Layout.preferredWidth: 94; Layout.preferredHeight: 38; compact: true; variant: "secondary"; text: "取消任务"; enabled: controller.status === "running"; onClicked: controller.cancel() }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !controller.dryRun
+                                text: "真实执行模式：请确认未保存工作，当前动作可能立即影响系统电源状态。"
+                                color: Theme.danger
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
                             }
                         }
 
@@ -1231,6 +1257,24 @@ Window {
                     }
                     RowLayout {
                         Layout.fillWidth: true
+                        Text { Layout.fillWidth: true; text: "关机前优雅关闭应用"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                        FluentSwitch { checked: controller.closeAppsBeforeAction; onCheckedChanged: controller.closeAppsBeforeAction = checked }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Text { Layout.preferredWidth: 90; text: "等待超时"; color: Theme.textSecondary; font.pixelSize: 13 }
+                        TextField {
+                            Layout.preferredWidth: 96
+                            enabled: controller.closeAppsBeforeAction
+                            text: String(controller.closeAppsTimeoutSeconds)
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            onEditingFinished: controller.closeAppsTimeoutSeconds = mainWindow.safeInt(text, 20)
+                        }
+                        Text { Layout.fillWidth: true; text: "秒，关机前像手动关机一样请求应用关闭（应用可弹窗保存），最多等待这么久"; color: Theme.textSecondary; font.pixelSize: 12 }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
                         Text { Layout.fillWidth: true; text: "启动时自动播放音乐"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
                         FluentSwitch { checked: controller.musicAutoplayEnabled; onCheckedChanged: controller.musicAutoplayEnabled = checked }
                     }
@@ -1503,6 +1547,95 @@ Window {
                     stepSize: 1
                     value: controller.musicVolume
                     onMoved: controller.setMusicVolume(value)
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: firstRunSafetyGuideDialog
+        modal: true
+        standardButtons: Dialog.NoButton
+        width: 500
+        padding: 22
+        anchors.centerIn: parent
+
+        background: Rectangle {
+            color: Theme.cardGlassActive
+            radius: Theme.radiusLg
+            border.color: Theme.warning
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spaceMd
+            Text { Layout.fillWidth: true; text: "首次启动安全说明"; color: Theme.textPrimary; font.pixelSize: 20; font.weight: Font.Bold }
+            Text { Layout.fillWidth: true; text: "Dry-run 默认开启：应用只记录将要执行的动作，不会真实关机、重启、睡眠、休眠、注销、锁定或运行脚本。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "关闭 Dry-run 后可能真实执行 Windows 电源动作，请先确认任务、触发器、脚本路径和未保存工作。"; color: Theme.danger; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "右下角托盘可用时，关闭窗口会隐藏到后台，倒计时、队列和触发器仍会继续。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "如需彻底退出，请右键右下角托盘图标并选择 Quit。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+        }
+
+        footer: Item {
+            implicitHeight: 64
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 22
+                anchors.rightMargin: 22
+                anchors.bottomMargin: 16
+                Item { Layout.fillWidth: true }
+                NeonButton {
+                    compact: true
+                    variant: "primary"
+                    text: "我知道了"
+                    onClicked: {
+                        controller.acknowledgeFirstRunSafetyGuide()
+                        firstRunSafetyGuideDialog.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: trayCloseHintDialog
+        modal: true
+        standardButtons: Dialog.NoButton
+        width: 480
+        padding: 22
+        anchors.centerIn: parent
+
+        background: Rectangle {
+            color: Theme.cardGlassActive
+            radius: Theme.radiusLg
+            border.color: Theme.primary
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spaceMd
+            Text { Layout.fillWidth: true; text: "将隐藏到右下角托盘"; color: Theme.textPrimary; font.pixelSize: 20; font.weight: Font.Bold }
+            Text { Layout.fillWidth: true; text: "任务、倒计时和触发器仍会继续运行。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "要彻底退出，请右键右下角托盘图标选择 Quit。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+        }
+
+        footer: Item {
+            implicitHeight: 64
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 22
+                anchors.rightMargin: 22
+                anchors.bottomMargin: 16
+                Item { Layout.fillWidth: true }
+                NeonButton {
+                    compact: true
+                    variant: "primary"
+                    text: "隐藏到托盘"
+                    onClicked: {
+                        controller.acknowledgeTrayCloseHint()
+                        trayCloseHintDialog.close()
+                        controller.minimizeToTray()
+                    }
                 }
             }
         }

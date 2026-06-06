@@ -51,8 +51,10 @@ Dialog {
         }
         Text {
             Layout.fillWidth: true
-            text: "即将执行：" + root.actionLabel + "\n\n请确认所有工作已保存。"
-            color: Theme.textSecondary
+            text: "即将执行：" + root.actionLabel + "\n\n" + (controller.dryRun
+                ? "Dry-run 将只记录当前动作，不会真实执行系统电源操作。"
+                : "LIVE MODE 会真实执行当前动作，可能导致关机、重启、睡眠、休眠、注销或锁定。请确认未保存工作。")
+            color: controller.dryRun ? Theme.textSecondary : Theme.danger
             font.pixelSize: 14
             lineHeight: 1.16
             wrapMode: Text.WordWrap

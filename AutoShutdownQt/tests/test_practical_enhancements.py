@@ -212,6 +212,27 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(settings["idlePollSeconds"], 10)
         self.assertEqual(settings["idleAction"], "shutdown")
 
+    def test_default_settings_include_3_2_safety_acknowledgements(self):
+        settings = default_settings()
+
+        self.assertFalse(settings["firstRunSafetyGuideShown"])
+        self.assertFalse(settings["trayCloseHintShown"])
+
+    def test_controller_persists_3_2_safety_acknowledgements(self):
+        controller = AppController()
+
+        self.assertFalse(controller.firstRunSafetyGuideShown)
+        self.assertFalse(controller.trayCloseHintShown)
+
+        controller.acknowledgeFirstRunSafetyGuide()
+        controller.acknowledgeTrayCloseHint()
+
+        self.assertTrue(controller.firstRunSafetyGuideShown)
+        self.assertTrue(controller.trayCloseHintShown)
+        saved = controller._settings_snapshot()
+        self.assertTrue(saved["firstRunSafetyGuideShown"])
+        self.assertTrue(saved["trayCloseHintShown"])
+
     def test_controller_exposes_configurable_idle_trigger_preferences(self):
         controller = AppController(idle_reader=StaticIdleReader(0))
 
@@ -293,6 +314,28 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertFalse(controller.idleTriggerActive)
         self.assertIn("空闲检测不可用", controller.idleTriggerStatus)
+
+    def test_controller_formats_task_source_labels(self):
+        controller = AppController()
+
+        self.assertEqual(controller.taskSourceLabel("countdown"), "手动倒计时")
+        self.assertEqual(controller.taskSourceLabel("clock"), "指定时间")
+        self.assertEqual(controller.taskSourceLabel("template"), "模板任务")
+        self.assertEqual(controller.taskSourceLabel("process"), "进程退出触发")
+        self.assertEqual(controller.taskSourceLabel("network"), "网络闲置触发")
+        self.assertEqual(controller.taskSourceLabel("idle"), "空闲触发")
+        self.assertEqual(controller.taskSourceLabel("queue"), "队列任务")
+        self.assertEqual(controller.taskSourceLabel("reminder"), "执行前提醒")
+        self.assertEqual(controller.taskSourceLabel("active-countdown"), "手动倒计时")
+        self.assertEqual(controller.taskSourceLabel("unknown"), "unknown")
+
+    def test_controller_records_active_countdown_history_with_readable_source_label(self):
+        controller = AppController()
+
+        controller._record_history("cancelled", "shutdown", "active-countdown", "", "已取消当前任务")
+
+        self.assertIn("手动倒计时：已取消当前任务", controller.historyRowsJson)
+        self.assertNotIn("active-countdown：", controller.historyRowsJson)
 
     def test_controller_records_history_and_notifies_for_reminder(self):
         notifier = FakeNotificationService()
@@ -1181,7 +1224,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         diagnostics = controller.diagnosticText
 
-        self.assertIn("定时关机助手 3.1", diagnostics)
+        self.assertIn("定时关机助手 3.2", diagnostics)
         self.assertIn("Dry-run: True", diagnostics)
         self.assertIn("Action: sleep", diagnostics)
         self.assertIn("Script enabled: True", diagnostics)
@@ -1199,7 +1242,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             exported = target.read_text(encoding="utf-8")
 
             self.assertIn("=== Diagnostics ===", exported)
-            self.assertIn("定时关机助手 3.1", exported)
+            self.assertIn("定时关机助手 3.2", exported)
             self.assertIn("=== Recent Logs ===", exported)
             self.assertIn("15 分钟后关机", exported)
 
@@ -1212,7 +1255,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             diagnostics_target = Path(tmp) / "logs-diagnostics.txt"
 
             self.assertTrue(diagnostics_target.exists())
-            self.assertIn("定时关机助手 3.1", diagnostics_target.read_text(encoding="utf-8"))
+            self.assertIn("定时关机助手 3.2", diagnostics_target.read_text(encoding="utf-8"))
             self.assertIn("诊断已导出", controller.logText)
 
     def test_request_dry_run_change_logs_live_mode_warning(self):

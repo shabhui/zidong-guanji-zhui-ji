@@ -7,7 +7,7 @@ import subprocess
 import sys
 import zipfile
 
-VERSION = "3.1"
+VERSION = "3.2"
 APP_DISPLAY_NAME = "定时关机助手"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent
@@ -187,6 +187,9 @@ def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
         "- [ ] Verify Task Queue Dashboard empty and populated states.\n"
         "- [ ] Verify Recent activity shows logs and export/clear controls.\n"
         "- [ ] Verify Windows native notification fallback does not hide the in-app reminder.\n"
+        "- [ ] Verify first-run safety guide appears once on a fresh config.\n"
+        "- [ ] Verify first close-to-tray action shows the tray background hint once.\n"
+        "- [ ] Verify LIVE MODE warning copy is visible before immediate execution.\n"
         "- [ ] Verify task history records create, snooze, cancel, and Dry-run execution events.\n"
         "- [ ] Verify task history clear and JSON export controls.\n"
         "- [ ] Verify startup option writes/removes the current-user Run entry.\n"

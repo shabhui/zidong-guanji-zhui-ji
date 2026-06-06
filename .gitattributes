@@ -1,0 +1,25 @@
+# Normalize line endings across platforms.
+# The repository stores text files with LF; Git converts on checkout as needed.
+# This prevents the whole tree from showing as "modified" when edited on Windows.
+* text=auto eol=lf
+
+# Windows batch/PowerShell scripts are happiest with CRLF on disk.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Treat known binary assets as binary (never touch their bytes).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.mp3 binary
+*.wav binary
+*.zip binary
+*.7z binary
+*.dll binary
+*.exe binary
+*.pyd binary
+*.pdf binary

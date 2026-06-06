@@ -34,7 +34,7 @@ class TrayService:
                 menu.addAction("取消所有任务", self.cancel_all)
                 menu.addAction("退出程序", self.quit_app)
                 tray.setContextMenu(menu)
-                tray.setToolTip("定时关机助手 3.1")
+                tray.setToolTip("定时关机助手 3.2")
                 tray.show()
                 self._tray = tray
             else:

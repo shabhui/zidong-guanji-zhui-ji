@@ -103,8 +103,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            "定时关机助手 v3.1",
-            "v3.1 · 右侧状态栏",
+            "定时关机助手 v3.2",
+            "v3.2 · 右侧状态栏",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -212,10 +212,40 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             self.assertIn(label, main)
         self.assertNotIn("启动后最小化到托盘", main)
 
+    def test_3_2_first_run_safety_guide_is_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("id: firstRunSafetyGuideDialog", main)
+        self.assertIn("controller.firstRunSafetyGuideShown", main)
+        self.assertIn("controller.acknowledgeFirstRunSafetyGuide()", main)
+        self.assertIn("Dry-run 默认开启", main)
+        self.assertIn("关闭 Dry-run 后可能真实执行", main)
+        self.assertIn("右下角托盘", main)
+        self.assertIn("彻底退出", main)
+
+    def test_3_2_close_to_tray_hint_is_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("id: trayCloseHintDialog", main)
+        self.assertIn("controller.trayCloseHintShown", main)
+        self.assertIn("controller.acknowledgeTrayCloseHint()", main)
+        self.assertIn("trayCloseHintDialog.open()", main)
+        self.assertIn("任务、倒计时和触发器仍会继续", main)
+        self.assertIn("controller.minimizeToTray()", main)
+
+    def test_3_2_live_mode_warning_copy_is_stronger(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        dialog = CONFIRM_DIALOG_QML.read_text(encoding="utf-8")
+
+        self.assertIn("真实执行模式：请确认未保存工作", main)
+        self.assertIn("LIVE MODE 会真实执行当前动作", dialog)
+        self.assertIn("可能导致关机、重启、睡眠、休眠、注销或锁定", dialog)
+        self.assertIn("controller.dryRun ?", dialog)
+
     def test_2_5_main_wires_notifications_startup_and_start_minimized(self):
         main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
 
-        self.assertIn('app.setApplicationVersion("3.1")', main_py)
+        self.assertIn('app.setApplicationVersion("3.2")', main_py)
         self.assertIn("from notification_service import NotificationService", main_py)
         self.assertIn("from startup_service import StartupService", main_py)
         self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service", main_py)
@@ -267,8 +297,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            'title: "定时关机助手 v3.1"',
-            'v3.1 · 右侧状态栏',
+            'title: "定时关机助手 v3.2"',
+            'v3.2 · 右侧状态栏',
             'id: rightStatusPanel',
             '安全模式',
             'Dry-run 已开启',
@@ -280,7 +310,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         ):
             self.assertIn(snippet, main)
 
-        self.assertNotIn('定时关机助手 v3.1 · Command Center', main)
+        self.assertNotIn('定时关机助手 v3.2 · Command Center', main)
         self.assertNotIn('Text { text: "Command Center"', main)
         self.assertNotIn('Text { text: "Next task"', main)
         self.assertNotIn('Text { text: "Active triggers"', main)
