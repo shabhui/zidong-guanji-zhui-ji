@@ -21,9 +21,7 @@ dist/
 [Pp]ublish/
 *.zip
 
-# Local Claude settings
-.claude/settings.local.json
-.claude/worktrees/
+# Local agent settings
 
 # IDE/user files
 .vs/
