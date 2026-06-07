@@ -5,11 +5,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from PySide6.QtCore import QCoreApplication
-
 ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = ROOT / "AutoShutdownQt"
 sys.path.insert(0, str(APP_DIR))
+
+from tests.qt_test_env import ensure_qt_modules
+ensure_qt_modules()
+
+from PySide6.QtCore import QCoreApplication
 
 from controller import AppController
 from idle_service import IdleSample, StaticIdleReader
@@ -918,6 +921,32 @@ class PracticalEnhancementsTest(unittest.TestCase):
             self.assertNotIn("15 分钟后关机", controller.logText)
             self.assertIn("日志已清空", controller.logText)
 
+    def test_log_summary_reports_recent_activity_and_failure(self):
+        controller = AppController()
+
+        self.assertIn("1", controller.logSummaryText)
+
+        controller._add_log("plain activity")
+        controller._add_log("power action failed: power boom")
+
+        self.assertIn("3", controller.logSummaryText)
+        self.assertIn("power boom", controller.logSummaryText)
+        self.assertIn("Log summary", controller.diagnosticText)
+
+    def test_log_category_summary_counts_info_warning_and_errors(self):
+        controller = AppController()
+
+        controller._add_log("plain info")
+        controller._add_log("warning: check script path")
+        controller._add_log("power action failed: power boom")
+        controller._add_log("警告：脚本路径可能不可用")
+        controller._add_log("电源动作执行失败：系统拒绝")
+
+        self.assertIn("info=", controller.logCategorySummaryText)
+        self.assertIn("warning=2", controller.logCategorySummaryText)
+        self.assertIn("error=2", controller.logCategorySummaryText)
+        self.assertIn("Log categories", controller.diagnosticText)
+
     def test_script_path_validation_and_open_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "demo.bat"
@@ -1216,6 +1245,34 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("failed", controller.queueText)
         self.assertIn("power boom", controller.queueText)
 
+    def test_queue_summary_reports_empty_failed_and_completed_states(self):
+        controller = AppController()
+
+        self.assertTrue(controller.queueSummaryText)
+
+        controller.dryRun = False
+        controller.scriptEnabled = False
+        controller._power_executor = lambda action, force: False
+        controller.startCountdown(0, 0, 1)
+        failed_task = controller._scheduler.tasks[0]
+        failed_task.next_run_at = controller._now()
+
+        controller._on_tick()
+
+        self.assertIn("1", controller.queueSummaryText)
+        self.assertIn("Queue summary", controller.diagnosticText)
+
+        controller.deleteQueueTask(failed_task.id)
+        controller.dryRun = True
+        controller.startCountdown(0, 0, 1)
+        completed_task = controller._scheduler.tasks[0]
+        completed_task.next_run_at = controller._now()
+
+        controller._on_tick()
+
+        self.assertIn("1", controller.queueSummaryText)
+        self.assertIn("completed", controller.queueText)
+
     def test_diagnostic_text_includes_key_runtime_state(self):
         controller = AppController()
         controller.selectedAction = "sleep"
@@ -1231,6 +1288,21 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("Process trigger", diagnostics)
         self.assertIn("Network trigger", diagnostics)
         self.assertIn("Idle trigger", diagnostics)
+
+    def test_safety_and_trigger_health_summaries_are_visible_in_diagnostics(self):
+        controller = AppController()
+        controller.scriptEnabled = True
+        controller.scriptPath = "C:/demo.bat"
+        controller.closeAppsBeforeAction = True
+
+        self.assertIn("Dry-run", controller.safetySummaryText)
+        self.assertIn("script=on", controller.safetySummaryText)
+        self.assertIn("closeApps=on", controller.safetySummaryText)
+        self.assertIn("process=", controller.triggerHealthSummaryText)
+        self.assertIn("network=", controller.triggerHealthSummaryText)
+        self.assertIn("idle=", controller.triggerHealthSummaryText)
+        self.assertIn("Safety summary", controller.diagnosticText)
+        self.assertIn("Trigger health", controller.diagnosticText)
 
     def test_export_logs_includes_diagnostics_header(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1271,6 +1343,111 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertTrue(controller.dryRun)
         self.assertIn("Dry-run 已开启", controller.logText)
+
+    def test_power_action_in_progress_blocks_safety_setting_changes(self):
+        controller = AppController()
+        controller.selectedAction = "shutdown"
+        controller.forceClose = False
+        controller.requestDryRunChange(True)
+
+        with controller._power_action_lock:
+            controller._power_action_in_progress = True
+
+        controller.selectedAction = "restart"
+        controller.forceClose = True
+        controller.requestDryRunChange(False)
+
+        self.assertEqual(controller.selectedAction, "shutdown")
+        self.assertFalse(controller.forceClose)
+        self.assertTrue(controller.dryRun)
+        self.assertGreaterEqual(len(controller.logText.splitlines()), 4)
+
+    def test_power_action_step_summary_explains_current_execution_stage(self):
+        controller = AppController()
+
+        self.assertIn("Ready", controller.powerActionStepSummaryText)
+
+        with controller._power_action_lock:
+            controller._power_action_in_progress = True
+            controller._power_action_progress_text = "closing apps"
+            controller._close_apps_skip_event = object()
+
+        self.assertIn("closing apps", controller.powerActionStepSummaryText)
+        self.assertIn("Skip available", controller.powerActionStepSummaryText)
+        self.assertIn("Power action progress", controller.diagnosticText)
+
+    def test_copy_diagnostics_records_text_for_support(self):
+        controller = AppController()
+
+        controller.copyDiagnostics()
+
+        self.assertIn("Diagnostics", controller.lastCopiedText)
+        self.assertIn("Dry-run", controller.lastCopiedText)
+        self.assertIn("Diagnostics copied", controller.logText)
+
+    def test_copy_diagnostics_writes_clipboard_and_reports_length(self):
+        copied = []
+        controller = AppController(clipboard_writer=copied.append)
+
+        controller.copyDiagnostics()
+
+        self.assertEqual(copied, [controller.lastCopiedText])
+        self.assertIn(str(len(controller.lastCopiedText)), controller.copyStatusText)
+
+    def test_log_filter_text_can_show_warnings_and_errors(self):
+        controller = AppController()
+        controller._add_log("plain info")
+        controller._add_log("warning: check script")
+        controller._add_log("power action failed: boom")
+        controller._add_log("警告：脚本路径可能不可用")
+        controller._add_log("电源动作执行失败：系统拒绝")
+
+        controller.setLogFilter("error")
+        self.assertIn("boom", controller.filteredLogText)
+        self.assertIn("系统拒绝", controller.filteredLogText)
+        self.assertNotIn("plain info", controller.filteredLogText)
+
+        controller.setLogFilter("warning")
+        self.assertIn("warning: check script", controller.filteredLogText)
+        self.assertIn("脚本路径", controller.filteredLogText)
+        self.assertNotIn("boom", controller.filteredLogText)
+
+        controller.setLogFilter("all")
+        self.assertIn("plain info", controller.filteredLogText)
+
+    def test_run_health_check_reports_key_runtime_checks(self):
+        controller = AppController()
+
+        controller.runHealthCheck()
+
+        self.assertIn("Health check", controller.healthCheckText)
+        self.assertIn("script=", controller.healthCheckText)
+        self.assertIn("closeAppsService=", controller.healthCheckText)
+        self.assertIn("queue=", controller.healthCheckText)
+        self.assertIn("Health check", controller.logText)
+
+    def test_failed_queue_task_can_be_retried_and_copied_for_diagnostics(self):
+        controller = AppController()
+        calls = []
+        controller.dryRun = False
+        controller.scriptEnabled = False
+        controller._power_executor = lambda action, force: calls.append((action, force)) or False
+        controller.startCountdown(0, 0, 1)
+        task = controller._scheduler.tasks[0]
+        task.next_run_at = controller._now()
+
+        controller._on_tick()
+        self.assertIn("failed", controller.queueText)
+
+        controller.copyQueueTaskDiagnostic(task.id)
+        self.assertIn(task.id, controller.lastCopiedText)
+        self.assertIn("failed", controller.lastCopiedText)
+
+        controller._power_executor = lambda action, force: calls.append((action, force)) or True
+        controller.retryQueueTask(task.id)
+
+        self.assertIn("completed", controller.queueText)
+        self.assertGreaterEqual(len(calls), 2)
 
     def test_additional_task_templates_start_expected_actions(self):
         controller = AppController()

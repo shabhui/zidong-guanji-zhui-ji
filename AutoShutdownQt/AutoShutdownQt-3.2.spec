@@ -19,6 +19,7 @@ hiddenimports += [
     "notification_service",
     "power_service",
     "script_service",
+    "app_close_service",
     "startup_service",
     "music_service",
     "task_model",

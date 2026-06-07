@@ -3,11 +3,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from PySide6.QtCore import QCoreApplication
-
 ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = ROOT / "AutoShutdownQt"
 sys.path.insert(0, str(APP_DIR))
+
+from tests.qt_test_env import ensure_qt_modules
+ensure_qt_modules()
+
+from PySide6.QtCore import QCoreApplication
 
 from controller import AppController
 

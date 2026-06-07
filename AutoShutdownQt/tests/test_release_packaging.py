@@ -31,6 +31,10 @@ class ReleasePackagingTest(unittest.TestCase):
                 "mainQmlPresent": True,
                 "taskSchedulerIncluded": True,
                 "bundledMusicPresent": True,
+                "appCloseServiceHiddenImport": True,
+                "diagnosticsCenterWired": True,
+                "supportWorkflowWired": True,
+                "failedQueueRecoveryWired": True,
             },
             "safetyNotes": [
                 "Dry-run is enabled by default.",
@@ -60,6 +64,7 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertIn("network_service", spec)
         self.assertIn("power_service", spec)
         self.assertIn("script_service", spec)
+        self.assertIn("app_close_service", spec)
         self.assertIn("music_service", spec)
         self.assertIn("PySide6.QtQml", spec)
         self.assertIn("PySide6.QtQuick", spec)
@@ -111,8 +116,26 @@ class ReleasePackagingTest(unittest.TestCase):
             virtual_keyboard_runtime_file = bundle / "_internal" / "PySide6" / "Qt6VirtualKeyboard.dll"
             quick3d_file = bundle / "_internal" / "PySide6" / "qml" / "QtQuick3D" / "qtquick3dplugin.dll"
             quick3d_runtime_file = bundle / "_internal" / "PySide6" / "Qt6Quick3DRuntimeRender.dll"
+            webview_runtime_file = bundle / "_internal" / "PySide6" / "Qt6WebView.dll"
+            webchannel_runtime_file = bundle / "_internal" / "PySide6" / "Qt6WebChannel.dll"
+            websockets_runtime_file = bundle / "_internal" / "PySide6" / "Qt6WebSockets.dll"
+            text_to_speech_runtime_file = bundle / "_internal" / "PySide6" / "Qt6TextToSpeech.dll"
+            webchannel_qml_file = bundle / "_internal" / "PySide6" / "qml" / "QtWebChannel" / "declarative_webchannel.dll"
             music_file = bundle / "theme.mp3"
-            for path in (keep_file, webengine_file, virtual_keyboard_file, virtual_keyboard_runtime_file, quick3d_file, quick3d_runtime_file, music_file):
+            for path in (
+                keep_file,
+                webengine_file,
+                virtual_keyboard_file,
+                virtual_keyboard_runtime_file,
+                quick3d_file,
+                quick3d_runtime_file,
+                webview_runtime_file,
+                webchannel_runtime_file,
+                websockets_runtime_file,
+                text_to_speech_runtime_file,
+                webchannel_qml_file,
+                music_file,
+            ):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"payload")
 
@@ -123,9 +146,14 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertFalse(virtual_keyboard_runtime_file.exists())
             self.assertFalse(quick3d_file.exists())
             self.assertFalse(quick3d_runtime_file.exists())
+            self.assertFalse(webview_runtime_file.exists())
+            self.assertFalse(webchannel_runtime_file.exists())
+            self.assertFalse(websockets_runtime_file.exists())
+            self.assertFalse(text_to_speech_runtime_file.exists())
+            self.assertFalse(webchannel_qml_file.exists())
             self.assertTrue(keep_file.exists())
             self.assertTrue(music_file.exists())
-            self.assertEqual(removed, 5)
+            self.assertEqual(removed, 10)
 
     def test_release_archive_validation_rejects_pruned_qt_payload_regressions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -267,6 +295,10 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertEqual(manifest["version"], "3.2")
             self.assertEqual(manifest["executable"], "定时关机助手.exe")
             self.assertTrue(manifest["checks"]["mainQmlPresent"])
+            self.assertTrue(manifest["checks"]["appCloseServiceHiddenImport"])
+            self.assertTrue(manifest["checks"]["diagnosticsCenterWired"])
+            self.assertTrue(manifest["checks"]["supportWorkflowWired"])
+            self.assertTrue(manifest["checks"]["failedQueueRecoveryWired"])
             self.assertIn("dry-run", " ".join(manifest["safetyNotes"]).lower())
 
     def test_release_notes_document_portable_dry_run_and_unsigned_status(self):
@@ -367,6 +399,20 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertIn("tray menu Quit", content)
             self.assertIn("idle auto-shutdown", content)
             self.assertIn("idle queue task", content)
+            self.assertIn("gracefully close apps before shutdown", content)
+            self.assertIn("Dry-run close-apps preview", content)
+            self.assertIn("Live close-apps validation", content)
+            self.assertIn("close-apps preflight", content)
+            self.assertIn("AUTOSHUTDOWNQT_REAL_WINDOW_SMOKE=1", content)
+            self.assertIn("exported diagnostics include close-apps status", content)
+            self.assertIn("safety summary", content)
+            self.assertIn("trigger health", content)
+            self.assertIn("log category summary", content)
+            self.assertIn("Copy diagnostics writes to clipboard", content)
+            self.assertIn("log filters", content)
+            self.assertIn("one-click health check", content)
+            self.assertIn("failed queue task retry", content)
+            self.assertIn("copy queue task diagnostics", content)
 
     def test_readme_mentions_2_3_download_and_checksum(self):
         readme = README.read_text(encoding="utf-8")
@@ -417,6 +463,8 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertIn('OutputBaseFilename=定时关机助手-3.2-Setup', script)
         self.assertIn("SetupIconFile=app_icon.ico", script)
         self.assertIn("UninstallDisplayIcon", script)
+        self.assertIn("ArchitecturesInstallIn64BitMode=x64compatible", script)
+        self.assertNotIn("ArchitecturesInstallIn64BitMode=x64\n", script)
         self.assertIn('Source: "..\\dist\\定时关机助手-3.2\\*"; DestDir: "{app}"', script)
         self.assertIn('Name: "{autodesktop}\\定时关机助手"', script)
         self.assertIn('Name: "{group}\\定时关机助手"', script)

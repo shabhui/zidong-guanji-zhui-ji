@@ -14,8 +14,12 @@ Dialog {
 
     property string actionLabel: ""
 
+    Overlay.modal: Rectangle {
+        color: Theme.dialogScrim
+    }
+
     background: Rectangle {
-        color: Theme.cardGlassActive
+        color: Theme.dialogPanel
         radius: Theme.radiusLg
         border.color: Theme.e5BorderPink
         border.width: 1
@@ -25,8 +29,8 @@ Dialog {
             anchors.fill: parent
             anchors.margins: 1
             radius: parent.radius - 1
-            color: Theme.glowPurple
-            opacity: 0.18
+            color: Theme.dialogPanelRaised
+            opacity: 0.54
         }
 
         Rectangle {
@@ -35,7 +39,7 @@ Dialog {
             anchors.top: parent.top
             height: 58
             radius: parent.radius
-            color: "#26FFFFFF"
+            color: "#18FFFFFF"
         }
     }
 

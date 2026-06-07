@@ -33,6 +33,10 @@ UNUSED_QT_PAYLOAD_MARKERS = (
     "/PySide6/Qt6Graphs",
     "/PySide6/Qt6DataVisualization",
     "/PySide6/Qt6Location",
+    "/PySide6/Qt6TextToSpeech",
+    "/PySide6/Qt6WebChannel",
+    "/PySide6/Qt6WebSockets",
+    "/PySide6/Qt6WebView",
     "/PySide6/qml/QtQuick/VirtualKeyboard/",
     "/PySide6/qml/QtQuick3D/",
     "/PySide6/qml/Qt3D/",
@@ -45,6 +49,9 @@ UNUSED_QT_PAYLOAD_MARKERS = (
     "/PySide6/qml/QtQuick/Pdf/",
     "/PySide6/qml/QtQuick3DPhysics/",
     "/PySide6/qml/QtWebEngine/",
+    "/PySide6/qml/QtTextToSpeech/",
+    "/PySide6/qml/QtWebChannel/",
+    "/PySide6/qml/QtWebSockets/",
     "/PySide6/qml/QtWebView/",
 )
 QML_PREFIXES = (
@@ -118,6 +125,29 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
             "mainQmlPresent": any(path.exists() for path in main_qml_candidates),
             "taskSchedulerIncluded": True,
             "bundledMusicPresent": bool(root_mp3_files(bundle)),
+            "appCloseServiceHiddenImport": spec_includes_hidden_import("app_close_service"),
+            "diagnosticsCenterWired": qml_contains_all(
+                "controller.copyDiagnostics()",
+                "controller.diagnosticText",
+                "controller.safetySummaryText",
+                "controller.triggerHealthSummaryText",
+                "controller.logCategorySummaryText",
+            ),
+            "supportWorkflowWired": qml_contains_all(
+                "controller.copyStatusText",
+                "controller.runHealthCheck()",
+                "controller.healthCheckText",
+                'controller.setLogFilter("all")',
+                'controller.setLogFilter("warning")',
+                'controller.setLogFilter("error")',
+                "controller.filteredLogText",
+            ),
+            "failedQueueRecoveryWired": qml_contains_all(
+                "controller.retryQueueTask(modelData.id)",
+                "controller.copyQueueTaskDiagnostic(modelData.id)",
+                'modelData.status === "failed"',
+                "modelData.lastError",
+            ),
         },
         "safetyNotes": [
             "Dry-run is enabled by default.",
@@ -129,6 +159,29 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
     target = bundle / "release-manifest.json"
     target.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return target
+
+
+def qml_contains_all(*snippets, qml_path=APP_DIR / "qml"):
+    try:
+        qml_target = Path(qml_path)
+        if qml_target.is_dir():
+            qml = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted(qml_target.rglob("*.qml"))
+            )
+        else:
+            qml = qml_target.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return all(snippet in qml for snippet in snippets)
+
+
+def spec_includes_hidden_import(module_name, spec_file=SPEC_FILE):
+    try:
+        spec = Path(spec_file).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return f'"{module_name}"' in spec or f"'{module_name}'" in spec
 
 
 def inno_compiler_candidates():
@@ -197,6 +250,20 @@ def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
         "- [ ] Verify double-clicking the tray icon restores the window and tray menu Quit exits.\n"
         "- [ ] Verify idle auto-shutdown can be configured with idle minutes, poll seconds, and action.\n"
         "- [ ] Verify idle queue task appears and can be cancelled before execution.\n"
+        "- [ ] Verify gracefully close apps before shutdown can be enabled with a 1-300 second timeout.\n"
+        "- [ ] Verify close-apps preflight lists candidate windows without closing them.\n"
+        "- [ ] Verify Dry-run close-apps preview lists apps without closing them.\n"
+        "- [ ] Verify Live close-apps validation only runs with throwaway apps and does not leave duplicate power actions pending.\n"
+        "- [ ] Verify exported diagnostics include close-apps status, preview, and last result.\n"
+        "- [ ] Verify safety summary is visible in Settings and changes with Dry-run, script, close-apps, and force-close settings.\n"
+        "- [ ] Verify trigger health summary shows process, network, and idle trigger states.\n"
+        "- [ ] Verify log category summary counts info, warning, and error entries in Recent activity.\n"
+        "- [ ] Verify Copy diagnostics writes to clipboard when available and shows copied character count.\n"
+        "- [ ] Verify log filters switch between all, warning, and error logs without clearing logs.\n"
+        "- [ ] Verify one-click health check reports script, close-apps service, queue, trigger, and safety state.\n"
+        "- [ ] Verify failed queue task retry can rerun a failed task without creating a duplicate row.\n"
+        "- [ ] Verify copy queue task diagnostics records the failed task id, status, and last error.\n"
+        "- [ ] Run real window smoke test with AUTOSHUTDOWNQT_REAL_WINDOW_SMOKE=1 before publishing.\n"
         "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
         "- [ ] Publish SHA256SUMS.txt next to the zip and installer.\n",
         encoding="utf-8",
@@ -279,6 +346,10 @@ def validate_zip_contents(zip_path=ZIP_PATH):
     _require_manifest_check(manifest, "mainQmlPresent", main_qml_present)
     _require_manifest_check(manifest, "taskSchedulerIncluded", True)
     _require_manifest_check(manifest, "bundledMusicPresent", bundled_music_present)
+    _require_manifest_check(manifest, "appCloseServiceHiddenImport", True)
+    _require_manifest_check(manifest, "diagnosticsCenterWired", True)
+    _require_manifest_check(manifest, "supportWorkflowWired", True)
+    _require_manifest_check(manifest, "failedQueueRecoveryWired", True)
 
     return True
 

@@ -15,6 +15,7 @@ used by ``idle_service`` and ``network_service``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 import time
 
 WM_CLOSE = 0x0010
@@ -31,6 +32,23 @@ _SHELL_WINDOW_CLASSES = {
     "Shell_SecondaryTrayWnd",
     "Button",           # start button
 }
+
+_SYSTEM_WINDOW_CLASSES = _SHELL_WINDOW_CLASSES | {
+    "NotifyIconOverflowWindow",
+    "CiceroUIWndFrame",
+    "MSCTFIME UI",
+    "IME",
+    "SysShadow",
+}
+
+_SYSTEM_WINDOW_CLASS_PREFIXES = (
+    "MSCTFIME",
+)
+
+
+def should_ignore_window_class(class_name):
+    clean = str(class_name or "").strip()
+    return clean in _SYSTEM_WINDOW_CLASSES or clean.startswith(_SYSTEM_WINDOW_CLASS_PREFIXES)
 
 
 @dataclass(frozen=True)
@@ -50,6 +68,10 @@ class CloseAppsResult:
     remaining: int
     titles: list = field(default_factory=list)
     message: str = ""
+    cancelled: bool = False
+    remaining_titles: list = field(default_factory=list)
+    requested_titles: list = field(default_factory=list)
+    request_failed_titles: list = field(default_factory=list)
 
 
 class StaticAppCloser:
@@ -151,7 +173,7 @@ class WindowsAppCloser:
 
                 class_buffer = ctypes.create_unicode_buffer(256)
                 user32.GetClassNameW(hwnd, class_buffer, 256)
-                if class_buffer.value in _SHELL_WINDOW_CLASSES:
+                if should_ignore_window_class(class_buffer.value):
                     return True
 
                 pid = wintypes.DWORD(0)
@@ -179,8 +201,26 @@ class WindowsAppCloser:
             return False
 
 
+def _coerce_nonnegative_int(value, fallback=0):
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+
+
+def _coerce_poll_interval(value, fallback=0.5):
+    try:
+        interval = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+    if not math.isfinite(interval):
+        return fallback
+    return max(0.05, interval)
+
+
 def close_user_apps(closer, timeout_seconds=20, poll_interval=0.5,
-                    sleep_func=time.sleep, time_func=time.monotonic):
+                    sleep_func=time.sleep, time_func=time.monotonic,
+                    should_stop=None):
     """Ask every listed application window to close and wait for them to exit.
 
     Returns a :class:`CloseAppsResult` summarising how many apps were asked to
@@ -191,7 +231,11 @@ def close_user_apps(closer, timeout_seconds=20, poll_interval=0.5,
         return CloseAppsResult(available=False, attempted=0, closed=0, remaining=0,
                                message="关闭应用服务不可用")
 
-    windows = list(closer.list_app_windows())
+    try:
+        windows = list(closer.list_app_windows())
+    except Exception as exc:
+        return CloseAppsResult(available=False, attempted=0, closed=0, remaining=0,
+                               message=f"关闭应用服务不可用：{exc}")
     titles = [w.title for w in windows]
     target_pids = {w.pid for w in windows}
     initial_count = len(windows)
@@ -201,23 +245,47 @@ def close_user_apps(closer, timeout_seconds=20, poll_interval=0.5,
                                titles=[], message="没有需要关闭的应用")
 
     attempted = 0
+    requested_titles = []
+    request_failed_titles = []
     for window in windows:
-        if closer.request_close(window):
+        try:
+            requested = closer.request_close(window)
+        except Exception:
+            requested = False
+        if requested:
             attempted += 1
+            requested_titles.append(window.title)
+        else:
+            request_failed_titles.append(window.title)
 
-    def _remaining():
-        return sum(1 for w in closer.list_app_windows() if w.pid in target_pids)
+    def _remaining_windows():
+        try:
+            return [w for w in closer.list_app_windows() if w.pid in target_pids]
+        except Exception:
+            return []
 
-    timeout_seconds = max(0, int(timeout_seconds))
-    poll_interval = max(0.05, float(poll_interval))
+    timeout_seconds = _coerce_nonnegative_int(timeout_seconds)
+    poll_interval = _coerce_poll_interval(poll_interval)
     deadline = time_func() + timeout_seconds
-    remaining = _remaining()
+    remaining_windows = _remaining_windows()
+    remaining = len(remaining_windows)
+    cancelled = False
     while remaining > 0 and time_func() < deadline:
-        sleep_func(poll_interval)
-        remaining = _remaining()
+        if should_stop is not None and should_stop():
+            cancelled = True
+            break
+        sleep_for = min(poll_interval, max(0, deadline - time_func()))
+        if sleep_for <= 0:
+            break
+        sleep_func(sleep_for)
+        remaining_windows = _remaining_windows()
+        remaining = len(remaining_windows)
 
     closed = max(0, initial_count - remaining)
-    if remaining == 0:
+    remaining_titles = [w.title for w in remaining_windows]
+    if cancelled and remaining > 0:
+        message = f"已请求关闭 {attempted} 个应用，已跳过等待，仍有 {remaining} 个未退出"
+    elif remaining == 0:
         message = f"已请求关闭 {attempted} 个应用，全部已退出"
     else:
         message = f"已请求关闭 {attempted} 个应用，仍有 {remaining} 个未在 {timeout_seconds} 秒内退出"
@@ -226,6 +294,10 @@ def close_user_apps(closer, timeout_seconds=20, poll_interval=0.5,
         attempted=attempted,
         closed=closed,
         remaining=remaining,
+        cancelled=cancelled,
+        remaining_titles=remaining_titles,
+        requested_titles=requested_titles,
+        request_failed_titles=request_failed_titles,
         titles=titles,
         message=message,
     )

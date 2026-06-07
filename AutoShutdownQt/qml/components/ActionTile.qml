@@ -12,12 +12,14 @@ NeonCard {
     property string actionSub: ""
     property bool isSelected: controller.selectedAction === actionKey
 
+    enabled: !controller.powerActionInProgress
     active: isSelected
     cardColor: isSelected ? Theme.cardGlassActive : Theme.cardGlass
     hoverColor: isSelected ? "#66301F78" : Theme.cardGlassHover
     cardBorderColor: isSelected ? Theme.e5BorderPink : Theme.e5BorderSoft
     activeBorderColor: Theme.e5BorderPink
-    scale: mouseArea.containsMouse ? 1.025 : 1.0
+    scale: enabled && mouseArea.containsMouse ? 1.025 : 1.0
+    opacity: enabled ? 1.0 : 0.56
 
     Rectangle {
         anchors.left: parent.left
@@ -39,27 +41,41 @@ NeonCard {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
+        enabled: root.enabled
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: mouseArea.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
         onClicked: controller.selectedAction = root.actionKey
     }
 
     ColumnLayout {
         anchors.centerIn: parent
+        width: parent.width - 18
         spacing: 4
         Text {
             text: actionLabel
             color: root.isSelected ? Theme.textPrimary : Theme.textSecondary
             font.pixelSize: 16
             font.weight: Font.Bold
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: 11
+            maximumLineCount: 1
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
             Layout.alignment: Qt.AlignHCenter
+            Layout.maximumWidth: parent.width
         }
         Text {
             text: actionSub
             color: root.isSelected ? Theme.primary : Theme.textSecondary
             font.pixelSize: 10
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: 8
+            maximumLineCount: 1
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
             opacity: root.isSelected ? 1 : 0.72
             Layout.alignment: Qt.AlignHCenter
+            Layout.maximumWidth: parent.width
         }
     }
 

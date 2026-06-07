@@ -5,9 +5,21 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 QML = ROOT / "AutoShutdownQt" / "qml"
+APP_DIR = ROOT / "AutoShutdownQt"
 MAIN_QML = QML / "Main.qml"
 CONFIRM_DIALOG_QML = QML / "components" / "ConfirmDialog.qml"
 NEON_BUTTON_QML = QML / "components" / "NeonButton.qml"
+ACTION_TILE_QML = QML / "components" / "ActionTile.qml"
+TASK_QUEUE_DASHBOARD_QML = QML / "components" / "TaskQueueDashboard.qml"
+RECENT_ACTIVITY_PANEL_QML = QML / "components" / "RecentActivityPanel.qml"
+TASK_TEMPLATE_PANEL_QML = QML / "components" / "TaskTemplatePanel.qml"
+
+
+def main_and_task_queue_qml():
+    task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8") if TASK_QUEUE_DASHBOARD_QML.exists() else ""
+    recent_activity = RECENT_ACTIVITY_PANEL_QML.read_text(encoding="utf-8") if RECENT_ACTIVITY_PANEL_QML.exists() else ""
+    task_template = TASK_TEMPLATE_PANEL_QML.read_text(encoding="utf-8") if TASK_TEMPLATE_PANEL_QML.exists() else ""
+    return MAIN_QML.read_text(encoding="utf-8") + "\n" + task_queue + "\n" + recent_activity + "\n" + task_template
 
 
 class E5E8ButtonRegressionTest(unittest.TestCase):
@@ -49,20 +61,22 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         status_panel_index = main.index("id: rightStatusPanel", power_index)
         power_section = main[power_index:status_panel_index]
 
-        self.assertIn("Layout.preferredHeight: 252", main, "hero card should be compact enough for 720px windows")
-        self.assertIn("Layout.preferredHeight: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
-        self.assertIn("Layout.preferredHeight: 170", power_section, "overview action card should reserve enough fixed space for two compact rows")
+        self.assertIn("height: 252", main, "hero card should be compact enough for 720px windows")
+        self.assertIn("height: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
+        self.assertIn("height: parent.height - y", power_section, "overview action card should fill the remaining left column without overlapping")
         self.assertIn("anchors.margins: 14", power_section, "overview action card needs compact margins")
         self.assertIn("rowSpacing: 6", power_section, "overview action grid needs compact row spacing")
         self.assertEqual(power_section.count("Layout.preferredHeight: 56"), 6, "overview action tiles need fixed compact heights")
 
     def test_core_mvp_pages_are_wired_to_controller(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        qml_source = main_and_task_queue_qml()
+        main = qml_source
 
         for template_key in ("shutdown_15", "shutdown_30", "sleep_60", "shutdown_2300"):
-            self.assertIn(f'applyTaskTemplate("{template_key}")', main)
+            self.assertIn(f'applyTaskTemplate("{template_key}")', qml_source)
         for label in ("15 分钟后关机", "30 分钟后关机", "1 小时后睡眠", "今晚 23:00 关机"):
-            self.assertIn(label, main)
+            self.assertIn(label, qml_source)
 
         for snippet in (
             "controller.scriptEnabled",
@@ -101,10 +115,11 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
 
     def test_2_1_queue_and_repeat_controls_are_wired(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        qml_source = main_and_task_queue_qml()
 
         for snippet in (
             "定时关机助手 v3.2",
-            "v3.2 · 右侧状态栏",
+            "v3.2 · 清晰工作台",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -113,18 +128,20 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             "controller.runQueueTaskDryRunCheck(",
             "repeatRuleCombo",
         ):
-            self.assertIn(snippet, main)
+            self.assertIn(snippet, qml_source)
         for label in ("任务队列", "重复规则", "仅一次", "每天", "工作日", "周末", "Dry-run 检查", "删除"):
-            self.assertIn(label, main)
+            self.assertIn(label, qml_source)
 
     def test_task_queue_list_model_refreshes_when_controller_queue_changes(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8")
 
         self.assertIn("property var queueRowModel", main)
         self.assertIn("queueRowModel: queueRows()", main)
         self.assertIn("function onTaskQueueChanged()", main)
         self.assertIn("mainWindow.queueRowModel = mainWindow.queueRows()", main)
-        self.assertIn("model: mainWindow.queueRowModel", main)
+        self.assertIn("queueRows: mainWindow.queueRowModel", main)
+        self.assertIn("model: root.queueRows", task_queue)
         self.assertNotIn("model: mainWindow.queueRows()", main)
 
     def test_neon_card_hover_layer_does_not_steal_child_clicks(self):
@@ -148,7 +165,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("from music_service import MusicService", main_py)
         self.assertIn("from notification_service import NotificationService", main_py)
         self.assertIn("from startup_service import StartupService", main_py)
-        self.assertIn("startup_service=StartupService()", main_py)
+        self.assertIn("else StartupService()", main_py)
+        self.assertIn("startup_service=ScreenshotStartupService() if screenshot_path is not None else StartupService()", main_py)
         self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service, logger=controller._add_log)", main_py)
         self.assertNotIn("if controller.startMinimizedToTray and tray_service.available:", main_py)
         self.assertNotIn("window.hide()", main_py)
@@ -249,7 +267,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("from notification_service import NotificationService", main_py)
         self.assertIn("from startup_service import StartupService", main_py)
         self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service", main_py)
-        self.assertIn("startup_service=StartupService()", main_py)
+        self.assertIn("else StartupService()", main_py)
+        self.assertIn("startup_service=ScreenshotStartupService() if screenshot_path is not None else StartupService()", main_py)
         self.assertNotIn("if controller.startMinimizedToTray and tray_service.available:", main_py)
         self.assertNotIn("window.hide()", main_py)
 
@@ -298,7 +317,6 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
 
         for snippet in (
             'title: "定时关机助手 v3.2"',
-            'v3.2 · 右侧状态栏',
             'id: rightStatusPanel',
             '安全模式',
             'Dry-run 已开启',
@@ -315,6 +333,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertNotIn('Text { text: "Next task"', main)
         self.assertNotIn('Text { text: "Active triggers"', main)
         self.assertNotIn('Text { text: "Queue health"', main)
+        self.assertNotIn('v3.2 · 右侧状态栏', main)
 
     def test_2_3_status_panel_does_not_push_overview_below_fold(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -324,11 +343,217 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertNotIn("id: commandCardsRow", main)
         self.assertNotIn("id: commandCenterScroll", main)
         self.assertIn('Text { text: "快捷倒计时"', main)
-        self.assertIn('Layout.preferredHeight: 252', main)
-        self.assertIn('Layout.preferredHeight: 150', main)
+        self.assertIn('height: 252', main)
+        self.assertIn('height: 150', main)
+
+    def test_overview_is_reworked_as_a_clear_workbench(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        for snippet in (
+            "id: overviewWorkbench",
+            "id: currentTaskPanel",
+            "id: overviewActionPanel",
+            "id: quickCountdownPanel",
+            "id: overviewStatusSummary",
+            "id: overviewRecentActivity",
+        ):
+            self.assertIn(snippet, overview_section)
+
+        self.assertIn("readonly property int overviewRightWidth: 360", overview_section)
+        self.assertNotIn("v3.2 路 鍙充晶鐘舵€佹爮", overview_section)
+        self.assertNotIn("font.letterSpacing", overview_section)
+
+    def test_overview_uses_explicit_geometry_to_prevent_panel_overlap(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        self.assertIn("readonly property int overviewGap", overview_section)
+        self.assertIn("readonly property int overviewRightWidth", overview_section)
+        self.assertIn("readonly property int overviewLeftWidth", overview_section)
+        self.assertIn("width: overviewWorkbench.overviewLeftWidth", overview_section)
+        self.assertIn("x: overviewWorkbench.overviewLeftWidth + overviewWorkbench.overviewGap", overview_section)
+        self.assertIn("width: overviewWorkbench.overviewRightWidth", overview_section)
+        self.assertIn("y: quickCountdownPanel.height + overviewWorkbench.overviewGap", overview_section)
+        self.assertIn("height: parent.height - y", overview_section)
+        self.assertNotIn("RowLayout {\n                id: overviewWorkbench", overview_section)
+
+    def test_overview_cards_use_opaque_panels_to_prevent_text_bleed_through(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        self.assertGreaterEqual(overview_section.count("cardColor: Theme.dialogPanel"), 4)
+        self.assertIn("cardColor: Theme.dialogPanelRaised", overview_section)
+        self.assertNotIn("cardColor: Theme.cardGlass", overview_section)
+        self.assertNotIn("active: true", overview_section)
+        self.assertNotIn("breathing: true", overview_section)
+
+    def test_current_task_panel_stacks_content_in_narrow_overview_column(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        panel_index = main.index("id: currentTaskPanel")
+        action_index = main.index("id: overviewActionPanel", panel_index)
+        panel_section = main[panel_index:action_index]
+
+        self.assertIn("id: currentTaskContent", panel_section)
+        self.assertIn("id: currentTaskActions", panel_section)
+        self.assertIn("GridLayout {", panel_section)
+        self.assertIn("columns: 2", panel_section)
+        self.assertNotIn("Layout.preferredWidth: 230", panel_section)
+        self.assertNotIn("font.pixelSize: 70", panel_section)
+
+    def test_shell_navigation_and_title_bar_use_solid_readable_surfaces(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        shell_section = main[main.index("id: appShell"):main.index("// Title bar")]
+        title_section = main[main.index("id: titleBar"):main.index("// Sidebar")]
+        nav_section = main[main.index("id: navigationRail"):main.index("Item {\n        id: contentHost")]
+
+        self.assertIn("cardColor: Theme.dialogPanel", shell_section)
+        self.assertIn("color: Theme.dialogPanel", title_section)
+        self.assertIn("cardColor: Theme.dialogPanel", nav_section)
+        self.assertIn("color: Theme.dialogPanelRaised", nav_section)
+        self.assertNotIn("cardColor: Theme.shellGlass", shell_section)
+        self.assertNotIn("color: Theme.glassSoft", title_section)
+        self.assertNotIn("font.letterSpacing", nav_section)
+
+    def test_main_pages_use_solid_readable_surfaces_after_overview(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        page_ranges = [
+            ("// Timer page", "// Tasks page"),
+            ("// Tasks page", "// Smart triggers page"),
+            ("// Smart triggers page", "// Script page"),
+            ("// Script page", "// Settings page"),
+            ("// Settings page", "Window {"),
+        ]
+
+        for start_marker, end_marker in page_ranges:
+            with self.subTest(page=start_marker):
+                start = main.index(start_marker)
+                end = main.index(end_marker, start)
+                section = main[start:end]
+                first_card = section[section.index("NeonCard {"):section.index("ScrollView {") if "ScrollView {" in section else section.index("ColumnLayout {")]
+
+                self.assertIn("cardColor: Theme.dialogPanel", first_card)
+                self.assertNotIn("cardColor: Theme.cardGlass", first_card)
+                self.assertNotIn("cardColor: Theme.cardGlassActive", first_card)
+
+    def test_dense_action_rows_can_wrap_instead_of_overflowing(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        task_template = TASK_TEMPLATE_PANEL_QML.read_text(encoding="utf-8")
+
+        tasks_index = main.index("// Tasks page")
+        smart_index = main.index("// Smart triggers page", tasks_index)
+        script_index = main.index("// Script page", smart_index)
+        settings_index = main.index("// Settings page", script_index)
+
+        tasks_section = main[tasks_index:smart_index]
+        smart_section = main[smart_index:script_index]
+        script_section = main[script_index:settings_index]
+        settings_section = main[settings_index:main.index("Window {", settings_index)]
+
+        self.assertIn("TaskTemplatePanel {", tasks_section)
+        self.assertIn("id: taskPrimaryActions", task_template)
+        task_actions_index = task_template.index("id: taskPrimaryActions")
+        self.assertIn("Flow {", task_template[task_template.rfind("Flow {", 0, task_actions_index):task_actions_index])
+        self.assertIn("id: processTriggerActions", smart_section)
+        self.assertIn("id: networkTriggerActions", smart_section)
+        self.assertIn("id: idleTriggerActions", smart_section)
+        self.assertIn("id: scriptActionFlow", script_section)
+        self.assertIn("id: historyActionFlow", settings_section)
+
+    def test_smart_trigger_forms_are_not_hard_packed_into_wide_grids(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        smart_index = main.index("// Smart triggers page")
+        script_index = main.index("// Script page", smart_index)
+        smart_section = main[smart_index:script_index]
+
+        self.assertIn("id: networkThresholdGrid", smart_section)
+        self.assertIn("id: idleTriggerGrid", smart_section)
+        self.assertIn("columns: 2", smart_section[smart_section.index("id: networkThresholdGrid"):])
+        self.assertIn("columns: 2", smart_section[smart_section.index("id: idleTriggerGrid"):])
+        self.assertNotIn("columns: 6", smart_section)
+
+    def test_settings_page_is_grouped_into_scannable_panels(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        settings_index = main.index("// Settings page")
+        settings_section = main[settings_index:main.index("Window {", settings_index)]
+
+        for panel_id in (
+            "id: settingsSafetyPanel",
+            "id: settingsReminderPanel",
+            "id: settingsSystemPanel",
+        ):
+            self.assertIn(panel_id, settings_section)
+
+        self.assertGreaterEqual(settings_section.count("cardColor: Theme.dialogPanelRaised"), 3)
+        self.assertIn("id: settingsLiveModeWarning", settings_section)
+
+    def test_settings_panels_leave_room_for_help_text_and_style_inputs(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        settings_index = main.index("// Settings page")
+        settings_section = main[settings_index:main.index("Window {", settings_index)]
+
+        self.assertIn("Layout.preferredHeight: 286", settings_section)
+        self.assertIn("Layout.preferredHeight: 214", settings_section)
+        self.assertEqual(settings_section.count("background: Rectangle { color: Theme.inputGlass"), 4)
+        self.assertNotIn("Layout.preferredHeight: 250", settings_section)
+        self.assertNotIn("Layout.preferredHeight: 190", settings_section)
+
+    def test_smart_trigger_cards_are_compact_enough_to_reveal_idle_section(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        smart_index = main.index("// Smart triggers page")
+        script_index = main.index("// Script page", smart_index)
+        smart_section = main[smart_index:script_index]
+
+        self.assertIn("Layout.preferredHeight: 206", smart_section)
+        self.assertIn("Layout.preferredHeight: 242", smart_section)
+        self.assertIn("id: idleTriggerPreviewSpacer", smart_section)
+        self.assertNotIn("Layout.preferredHeight: 236", smart_section)
+
+    def test_music_player_window_uses_solid_panel_surface(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        music_index = main.index("id: musicPlayerWindow")
+        music_section = main[music_index:main.index("id: firstRunSafetyGuideDialog", music_index)]
+
+        self.assertIn("cardColor: Theme.dialogPanelRaised", music_section)
+        self.assertNotIn("cardColor: Theme.cardGlassActive", music_section)
+
+    def test_main_py_can_capture_qt_ui_screenshot_for_visual_regression(self):
+        main_py = (APP_DIR / "main.py").read_text(encoding="utf-8")
+
+        self.assertIn("--ui-screenshot", main_py)
+        self.assertIn("--ui-page", main_py)
+        self.assertIn("QTimer.singleShot", main_py)
+        self.assertIn("window.grabWindow()", main_py)
+        self.assertIn("screenshot_path", main_py)
+        self.assertIn("if screenshot_path is None:", main_py)
+        self.assertIn("window.setProperty(\"currentPage\", screenshot_page)", main_py)
+        self.assertIn("controller._dry_run = True", main_py)
+        self.assertIn("controller._first_run_safety_guide_shown = True", main_py)
+        self.assertIn("tray_service.setup()", main_py)
+        self.assertIn("controller.startMusicAutoplay()", main_py)
+
+    def test_neon_cards_use_restrained_decoration_on_solid_panels(self):
+        neon_card = (QML / "components" / "NeonCard.qml").read_text(encoding="utf-8")
+
+        self.assertIn("opacity: 0.28", neon_card)
+        self.assertIn("opacity: hoverHandler.hovered && hoverable ? 0.10 : 0.035", neon_card)
+        self.assertIn("opacity: hoverHandler.hovered && hoverable ? 0.08 : 0.025", neon_card)
+        self.assertNotIn("opacity: 0.78", neon_card)
+        self.assertNotIn("? 0.18 : 0.09", neon_card)
 
     def test_2_3_task_center_keeps_primary_controls_in_default_window(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        task_template = TASK_TEMPLATE_PANEL_QML.read_text(encoding="utf-8")
+        task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8")
+        recent_activity = RECENT_ACTIVITY_PANEL_QML.read_text(encoding="utf-8")
         tasks_index = main.index("// Tasks page")
         smart_index = main.index("// Smart triggers page", tasks_index)
         tasks_section = main[tasks_index:smart_index]
@@ -336,13 +561,19 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("ScrollView {", tasks_section)
         self.assertIn("id: taskCenterScroll", tasks_section)
         self.assertIn("contentWidth: availableWidth", tasks_section)
-        self.assertIn('Layout.preferredHeight: 140', tasks_section)
-        self.assertIn('Layout.preferredHeight: 116', tasks_section)
-        self.assertIn('Task Queue Dashboard · 任务队列', tasks_section)
-        self.assertIn('Recent activity · 最近日志', tasks_section)
+        self.assertIn('TaskQueueDashboard {', tasks_section)
+        self.assertIn('Layout.preferredHeight: 140', task_queue)
+        self.assertIn('TaskTemplatePanel {', tasks_section)
+        self.assertIn('Layout.preferredHeight: 116', task_template)
+        self.assertIn('Task Queue Dashboard · 任务队列', task_queue)
+        self.assertIn('RecentActivityPanel {', tasks_section)
+        self.assertIn('Recent activity · 最近日志', recent_activity)
+        self.assertIn('controller.logSummaryText', recent_activity)
 
     def test_2_3_task_center_uses_two_columns_to_avoid_below_fold_content(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8")
+        task_template = TASK_TEMPLATE_PANEL_QML.read_text(encoding="utf-8")
         tasks_index = main.index("// Tasks page")
         smart_index = main.index("// Smart triggers page", tasks_index)
         tasks_section = main[tasks_index:smart_index]
@@ -351,9 +582,9 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("id: taskTemplateColumn", tasks_section)
         self.assertIn("id: queueAndActivityColumn", tasks_section)
         self.assertIn("Layout.preferredWidth: 330", tasks_section)
-        self.assertIn('Layout.preferredHeight: 156', tasks_section)
-        self.assertIn('Layout.preferredHeight: 116', tasks_section)
-        self.assertIn('Layout.preferredHeight: 140', tasks_section)
+        self.assertIn('Layout.preferredHeight: 156', task_template)
+        self.assertIn('Layout.preferredHeight: 116', task_template)
+        self.assertIn('Layout.preferredHeight: 140', task_queue)
 
     def test_2_3_task_center_scrollview_closes_before_smart_triggers(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -397,7 +628,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
     def test_idle_action_combo_does_not_overwrite_saved_action_during_initial_sync(self):
         main = MAIN_QML.read_text(encoding="utf-8")
         combo_index = main.index("id: idleActionCombo")
-        combo_section = main[combo_index:main.index("NeonButton { Layout.preferredWidth: 142", combo_index)]
+        combo_section = main[combo_index:main.index("NeonButton { width: 142", combo_index)]
 
         self.assertIn("property bool syncing: true", combo_section)
         self.assertIn("if (!syncing) controller.idleAction = currentValue", combo_section)
@@ -426,12 +657,118 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertIn("倒计时和进程/网络触发到点后不会再次确认", main)
         self.assertNotIn("危险动作仍会弹窗确认", main)
 
+    def test_immediate_execute_buttons_disable_during_power_action(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(main.count("enabled: !controller.powerActionInProgress"), 2)
+
+    def test_action_and_safety_controls_disable_during_power_action(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        action_tile = ACTION_TILE_QML.read_text(encoding="utf-8")
+
+        self.assertIn("enabled: !controller.powerActionInProgress", action_tile)
+        self.assertIn("mouseArea.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor", action_tile)
+        self.assertIn("id: dryRunSafetySwitch", main)
+        self.assertIn("enabled: !controller.powerActionInProgress", main[main.index("id: dryRunSafetySwitch"):])
+        self.assertRegex(main, r"FluentSwitch\s*\{\s*enabled: !controller\.powerActionInProgress\s*checked: controller\.forceClose")
+
+    def test_power_action_progress_text_is_visible_near_immediate_execute(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        qml_source = main_and_task_queue_qml()
+
+        self.assertGreaterEqual(qml_source.count("controller.powerActionProgressText"), 2)
+        self.assertGreaterEqual(qml_source.count("controller.powerActionStepSummaryText"), 2)
+        self.assertIn("visible: controller.powerActionInProgress", qml_source)
+
+    def test_power_action_step_summary_is_localized_for_users(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("function formatPowerActionStepSummary(summary)", main)
+        self.assertGreaterEqual(
+            main.count("mainWindow.formatPowerActionStepSummary(controller.powerActionStepSummaryText)"),
+            2,
+        )
+        self.assertIn("执行阶段：就绪", main)
+        self.assertIn("脚本预检：等待", main)
+        self.assertIn("关闭应用：等待", main)
+        self.assertIn("系统动作：等待", main)
+        self.assertIn("可跳过等待", main)
+
+    def test_skip_close_apps_wait_button_is_wired(self):
+        qml_source = main_and_task_queue_qml()
+        main = qml_source
+
+        self.assertIn("跳过等待", main)
+        self.assertIn("controller.skipCloseAppsWait()", qml_source)
+        self.assertIn("controller.canSkipCloseAppsWait", qml_source)
+
+    def test_close_apps_timeout_input_has_visible_range_guard(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        timeout_index = main.index("controller.closeAppsTimeoutSeconds")
+        timeout_section = main[main.rfind("TextField {", 0, timeout_index):main.index("onEditingFinished", timeout_index)]
+        self.assertIn("IntValidator", timeout_section)
+        self.assertIn("bottom: 1", timeout_section)
+        self.assertIn("top: 300", timeout_section)
+        self.assertIn("1-300 秒", main)
+
+    def test_close_apps_preview_button_is_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("预检关闭应用", main)
+        self.assertIn("controller.previewCloseApps()", main)
+        self.assertIn("enabled: !controller.powerActionInProgress", main)
+        self.assertIn("controller.closeAppsPreviewText", main)
+        self.assertIn("controller.closeAppsLastResultText", main)
+
+    def test_diagnostics_center_and_failed_queue_recovery_are_wired(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8") if TASK_QUEUE_DASHBOARD_QML.exists() else ""
+        qml_source = main + "\n" + task_queue
+
+        for snippet in (
+            "controller.copyDiagnostics()",
+            "controller.diagnosticText",
+            "controller.copyStatusText",
+            "controller.runHealthCheck()",
+            "controller.healthCheckText",
+            "controller.setLogFilter(\"all\")",
+            "controller.setLogFilter(\"warning\")",
+            "controller.setLogFilter(\"error\")",
+            "controller.filteredLogText",
+            "controller.safetySummaryText",
+            "controller.triggerHealthSummaryText",
+            "controller.logCategorySummaryText",
+            "controller.copyQueueTaskDiagnostic(modelData.id)",
+            "controller.retryQueueTask(modelData.id)",
+            "modelData.status === \"failed\"",
+            "modelData.lastError",
+        ):
+            self.assertIn(snippet, qml_source)
+
+    def test_task_queue_dashboard_is_extracted_from_main(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        self.assertTrue(TASK_QUEUE_DASHBOARD_QML.exists())
+        self.assertIn("TaskQueueDashboard {", main)
+
+    def test_recent_activity_panel_is_extracted_from_main(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        self.assertTrue(RECENT_ACTIVITY_PANEL_QML.exists())
+        self.assertIn("RecentActivityPanel {", main)
+
+    def test_task_template_panel_is_extracted_from_main(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        self.assertTrue(TASK_TEMPLATE_PANEL_QML.exists())
+        self.assertIn("TaskTemplatePanel {", main)
+
     def test_full_polish_controls_are_wired(self):
         main = MAIN_QML.read_text(encoding="utf-8")
+        qml_source = main_and_task_queue_qml()
 
         for snippet in (
             "mainWindow.confirmLiveModeFromSwitch(checked)",
             "controller.exportDiagnostics()",
+            "controller.queueSummaryText",
             "controller.snoozeMinutes(5)",
             "controller.snoozeMinutes(10)",
             "applyTaskTemplate(\"lock_5\")",
@@ -440,10 +777,109 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
             "mainWindow.toggleMaximized()",
             "onDoubleClicked: mainWindow.toggleMaximized()",
         ):
-            self.assertIn(snippet, main)
+            self.assertIn(snippet, qml_source)
 
         for label in ("LIVE MODE 会执行真实系统动作", "导出诊断", "延后 5 分钟", "延后 10 分钟", "5 分钟后锁定", "10 分钟后睡眠", "明天 00:00 关机"):
-            self.assertIn(label, main)
+            self.assertIn(label, qml_source)
+
+    def test_dialogs_use_opaque_panel_and_modal_scrim(self):
+        theme = (QML / "Theme.qml").read_text(encoding="utf-8")
+        main = MAIN_QML.read_text(encoding="utf-8")
+        confirm = CONFIRM_DIALOG_QML.read_text(encoding="utf-8")
+
+        self.assertIn("readonly property color dialogPanel", theme)
+        self.assertIn("readonly property color dialogScrim", theme)
+
+        for dialog_id in (
+            "firstRunSafetyGuideDialog",
+            "trayCloseHintDialog",
+            "reminderDialog",
+            "liveModeConfirmDialog",
+        ):
+            dialog_start = main.index(f"id: {dialog_id}")
+            next_dialog = main.find("\n    Dialog {", dialog_start + 1)
+            confirm_dialog = main.find("\n    ConfirmDialog {", dialog_start + 1)
+            candidates = [index for index in (next_dialog, confirm_dialog) if index != -1]
+            dialog_section = main[dialog_start:min(candidates) if candidates else len(main)]
+            self.assertIn("Overlay.modal: Rectangle", dialog_section)
+            self.assertIn("color: Theme.dialogScrim", dialog_section)
+            self.assertIn("color: Theme.dialogPanel", dialog_section)
+
+        self.assertIn("Overlay.modal: Rectangle", confirm)
+        self.assertIn("color: Theme.dialogScrim", confirm)
+        self.assertIn("color: Theme.dialogPanel", confirm)
+
+    def test_buttons_and_action_tiles_guard_against_text_overflow(self):
+        button = NEON_BUTTON_QML.read_text(encoding="utf-8")
+        action_tile = ACTION_TILE_QML.read_text(encoding="utf-8")
+
+        self.assertIn("clip: true", button)
+        self.assertIn("maximumLineCount: 1", button)
+        self.assertIn("elide: Text.ElideRight", button)
+
+        self.assertIn("Layout.maximumWidth", action_tile)
+        self.assertGreaterEqual(action_tile.count("fontSizeMode: Text.HorizontalFit"), 2)
+        self.assertGreaterEqual(action_tile.count("maximumLineCount: 1"), 2)
+        self.assertGreaterEqual(action_tile.count("elide: Text.ElideRight"), 2)
+
+    def test_dense_task_and_diagnostics_actions_wrap_instead_of_overflowing(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        task_queue = TASK_QUEUE_DASHBOARD_QML.read_text(encoding="utf-8")
+
+        queue_index = task_queue.index("id: taskQueueDashboard")
+        queue_section = task_queue[queue_index:]
+        self.assertIn("id: taskQueueActions", queue_section)
+        self.assertIn("Flow {", queue_section)
+        self.assertIn("height: modelData.status === \"failed\" ? 118 : 90", queue_section)
+
+        trigger_log_index = main.index('Text { Layout.fillWidth: true; text: "触发日志"')
+        trigger_log_section = main[trigger_log_index:main.index("filteredLogText", trigger_log_index)]
+        self.assertIn("id: supportActionGrid", trigger_log_section)
+        self.assertIn("GridLayout {", trigger_log_section)
+        self.assertIn("maximumLineCount", trigger_log_section)
+
+    def test_settings_help_text_wraps_inside_rows(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        timeout_help_index = main.index("1-300 秒")
+        timeout_row = main[main.rfind("RowLayout {", 0, timeout_help_index):main.find("\n                    RowLayout {", timeout_help_index)]
+        self.assertIn("wrapMode: Text.WordWrap", timeout_row)
+        self.assertIn("maximumLineCount: 2", timeout_row)
+
+    def test_theme_defines_all_referenced_visual_tokens(self):
+        theme = (QML / "Theme.qml").read_text(encoding="utf-8")
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("readonly property color e5BorderBlue", theme)
+        self.assertIn("Theme.e5BorderBlue", main)
+
+    def test_background_decoration_is_restrained_for_readability(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        self.assertIn("model: 18", main)
+        self.assertNotIn("model: 42", main)
+        for opacity in ("opacity: 0.07", "opacity: 0.06", "opacity: 0.05", "opacity: 0.04"):
+            self.assertIn(opacity, main)
+        self.assertNotIn("NumberAnimation { from: 0.10; to: 0.58", main)
+
+    def test_settings_inline_help_text_is_clamped(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        reminder_help_index = main.index("逗号分隔，例如 10,5,1")
+        reminder_row = main[main.rfind("RowLayout {", 0, reminder_help_index):main.find("\n                    RowLayout {", reminder_help_index)]
+        self.assertIn("Layout.fillWidth: true", reminder_row)
+        self.assertIn("wrapMode: Text.WordWrap", reminder_row)
+        self.assertIn("maximumLineCount: 2", reminder_row)
+
+    def test_settings_page_scrolls_instead_of_overflowing_window(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+
+        settings_index = main.index("// Settings page")
+        settings_section = main[settings_index:main.index("Window {", settings_index)]
+        self.assertIn("id: settingsScroll", settings_section)
+        self.assertIn("contentWidth: availableWidth", settings_section)
+        self.assertIn("width: settingsScroll.availableWidth", settings_section)
+        self.assertIn("bottomPadding: 24", settings_section)
 
 
 if __name__ == "__main__":

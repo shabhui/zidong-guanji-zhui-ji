@@ -2,15 +2,15 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property color bgDeep: "#070A1A"
-    readonly property color bgNight: "#101437"
-    readonly property color bgViolet: "#25114A"
+    readonly property color bgDeep: "#070B12"
+    readonly property color bgNight: "#101826"
+    readonly property color bgViolet: "#151B2A"
     readonly property color bgPanel: bgNight
 
-    readonly property color glassBase: "#24FFFFFF"
-    readonly property color glassSoft: "#18FFFFFF"
-    readonly property color glassStrong: "#36FFFFFF"
-    readonly property color glassHover: "#46FFFFFF"
+    readonly property color glassBase: "#2EFFFFFF"
+    readonly property color glassSoft: "#1FFFFFFF"
+    readonly property color glassStrong: "#3DFFFFFF"
+    readonly property color glassHover: "#4AFFFFFF"
     readonly property color surfaceGlass: glassBase
     readonly property color surfaceStrong: glassStrong
     readonly property color surfaceHover: glassHover
@@ -29,36 +29,40 @@ QtObject {
     readonly property color textPrimary: "#FFF7FF"
     readonly property color textSecondary: "#D9CCF3"
 
-    readonly property color e5BgA: "#090A1F"
-    readonly property color e5BgB: "#111334"
-    readonly property color e5BgC: "#1A1044"
-    readonly property color e5Pink: "#FF6FD8"
-    readonly property color e5Purple: "#9B5CFF"
-    readonly property color e5Blue: "#4CC9FF"
+    readonly property color e5BgA: "#080B12"
+    readonly property color e5BgB: "#101827"
+    readonly property color e5BgC: "#151B2A"
+    readonly property color e5Pink: "#FF7AB6"
+    readonly property color e5Purple: "#8E7CFF"
+    readonly property color e5Blue: "#58C7E8"
     readonly property color e5Star: "#F7F2FF"
 
-    readonly property color shellGlass: "#26101834"
-    readonly property color cardGlass: "#30141B46"
-    readonly property color cardGlassHover: "#421A255F"
-    readonly property color cardGlassActive: "#522C1D68"
+    readonly property color shellGlass: "#D0101624"
+    readonly property color cardGlass: "#E0182232"
+    readonly property color cardGlassHover: "#F0202B3D"
+    readonly property color cardGlassActive: "#F02A3350"
+    readonly property color dialogPanel: "#181D2A"
+    readonly property color dialogPanelRaised: "#20283A"
+    readonly property color dialogScrim: "#CC050716"
     readonly property color inputGlass: "#2AFFFFFF"
 
     readonly property color e5BorderSoft: "#55BDEBFF"
     readonly property color e5BorderStrong: "#B44CC9FF"
     readonly property color e5BorderPink: "#BBFF6FD8"
     readonly property color e5BorderPurple: "#AA9B5CFF"
+    readonly property color e5BorderBlue: "#AA4CC9FF"
 
-    readonly property color glowBlue: "#554CC9FF"
-    readonly property color glowPink: "#55FF6FD8"
-    readonly property color glowPurple: "#559B5CFF"
+    readonly property color glowBlue: "#2458C7E8"
+    readonly property color glowPink: "#24FF7AB6"
+    readonly property color glowPurple: "#228E7CFF"
 
     readonly property int floatVerySlow: 11200
     readonly property int twinkleSlow: 1800
 
-    readonly property real radiusSm: 10
-    readonly property real radiusMd: 16
-    readonly property real radiusLg: 22
-    readonly property real radiusXl: 30
+    readonly property real radiusSm: 6
+    readonly property real radiusMd: 8
+    readonly property real radiusLg: 8
+    readonly property real radiusXl: 10
 
     readonly property real spaceXs: 4
     readonly property real spaceSm: 8

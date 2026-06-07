@@ -19,7 +19,7 @@ Rectangle {
     antialiasing: true
     scale: hoverHandler.hovered && hoverable ? 1.008 : 1.0
 
-    // Soft glass highlight across the top edge.
+    // Soft top highlight, kept restrained so solid panels stay readable.
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
@@ -27,10 +27,10 @@ Rectangle {
         height: Math.max(26, parent.height * 0.24)
         radius: parent.radius
         color: "#26FFFFFF"
-        opacity: 0.78
+        opacity: 0.28
     }
 
-    // Anime-style corner glow, subtle and clipped by the card bounds.
+    // Corner glows are deliberately quiet to avoid visual bleed-through.
     Rectangle {
         width: Math.min(parent.width * 0.45, 140)
         height: width
@@ -40,7 +40,7 @@ Rectangle {
         anchors.rightMargin: -width * 0.32
         anchors.topMargin: -width * 0.38
         color: Theme.e5Blue
-        opacity: hoverHandler.hovered && hoverable ? 0.18 : 0.09
+        opacity: hoverHandler.hovered && hoverable ? 0.10 : 0.035
     }
 
     Rectangle {
@@ -52,7 +52,7 @@ Rectangle {
         anchors.leftMargin: -width * 0.42
         anchors.bottomMargin: -width * 0.48
         color: Theme.e5Pink
-        opacity: hoverHandler.hovered && hoverable ? 0.12 : 0.055
+        opacity: hoverHandler.hovered && hoverable ? 0.08 : 0.025
     }
 
     HoverHandler {

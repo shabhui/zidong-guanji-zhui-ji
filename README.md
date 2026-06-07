@@ -86,6 +86,8 @@ python AutoShutdownQt/main.py
 python -m unittest discover AutoShutdownQt/tests -v
 ```
 
+Note: controller/QML logic tests use `AutoShutdownQt/tests/qt_test_env.py` as a test-only fallback when PySide6 is not installed in the current Python environment. Running the real app and visual Qt checks still requires PySide6.
+
 ## 打包 3.2 发布包
 
 先确保 PyInstaller 可用；如果要生成安装器，还需要安装 Inno Setup 并确保 `ISCC.exe` 在 PATH 中：

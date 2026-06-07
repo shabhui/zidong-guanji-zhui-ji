@@ -8,6 +8,7 @@ Button {
     property string variant: "secondary"
     property bool compact: false
 
+    clip: true
     hoverEnabled: true
     implicitWidth: Math.max(compact ? 84 : 128, label.implicitWidth + (compact ? 30 : 38))
     implicitHeight: compact ? 36 : 44
@@ -30,7 +31,8 @@ Button {
         minimumPixelSize: 10
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideNone
+        maximumLineCount: 1
+        elide: Text.ElideRight
     }
 
     background: Rectangle {
