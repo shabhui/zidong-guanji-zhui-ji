@@ -12,7 +12,7 @@ ensure_qt_modules()
 
 from PySide6.QtCore import QCoreApplication
 
-from controller import AppController
+from controller import AppController, ImmediateMonitorExecutor
 
 
 class CoreMvpControllerTest(unittest.TestCase):
@@ -21,7 +21,7 @@ class CoreMvpControllerTest(unittest.TestCase):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
     def setUp(self):
-        self.controller = AppController()
+        self.controller = AppController(monitor_executor=ImmediateMonitorExecutor())
 
     def _workspace_scratch(self, name):
         target = ROOT / "test-tmp" / name

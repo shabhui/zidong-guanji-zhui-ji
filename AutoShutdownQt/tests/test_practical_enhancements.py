@@ -17,7 +17,7 @@ ensure_qt_modules()
 
 from PySide6.QtCore import QCoreApplication
 
-from controller import AppController
+from controller import AppController, ImmediateMonitorExecutor
 from idle_service import IdleSample, StaticIdleReader
 import network_service
 from network_service import NetworkReader, NetworkSample, compute_speed
@@ -42,6 +42,18 @@ class FakeNetworkReader:
         if not self.samples:
             return NetworkSample(False, message="no more samples")
         return self.samples.pop(0)
+
+
+class DelayedMonitorExecutor:
+    def __init__(self):
+        self.jobs = []
+
+    def submit(self, work, callback):
+        self.jobs.append((work, callback))
+
+    def run_next(self):
+        work, callback = self.jobs.pop(0)
+        callback(work())
 
 
 class FakeSignal:
@@ -737,7 +749,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(controller.queueTaskCount, 0)
 
     def test_process_trigger_start_adds_active_queue_task(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         controller.processName = "notepad.exe"
         controller._process_checker = lambda name: True
 
@@ -747,9 +759,23 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("process_exit", controller.queueRowsJson)
         self.assertIn("notepad.exe", controller.queueText)
 
+    def test_start_process_trigger_defers_initial_process_check(self):
+        executor = DelayedMonitorExecutor()
+        controller = AppController(monitor_executor=executor)
+        controller.processName = "demo.exe"
+        calls = []
+        controller._process_checker = lambda name: calls.append(name) or True
+
+        controller.startProcessTrigger()
+
+        self.assertEqual(calls, [])
+        self.assertEqual(len(executor.jobs), 1)
+        self.assertTrue(controller.processTriggerActive)
+        self.assertIn("检测中", controller.processTriggerStatus)
+
     def test_network_trigger_start_adds_active_queue_task(self):
         samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
 
         controller.startNetworkTrigger()
 
@@ -757,8 +783,70 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("network_idle", controller.queueRowsJson)
         self.assertIn("网络闲置", controller.queueText)
 
+    def test_start_network_trigger_defers_initial_network_sample(self):
+        executor = DelayedMonitorExecutor()
+        reader = FakeNetworkReader([NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)])
+        controller = AppController(network_reader=reader, monitor_executor=executor)
+
+        controller.startNetworkTrigger()
+
+        self.assertEqual(len(reader.samples), 1)
+        self.assertEqual(len(executor.jobs), 1)
+        self.assertTrue(controller.networkTriggerActive)
+        self.assertIn("检测中", controller.networkTriggerStatus)
+
+    def test_process_monitor_skips_overlapping_checks_while_pending(self):
+        executor = DelayedMonitorExecutor()
+        controller = AppController(monitor_executor=executor)
+        controller.processName = "demo.exe"
+        controller._process_checker = lambda name: True
+
+        controller.startProcessTrigger()
+        controller._poll_process_trigger()
+
+        self.assertEqual(len(executor.jobs), 1)
+
+    def test_network_monitor_skips_overlapping_samples_while_pending(self):
+        executor = DelayedMonitorExecutor()
+        reader = FakeNetworkReader([
+            NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0),
+            NetworkSample(True, received_bytes=2, sent_bytes=2, monotonic_seconds=2.0),
+        ])
+        controller = AppController(network_reader=reader, monitor_executor=executor)
+
+        controller.startNetworkTrigger()
+        controller._poll_network_trigger()
+
+        self.assertEqual(len(executor.jobs), 1)
+        self.assertEqual(len(reader.samples), 2)
+
+    def test_stale_process_check_after_stop_is_ignored(self):
+        executor = DelayedMonitorExecutor()
+        controller = AppController(monitor_executor=executor)
+        controller.processName = "demo.exe"
+        controller._process_checker = lambda name: True
+
+        controller.startProcessTrigger()
+        controller.stopProcessTrigger()
+        executor.run_next()
+
+        self.assertFalse(controller.processTriggerActive)
+        self.assertEqual(controller.processTriggerStatus, "已停止")
+
+    def test_stale_network_sample_after_stop_is_ignored(self):
+        executor = DelayedMonitorExecutor()
+        reader = FakeNetworkReader([NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)])
+        controller = AppController(network_reader=reader, monitor_executor=executor)
+
+        controller.startNetworkTrigger()
+        controller.stopNetworkTrigger()
+        executor.run_next()
+
+        self.assertFalse(controller.networkTriggerActive)
+        self.assertEqual(controller.networkTriggerStatus, "已停止")
+
     def test_starting_second_process_trigger_replaces_previous_process_queue_task(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         controller._process_checker = lambda name: True
 
         controller.processName = "first.exe"
@@ -771,7 +859,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("second.exe", controller.queueText)
 
     def test_stopping_process_trigger_removes_matching_queue_task(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         controller.processName = "demo.exe"
         controller._process_checker = lambda name: True
 
@@ -783,7 +871,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(controller.queueTaskCount, 0)
 
     def test_deleting_active_process_queue_task_stops_process_monitor(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         controller.processName = "demo.exe"
         controller._process_checker = lambda name: True
         controller.startProcessTrigger()
@@ -800,7 +888,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0),
             NetworkSample(True, received_bytes=2, sent_bytes=2, monotonic_seconds=2.0),
         ]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
 
         controller.networkIdleSeconds = 60
         controller.startNetworkTrigger()
@@ -812,7 +900,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
     def test_stopping_network_trigger_removes_matching_queue_task(self):
         samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
 
         controller.startNetworkTrigger()
         controller.stopNetworkTrigger()
@@ -823,7 +911,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
     def test_deleting_active_network_queue_task_stops_network_monitor(self):
         samples = [NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0)]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
         controller.startNetworkTrigger()
         task_id = controller._scheduler.tasks[0].id
 
@@ -904,7 +992,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         original_run = network_service.subprocess.run
         try:
             network_service.subprocess.run = lambda *args, **kwargs: Completed()
-            sample = NetworkReader().sample()
+            sample = NetworkReader(counter_provider=None).sample()
         finally:
             network_service.subprocess.run = original_run
 
@@ -921,7 +1009,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         original_run = network_service.subprocess.run
         try:
             network_service.subprocess.run = lambda *args, **kwargs: Completed()
-            sample = NetworkReader().sample()
+            sample = NetworkReader(counter_provider=None).sample()
         finally:
             network_service.subprocess.run = original_run
 
@@ -929,13 +1017,39 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("无法读取网络计数", sample.message)
         self.assertNotIn("network counters unavailable", sample.message)
 
+    def test_network_reader_prefers_psutil_counters_without_netstat(self):
+        class Counters:
+            bytes_recv = 4096
+            bytes_sent = 2048
+
+        class Provider:
+            @staticmethod
+            def net_io_counters():
+                return Counters()
+
+        reader = NetworkReader(counter_provider=Provider())
+
+        def fail_netstat(*args, **kwargs):
+            raise AssertionError("netstat should not run when counters are available")
+
+        original_run = network_service.subprocess.run
+        try:
+            network_service.subprocess.run = fail_netstat
+            sample = reader.sample()
+        finally:
+            network_service.subprocess.run = original_run
+
+        self.assertTrue(sample.available)
+        self.assertEqual(sample.received_bytes, 4096)
+        self.assertEqual(sample.sent_bytes, 2048)
+
     def test_network_idle_trigger_fires_after_sustained_low_speed(self):
         samples = [
             NetworkSample(True, received_bytes=1000, sent_bytes=1000, monotonic_seconds=1.0),
             NetworkSample(True, received_bytes=1100, sent_bytes=1100, monotonic_seconds=2.0),
             NetworkSample(True, received_bytes=1200, sent_bytes=1200, monotonic_seconds=3.0),
         ]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
         controller.networkDownloadThresholdKbps = 1.0
         controller.networkUploadThresholdKbps = 1.0
         controller.networkIdleSeconds = 2
@@ -956,7 +1070,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             NetworkSample(True, received_bytes=100, sent_bytes=100, monotonic_seconds=2.0),
             NetworkSample(True, received_bytes=10_000, sent_bytes=100, monotonic_seconds=3.0),
         ]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
         controller.networkDownloadThresholdKbps = 1.0
         controller.networkUploadThresholdKbps = 1.0
         controller.networkIdleSeconds = 2
@@ -971,7 +1085,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
     def test_network_unavailable_logs_and_stops_without_triggering(self):
         controller = AppController(network_reader=FakeNetworkReader([
             NetworkSample(False, message="network unavailable"),
-        ]))
+        ]), monitor_executor=ImmediateMonitorExecutor())
 
         controller.startNetworkTrigger()
 
@@ -985,7 +1099,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
     def test_network_unavailable_without_message_uses_chinese_fallback(self):
         controller = AppController(network_reader=FakeNetworkReader([
             NetworkSample(False, message=""),
-        ]))
+        ]), monitor_executor=ImmediateMonitorExecutor())
 
         controller.startNetworkTrigger()
 
@@ -1000,7 +1114,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
             NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0),
             NetworkSample(False, message="", monotonic_seconds=2.0),
         ]
-        controller = AppController(network_reader=FakeNetworkReader(samples))
+        controller = AppController(network_reader=FakeNetworkReader(samples), monitor_executor=ImmediateMonitorExecutor())
 
         controller.startNetworkTrigger()
         controller._poll_network_trigger()
@@ -1207,7 +1321,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(executor.calls, [("shutdown", False)])
 
     def test_process_trigger_checker_exception_fails_closed_on_start(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         power_calls = []
         controller.processName = "demo.exe"
         controller._power_executor = lambda action, force: power_calls.append((action, force))
@@ -1225,7 +1339,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("tasklist boom", controller.logText)
 
     def test_process_trigger_checker_exception_fails_closed_during_poll(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         power_calls = []
         controller.processName = "demo.exe"
         controller._power_executor = lambda action, force: power_calls.append((action, force))
@@ -1248,7 +1362,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("poll boom", controller.logText)
 
     def test_process_trigger_checker_empty_exception_message_fails_closed(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         controller.processName = "demo.exe"
         controller._process_checker = lambda name: (_ for _ in ()).throw(RuntimeError())
 
@@ -1293,7 +1407,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertNotIn("tasklist exited", controller._last_process_check_error)
 
     def test_process_trigger_keeps_original_process_name_while_active(self):
-        controller = AppController()
+        controller = AppController(monitor_executor=ImmediateMonitorExecutor())
         power_calls = []
         seen_names = []
         controller.processName = "demo.exe"

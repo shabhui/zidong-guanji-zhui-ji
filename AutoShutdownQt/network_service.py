@@ -3,6 +3,13 @@ import re
 import subprocess
 import time
 
+try:
+    import psutil
+except Exception:
+    psutil = None
+
+_DEFAULT_COUNTER_PROVIDER = object()
+
 
 @dataclass
 class NetworkSample:
@@ -42,7 +49,40 @@ def compute_speed(previous, current):
 
 
 class NetworkReader:
+    def __init__(self, counter_provider=_DEFAULT_COUNTER_PROVIDER):
+        self._counter_provider = psutil if counter_provider is _DEFAULT_COUNTER_PROVIDER else counter_provider
+
     def sample(self):
+        sample = self._sample_with_counters()
+        if sample.available:
+            return sample
+        if sample.message and sample.message != "network counters unavailable":
+            return sample
+        return self._sample_with_netstat()
+
+    def _sample_with_counters(self):
+        provider = self._counter_provider
+        if provider is None or not hasattr(provider, "net_io_counters"):
+            return NetworkSample(False, monotonic_seconds=time.monotonic(), message="network counters unavailable")
+        try:
+            counters = provider.net_io_counters()
+        except Exception:
+            return NetworkSample(False, monotonic_seconds=time.monotonic(), message="network counters unavailable")
+        if counters is None:
+            return NetworkSample(False, monotonic_seconds=time.monotonic(), message="network counters unavailable")
+        try:
+            received = int(getattr(counters, "bytes_recv"))
+            sent = int(getattr(counters, "bytes_sent"))
+        except Exception:
+            return NetworkSample(False, monotonic_seconds=time.monotonic(), message="network counters unavailable")
+        return NetworkSample(
+            True,
+            received_bytes=received,
+            sent_bytes=sent,
+            monotonic_seconds=time.monotonic(),
+        )
+
+    def _sample_with_netstat(self):
         try:
             completed = subprocess.run(
                 ["netstat", "-e"],

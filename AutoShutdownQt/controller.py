@@ -1,5 +1,6 @@
 from PySide6.QtCore import QObject, Signal, Property, Slot, QTimer, QCoreApplication, QThread
 from PySide6.QtWidgets import QFileDialog
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
@@ -19,6 +20,34 @@ from script_service import run_script
 from settings_service import default_settings, load_settings, log_export_path as default_log_export_path, save_settings
 from task_model import RepeatRule, TaskTriggerType
 from task_scheduler import TaskScheduler
+
+
+@dataclass
+class ProcessCheckResult:
+    running: bool
+    error: str = ""
+
+
+class ThreadedMonitorExecutor:
+    def __init__(self, invoke_on_controller_thread):
+        self._invoke_on_controller_thread = invoke_on_controller_thread
+
+    def submit(self, work, callback):
+        def run():
+            result = work()
+            self._invoke_on_controller_thread(lambda: callback(result))
+
+        worker = threading.Thread(
+            target=run,
+            name="AutoShutdownQtMonitorCheck",
+            daemon=True,
+        )
+        worker.start()
+
+
+class ImmediateMonitorExecutor:
+    def submit(self, work, callback):
+        callback(work())
 
 
 TASK_SOURCE_LABELS = {
@@ -74,7 +103,7 @@ class AppController(QObject):
         "error": "错误",
     }
 
-    def __init__(self, parent=None, settings_path=None, network_reader=None, idle_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None, clipboard_writer=None):
+    def __init__(self, parent=None, settings_path=None, network_reader=None, idle_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None, clipboard_writer=None, monitor_executor=None):
         super().__init__(parent)
         self._workerLogRequested.connect(self._add_log)
         self._workerCallbackRequested.connect(self._run_worker_callback)
@@ -110,6 +139,8 @@ class AppController(QObject):
         self._process_trigger_status = "未启动"
         self._process_seen = False
         self._process_target_name = ""
+        self._process_check_pending = False
+        self._process_monitor_generation = 0
         self._network_download_threshold_kbps = self._coerce_float(settings.get("networkDownloadThresholdKbps"), 10.0, minimum=0.0)
         self._network_upload_threshold_kbps = self._coerce_float(settings.get("networkUploadThresholdKbps"), 10.0, minimum=0.0)
         self._network_idle_seconds = self._coerce_int(settings.get("networkIdleSeconds"), 60, minimum=1)
@@ -148,6 +179,8 @@ class AppController(QObject):
         self._network_speed_text = "等待网络监控"
         self._network_previous_sample = None
         self._network_idle_elapsed = 0.0
+        self._network_sample_pending = False
+        self._network_monitor_generation = 0
         self._idle_trigger_active = False
         self._idle_trigger_status = "未启动"
         self._idle_reader = idle_reader or WindowsIdleReader()
@@ -158,6 +191,7 @@ class AppController(QObject):
         self._process_checker = self._is_process_running
         self._last_process_check_error = ""
         self._network_reader = network_reader or NetworkReader()
+        self._monitor_executor = monitor_executor or ThreadedMonitorExecutor(self._invoke_on_controller_thread)
         self._music_service = music_service or NullMusicService()
         if self._music_folder:
             self._music_service.set_folder(self._music_folder, self._music_current_index)
@@ -1225,21 +1259,10 @@ class AppController(QObject):
             return
         self._process_trigger_active = True
         self._process_target_name = name
-        self._process_seen = self._check_process_running(name)
-        if self._last_process_check_error:
-            self._process_trigger_active = False
-            self._process_seen = False
-            self._process_target_name = ""
-            self._process_trigger_status = f"进程检测失败：{self._last_process_check_error}"
-            self._add_log(f"进程退出触发未启动：{self._process_trigger_status}")
-            self.processTriggerChanged.emit()
-            return
-        if self._process_seen:
-            self._process_trigger_status = f"监控中：{name}"
-            self._add_log(f"进程退出触发已启动：正在监控 {name}")
-        else:
-            self._process_trigger_status = f"等待进程出现：{name}"
-            self._add_log(f"进程退出触发已启动：等待进程出现 {name}")
+        self._process_seen = False
+        self._process_check_pending = False
+        self._process_monitor_generation += 1
+        self._process_trigger_status = f"检测中：{name}"
         self._process_timer.setInterval(self._process_poll_seconds * 1000)
         self._process_timer.start()
         if self._remove_queue_tasks_by_trigger(TaskTriggerType.PROCESS_EXIT):
@@ -1255,6 +1278,7 @@ class AppController(QObject):
         self._save_settings()
         self.taskQueueChanged.emit()
         self.processTriggerChanged.emit()
+        self._schedule_process_check("initial")
 
     @Slot()
     def stopProcessTrigger(self):
@@ -1267,19 +1291,13 @@ class AppController(QObject):
 
     @Slot()
     def startNetworkTrigger(self):
-        sample = self._network_reader.sample()
-        self._network_previous_sample = sample
+        self._network_trigger_active = True
+        self._network_monitor_generation += 1
+        self._network_sample_pending = False
+        self._network_previous_sample = None
         self._network_idle_elapsed = 0.0
         self._network_speed_text = "下载 0.0 KB/s · 上传 0.0 KB/s"
-        if not sample.available:
-            message = self._network_error_text(sample.message)
-            self._network_trigger_active = False
-            self._network_trigger_status = message
-            self._add_log(f"网络监控未启动：{message}")
-            self.networkTriggerChanged.emit()
-            return
-        self._network_trigger_active = True
-        self._network_trigger_status = f"监控中：0/{self._network_idle_seconds} 秒"
+        self._network_trigger_status = f"检测中：0/{self._network_idle_seconds} 秒"
         self._network_timer.setInterval(self._network_poll_seconds * 1000)
         self._network_timer.start()
         if self._remove_queue_tasks_by_trigger(TaskTriggerType.NETWORK_IDLE):
@@ -1301,6 +1319,7 @@ class AppController(QObject):
         self._add_log("网络闲置触发已启动")
         self.taskQueueChanged.emit()
         self.networkTriggerChanged.emit()
+        self._schedule_network_sample("initial")
 
     @Slot()
     def stopNetworkTrigger(self):
@@ -1571,6 +1590,8 @@ class AppController(QObject):
         self._process_trigger_active = False
         self._process_seen = False
         self._process_target_name = ""
+        self._process_check_pending = False
+        self._process_monitor_generation += 1
         self._process_trigger_status = "已停止"
 
     def _stop_network_monitor_without_queue_update(self):
@@ -1578,6 +1599,8 @@ class AppController(QObject):
         self._network_trigger_active = False
         self._network_idle_elapsed = 0.0
         self._network_previous_sample = None
+        self._network_sample_pending = False
+        self._network_monitor_generation += 1
         self._network_trigger_status = "已停止"
 
     def _stop_idle_monitor_without_queue_update(self):
@@ -1699,20 +1722,48 @@ class AppController(QObject):
     def _poll_process_trigger(self):
         if not self._process_trigger_active:
             return
+        self._schedule_process_check("poll")
+
+    def _schedule_process_check(self, phase):
+        if not self._process_trigger_active or self._process_check_pending:
+            return
         name = self._process_target_name or self._process_name.strip()
+        generation = self._process_monitor_generation
+        self._process_check_pending = True
+
+        def work():
+            return self._process_check_result(name)
+
+        self._monitor_executor.submit(
+            work,
+            lambda result: self._apply_process_check_result(generation, name, phase, result),
+        )
+
+    def _process_check_result(self, name):
         running = self._check_process_running(name)
-        if self._last_process_check_error:
+        return ProcessCheckResult(running, self._last_process_check_error)
+
+    def _apply_process_check_result(self, generation, name, phase, result):
+        if generation != self._process_monitor_generation:
+            return
+        self._process_check_pending = False
+        if not self._process_trigger_active:
+            return
+        if result.error:
             self._process_timer.stop()
             self._process_trigger_active = False
             self._process_seen = False
             self._process_target_name = ""
-            self._process_trigger_status = f"进程检测失败：{self._last_process_check_error}"
+            self._process_trigger_status = f"进程检测失败：{result.error}"
             self._add_log(f"进程退出触发已停止：{self._process_trigger_status}")
             self.processTriggerChanged.emit()
             return
-        if running:
+        if result.running:
             if not self._process_seen:
-                self._add_log(f"已发现进程：{name}")
+                if phase == "initial":
+                    self._add_log(f"进程退出触发已启动：正在监控 {name}")
+                else:
+                    self._add_log(f"已发现进程：{name}")
             self._process_seen = True
             self._process_trigger_status = f"监控中：{name}"
             self.processTriggerChanged.emit()
@@ -1728,13 +1779,42 @@ class AppController(QObject):
             self._execute_with_script("进程退出触发")
         else:
             self._process_trigger_status = f"等待进程出现：{name}"
+            if phase == "initial":
+                self._add_log(f"进程退出触发已启动：等待进程出现 {name}")
             self.processTriggerChanged.emit()
 
     def _poll_network_trigger(self):
         if not self._network_trigger_active:
             return
-        current = self._network_reader.sample()
-        speed = compute_speed(self._network_previous_sample, current)
+        self._schedule_network_sample("poll")
+
+    def _schedule_network_sample(self, phase):
+        if not self._network_trigger_active or self._network_sample_pending:
+            return
+        generation = self._network_monitor_generation
+        self._network_sample_pending = True
+
+        self._monitor_executor.submit(
+            self._network_reader.sample,
+            lambda sample: self._apply_network_sample(generation, phase, sample),
+        )
+
+    def _apply_network_sample(self, generation, phase, current):
+        if generation != self._network_monitor_generation:
+            return
+        self._network_sample_pending = False
+        if not self._network_trigger_active:
+            return
+        if phase == "initial":
+            self._apply_initial_network_sample(current)
+            return
+
+        previous = self._network_previous_sample
+        if previous is None:
+            self._apply_initial_network_sample(current)
+            return
+
+        speed = compute_speed(previous, current)
         if not speed.available:
             message = self._network_error_text(speed.message or current.message)
             self._network_timer.stop()
@@ -1766,6 +1846,22 @@ class AppController(QObject):
         else:
             self._network_idle_elapsed = 0.0
             self._network_trigger_status = f"网络忙碌：0/{self._network_idle_seconds} 秒"
+        self.networkTriggerChanged.emit()
+
+    def _apply_initial_network_sample(self, sample):
+        self._network_previous_sample = sample
+        self._network_idle_elapsed = 0.0
+        if not sample.available:
+            message = self._network_error_text(sample.message)
+            self._network_timer.stop()
+            self._network_trigger_active = False
+            self._network_trigger_status = message
+            self._network_speed_text = "网络计数不可用"
+            self._add_log(f"网络监控未启动：{message}")
+            self.networkTriggerChanged.emit()
+            return
+        self._network_trigger_status = f"监控中：0/{self._network_idle_seconds} 秒"
+        self._network_speed_text = "下载 0.0 KB/s · 上传 0.0 KB/s"
         self.networkTriggerChanged.emit()
 
     def _poll_idle_trigger(self):
