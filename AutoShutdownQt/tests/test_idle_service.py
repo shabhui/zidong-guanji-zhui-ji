@@ -22,7 +22,18 @@ class IdleServiceTest(unittest.TestCase):
         self.assertEqual(format_idle_status(301, 300), "已空闲 5 / 5 分钟")
 
     def test_format_idle_status_reports_unavailable_reader(self):
-        self.assertEqual(format_idle_status(None, 300, "idle unavailable"), "空闲检测不可用：idle unavailable")
+        self.assertEqual(format_idle_status(None, 300, "idle unavailable"), "空闲检测不可用：系统未提供空闲状态")
+
+    def test_format_idle_status_uses_chinese_fallback_for_missing_message(self):
+        self.assertEqual(format_idle_status(None, 300, ""), "空闲检测不可用：原因未知")
+        self.assertNotIn("unknown", format_idle_status(None, 300, ""))
+
+    def test_format_idle_status_localizes_common_windows_reader_error(self):
+        self.assertEqual(
+            format_idle_status(None, 300, "GetLastInputInfo failed"),
+            "空闲检测不可用：系统未返回最近输入时间",
+        )
+        self.assertNotIn("GetLastInputInfo", format_idle_status(None, 300, "GetLastInputInfo failed"))
 
 
 if __name__ == "__main__":

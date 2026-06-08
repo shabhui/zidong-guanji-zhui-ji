@@ -11,12 +11,12 @@ class NotificationService:
     def show_reminder(self, title, body):
         if not self.available:
             if not self._unavailable_logged:
-                self._logger("notification unavailable: tray message fallback not ready")
+                self._logger("系统通知不可用：托盘消息尚未就绪")
                 self._unavailable_logged = True
             return False
         try:
             self._tray_service.tray.showMessage(title, body, None, 10000)
         except Exception as exc:
-            self._logger(f"notification unavailable: {exc}")
+            self._logger(f"系统通知不可用：{exc}")
             return False
         return True

@@ -104,6 +104,35 @@ class TaskSchedulerTest(unittest.TestCase):
         self.assertEqual(scheduler.get_task(task.id).status, TaskStatus.PENDING)
         self.assertEqual(scheduler.get_task(task.id).next_run_at, now + timedelta(seconds=1))
 
+    def test_rows_include_localized_status_label_for_ui(self):
+        now = datetime(2026, 6, 3, 12, 0, 0)
+        scheduler = TaskScheduler(now_provider=lambda: now)
+        task = scheduler.add_task("10 秒后锁定", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 10}, RepeatRule.ONCE)
+
+        pending_row = scheduler.rows()[0]
+        scheduler.set_enabled(task.id, False)
+        paused_row = scheduler.rows()[0]
+        scheduler.set_enabled(task.id, True)
+        scheduler.mark_executed(task.id, now + timedelta(seconds=10), success=False, error="power rejected")
+        failed_row = scheduler.rows()[0]
+
+        self.assertEqual(pending_row["status"], "pending")
+        self.assertEqual(pending_row["statusLabel"], "待执行")
+        self.assertEqual(paused_row["statusLabel"], "已暂停")
+        self.assertEqual(failed_row["status"], "failed")
+        self.assertEqual(failed_row["statusLabel"], "失败")
+
+    def test_failed_task_without_error_uses_localized_fallback_for_ui(self):
+        now = datetime(2026, 6, 3, 12, 0, 0)
+        scheduler = TaskScheduler(now_provider=lambda: now)
+        task = scheduler.add_task("fallback", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 1}, RepeatRule.ONCE)
+
+        scheduler.mark_executed(task.id, now + timedelta(seconds=1), success=False, error="")
+
+        row = scheduler.rows()[0]
+        self.assertEqual(row["lastError"], "执行失败")
+        self.assertNotIn("execution failed", row["lastError"])
+
     def test_load_clears_completed_task_next_run_time(self):
         task_data = ScheduledTask.create("done", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 60}, RepeatRule.ONCE, 1).to_dict()
         task_data["status"] = TaskStatus.COMPLETED.value
@@ -127,7 +156,10 @@ class TaskSchedulerTest(unittest.TestCase):
         })
 
         self.assertEqual(len(scheduler.tasks), 1)
-        self.assertIn("invalid saved task", diagnostics[0])
+        self.assertIn("已忽略无效任务", diagnostics[0])
+        self.assertIn("动作无效：bad", diagnostics[0])
+        self.assertNotIn("invalid saved task", diagnostics[0])
+        self.assertNotIn("invalid action", diagnostics[0])
 
     def test_load_recomputes_recurring_fixed_time_next_run_even_when_saved_stale(self):
         scheduler = TaskScheduler(now_provider=lambda: datetime(2026, 6, 3, 12, 0, 0))

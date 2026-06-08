@@ -41,11 +41,11 @@ class TrayService:
                 self._tray = self._tray_factory()
                 self._double_click_reason = getattr(self._tray, "DoubleClick", 2)
         except Exception as exc:
-            self._logger(f"tray unavailable: {exc}")
+            self._logger(f"托盘不可用：{exc}")
             self.available = False
             return False
         if self._tray is None:
-            self._logger("tray unavailable: no tray object")
+            self._logger("托盘不可用：未创建托盘对象")
             self.available = False
             return False
         if hasattr(self._tray, "activated"):
@@ -65,7 +65,7 @@ class TrayService:
 
     def minimize_to_tray(self):
         if not self.available or self._tray is None:
-            self._logger("minimize to tray skipped: tray unavailable")
+            self._logger("最小化到托盘已跳过：托盘不可用")
             return False
         self.hide_window()
         if hasattr(self._tray, "showMessage"):

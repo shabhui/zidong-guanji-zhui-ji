@@ -10,7 +10,7 @@ ColumnLayout {
     signal executeNowRequested()
 
     Text { text: "任务中心"; color: Theme.textPrimary; font.pixelSize: 24; font.weight: Font.Bold }
-    Text { Layout.fillWidth: true; text: "常用模板和临时动作放在左侧，队列和日志放在右侧。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap }
+    Text { Layout.fillWidth: true; text: "选择模板创建队列任务，也可以立即执行当前动作。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap }
     Text { text: "常用任务模板"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
 
     GridLayout {
@@ -29,7 +29,7 @@ ColumnLayout {
         NeonButton { Layout.fillWidth: true; Layout.preferredHeight: 34; compact: true; variant: "primary"; text: "明天 00:00 关机"; onClicked: controller.applyTaskTemplate("shutdown_midnight") }
     }
 
-    Text { text: "临时动作选择"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+    Text { text: "电源动作"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
 
     GridLayout {
         Layout.fillWidth: true
@@ -38,12 +38,12 @@ ColumnLayout {
         rowSpacing: 6
         columnSpacing: 6
 
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "模拟关机" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "进入睡眠" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "进入休眠" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "restart"; actionLabel: "重启"; actionSub: "重新启动" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "logoff"; actionLabel: "注销"; actionSub: "退出登录" }
+        ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 48; actionKey: "lock"; actionLabel: "锁定"; actionSub: "锁定屏幕" }
     }
 
     Flow {

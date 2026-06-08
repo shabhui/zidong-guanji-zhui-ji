@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-import tempfile
+import shutil
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +22,14 @@ class CoreMvpControllerTest(unittest.TestCase):
 
     def setUp(self):
         self.controller = AppController()
+
+    def _workspace_scratch(self, name):
+        target = ROOT / "test-tmp" / name
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        target.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
+        return target
 
     def test_task_template_starts_shutdown_countdown_and_logs_it(self):
         self.controller.applyTaskTemplate("shutdown_15")
@@ -50,31 +58,33 @@ class CoreMvpControllerTest(unittest.TestCase):
         self.controller.executeNow()
 
         self.assertEqual(calls, [])
-        self.assertIn("Dry-run：将执行脚本", self.controller.logText)
-        self.assertIn("[dryRun] Would execute", self.controller.logText)
+        self.assertIn("安全验证：将执行脚本", self.controller.logText)
+        self.assertIn("安全验证：将执行", self.controller.logText)
+        self.assertNotIn("Dry-run", self.controller.logText)
+        self.assertNotIn("[dryRun]", self.controller.logText)
 
     def test_live_script_failure_blocks_power_action(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            script = Path(tmp) / "fail.bat"
-            script.write_text("exit /b 1", encoding="utf-8")
-            calls = []
-            self.controller.dryRun = False
-            self.controller.scriptEnabled = True
-            self.controller.scriptPath = str(script)
-            self.controller._script_runner = lambda path, timeout: type("Result", (), {
-                "ok": False,
-                "message": "脚本失败：exit 1",
-                "stdout": "",
-                "stderr": "boom",
-                "returncode": 1,
-            })()
-            self.controller._power_executor = lambda action, force: calls.append((action, force))
+        root = self._workspace_scratch("core-live-script-failure")
+        script = root / "fail.bat"
+        script.write_text("exit /b 1", encoding="utf-8")
+        calls = []
+        self.controller.dryRun = False
+        self.controller.scriptEnabled = True
+        self.controller.scriptPath = str(script)
+        self.controller._script_runner = lambda path, timeout: type("Result", (), {
+            "ok": False,
+            "message": "脚本失败：exit 1",
+            "stdout": "",
+            "stderr": "boom",
+            "returncode": 1,
+        })()
+        self.controller._power_executor = lambda action, force: calls.append((action, force))
 
-            self.controller.executeNow()
+        self.controller.executeNow()
 
-            self.assertEqual(calls, [])
-            self.assertIn("脚本失败", self.controller.logText)
-            self.assertIn("已阻止电源动作", self.controller.logText)
+        self.assertEqual(calls, [])
+        self.assertIn("脚本失败", self.controller.logText)
+        self.assertIn("已阻止电源动作", self.controller.logText)
 
     def test_process_trigger_arms_waiting_for_process_and_can_stop(self):
         self.controller.processName = "definitely-not-running.exe"
@@ -105,7 +115,8 @@ class CoreMvpControllerTest(unittest.TestCase):
         self.assertFalse(self.controller.processTriggerActive)
         self.assertEqual(calls, [])
         self.assertIn("进程已退出", self.controller.logText)
-        self.assertIn("[dryRun] Would execute", self.controller.logText)
+        self.assertIn("安全验证：将执行", self.controller.logText)
+        self.assertNotIn("[dryRun]", self.controller.logText)
 
 
 if __name__ == "__main__":

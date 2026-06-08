@@ -72,7 +72,7 @@ class ScheduledTask:
         trigger_type = trigger_type if isinstance(trigger_type, TaskTriggerType) else TaskTriggerType(trigger_type)
         repeat_rule = repeat_rule if isinstance(repeat_rule, RepeatRule) else RepeatRule(repeat_rule)
         if trigger_type != TaskTriggerType.FIXED_TIME and repeat_rule != RepeatRule.ONCE:
-            raise ValueError("only fixed_time tasks can repeat in AutoShutdownQt 2.1")
+            raise ValueError("only fixed_time tasks can repeat")
         return cls(
             id=str(uuid4()),
             name=str(name or "计划任务"),
@@ -97,7 +97,7 @@ class ScheduledTask:
         repeat_rule = _enum_value(RepeatRule, data.get("repeatRule", RepeatRule.ONCE.value), "repeatRule")
         status = _enum_value(TaskStatus, data.get("status", TaskStatus.PENDING.value), "status")
         if trigger_type != TaskTriggerType.FIXED_TIME and repeat_rule != RepeatRule.ONCE:
-            raise ValueError("only fixed_time tasks can repeat in AutoShutdownQt 2.1")
+            raise ValueError("only fixed_time tasks can repeat")
         return cls(
             id=str(data.get("id") or uuid4()),
             name=str(data.get("name") or "计划任务"),

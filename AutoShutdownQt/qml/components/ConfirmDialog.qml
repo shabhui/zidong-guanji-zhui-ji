@@ -21,7 +21,7 @@ Dialog {
     background: Rectangle {
         color: Theme.dialogPanel
         radius: Theme.radiusLg
-        border.color: Theme.e5BorderPink
+        border.color: Theme.borderStrong
         border.width: 1
         antialiasing: true
 
@@ -56,8 +56,8 @@ Dialog {
         Text {
             Layout.fillWidth: true
             text: "即将执行：" + root.actionLabel + "\n\n" + (controller.dryRun
-                ? "Dry-run 将只记录当前动作，不会真实执行系统电源操作。"
-                : "LIVE MODE 会真实执行当前动作，可能导致关机、重启、睡眠、休眠、注销或锁定。请确认未保存工作。")
+                ? "安全验证模式只记录当前动作，不会真实执行系统电源操作。"
+                : "真实执行模式会真实执行当前动作，可能导致关机、重启、睡眠、休眠、注销或锁定。请确认未保存工作。")
             color: controller.dryRun ? Theme.textSecondary : Theme.danger
             font.pixelSize: 14
             lineHeight: 1.16

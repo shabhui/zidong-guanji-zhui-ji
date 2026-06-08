@@ -26,12 +26,12 @@ def compute_speed(previous, current):
     if not previous.available or not current.available:
         return NetworkSpeed(
             False,
-            message=current.message or previous.message or "network unavailable",
+            message=current.message or previous.message or "网络不可用",
         )
     received_delta = current.received_bytes - previous.received_bytes
     sent_delta = current.sent_bytes - previous.sent_bytes
     if received_delta < 0 or sent_delta < 0:
-        return NetworkSpeed(False, message="network counter reset")
+        return NetworkSpeed(False, message="网络计数已重置")
     elapsed = max(0.001, current.monotonic_seconds - previous.monotonic_seconds)
     return NetworkSpeed(
         True,
@@ -54,17 +54,18 @@ class NetworkReader:
         except Exception as exc:
             return NetworkSample(False, monotonic_seconds=time.monotonic(), message=str(exc))
         if completed.returncode != 0:
+            message = (completed.stderr or completed.stdout).strip()
             return NetworkSample(
                 False,
                 monotonic_seconds=time.monotonic(),
-                message=(completed.stderr or completed.stdout or "netstat failed").strip(),
+                message=message or f"网络计数命令退出码 {completed.returncode}",
             )
         parsed = self._parse_netstat_bytes(completed.stdout)
         if parsed is None:
             return NetworkSample(
                 False,
                 monotonic_seconds=time.monotonic(),
-                message="network counters unavailable",
+                message="无法读取网络计数",
             )
         received, sent = parsed
         return NetworkSample(

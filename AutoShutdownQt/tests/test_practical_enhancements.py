@@ -1,8 +1,11 @@
 from datetime import timedelta
+import contextlib
+import io
+import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,7 +19,8 @@ from PySide6.QtCore import QCoreApplication
 
 from controller import AppController
 from idle_service import IdleSample, StaticIdleReader
-from network_service import NetworkSample, compute_speed
+import network_service
+from network_service import NetworkReader, NetworkSample, compute_speed
 from settings_service import default_settings, load_settings, save_settings
 
 
@@ -156,25 +160,33 @@ class PracticalEnhancementsTest(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
+    def _workspace_scratch(self, name):
+        target = ROOT / "test-tmp" / name
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        target.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
+        return target
+
     def test_settings_round_trip_merges_defaults(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            data = default_settings()
-            data.update({
-                "dryRun": False,
-                "selectedAction": "sleep",
-                "scriptPath": "C:/demo.bat",
-                "networkDownloadThresholdKbps": 12.5,
-            })
+        root = self._workspace_scratch("practical-settings-merge")
+        path = root / "settings.json"
+        data = default_settings()
+        data.update({
+            "dryRun": False,
+            "selectedAction": "sleep",
+            "scriptPath": "C:/demo.bat",
+            "networkDownloadThresholdKbps": 12.5,
+        })
 
-            save_settings(data, path)
-            loaded = load_settings(path)
+        save_settings(data, path)
+        loaded = load_settings(path)
 
-            self.assertFalse(loaded["dryRun"])
-            self.assertEqual(loaded["selectedAction"], "sleep")
-            self.assertEqual(loaded["scriptPath"], "C:/demo.bat")
-            self.assertEqual(loaded["networkDownloadThresholdKbps"], 12.5)
-            self.assertIn("networkIdleSeconds", loaded)
+        self.assertFalse(loaded["dryRun"])
+        self.assertEqual(loaded["selectedAction"], "sleep")
+        self.assertEqual(loaded["scriptPath"], "C:/demo.bat")
+        self.assertEqual(loaded["networkDownloadThresholdKbps"], 12.5)
+        self.assertIn("networkIdleSeconds", loaded)
 
     def test_default_settings_include_versioned_task_queue(self):
         settings = default_settings()
@@ -330,7 +342,9 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(controller.taskSourceLabel("queue"), "队列任务")
         self.assertEqual(controller.taskSourceLabel("reminder"), "执行前提醒")
         self.assertEqual(controller.taskSourceLabel("active-countdown"), "手动倒计时")
-        self.assertEqual(controller.taskSourceLabel("unknown"), "unknown")
+        unknown_label = controller.taskSourceLabel("unknown")
+        self.assertEqual(unknown_label, "未知来源")
+        self.assertNotIn("unknown", unknown_label)
 
     def test_controller_records_active_countdown_history_with_readable_source_label(self):
         controller = AppController()
@@ -353,16 +367,16 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("执行前提醒", controller.historyRowsJson)
 
     def test_controller_clear_and_export_history_slots(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "logs.txt"
-            controller = AppController(log_export_path=target)
-            controller._record_history("created", "shutdown", "countdown", "task-a", "created task")
+        root = self._workspace_scratch("practical-history-export")
+        target = root / "logs.txt"
+        controller = AppController(log_export_path=target)
+        controller._record_history("created", "shutdown", "countdown", "task-a", "created task")
 
-            controller.exportHistory()
-            controller.clearHistory()
+        controller.exportHistory()
+        controller.clearHistory()
 
-            self.assertEqual(controller.historyRowsJson, "[]")
-            self.assertTrue(target.with_name("AutoShutdownQt-history.json").exists())
+        self.assertEqual(controller.historyRowsJson, "[]")
+        self.assertTrue(target.with_name("AutoShutdownQt-history.json").exists())
 
     def test_controller_startup_preferences_delegate_to_service(self):
         startup = FakeStartupService()
@@ -389,7 +403,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("已加入任务队列", history)
         self.assertIn("已延后", history)
         self.assertIn("已取消当前任务", history)
-        self.assertIn("Dry-run", history)
+        self.assertIn("安全验证", history)
+        self.assertNotIn("Dry-run", history)
 
     def test_controller_exposes_reminder_preferences(self):
         controller = AppController()
@@ -420,7 +435,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertEqual(emissions.count("执行前提醒"), 1)
         self.assertIn("关机", controller.reminderDialogBody)
-        self.assertIn("Dry-run", controller.reminderDialogBody)
+        self.assertIn("安全验证", controller.reminderDialogBody)
+        self.assertNotIn("Dry-run", controller.reminderDialogBody)
         self.assertEqual(controller.reminderDialogSnoozeText, "延后 15 分钟")
 
     def test_reminder_body_distinguishes_real_execution_mode(self):
@@ -445,7 +461,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertIn("执行前提醒", emissions)
         self.assertIn("关机", controller.reminderDialogBody)
-        self.assertIn("Dry-run", controller.reminderDialogBody)
+        self.assertIn("安全验证", controller.reminderDialogBody)
+        self.assertNotIn("Dry-run", controller.reminderDialogBody)
 
     def test_each_queue_task_gets_its_own_reminder_thresholds(self):
         controller = AppController()
@@ -566,20 +583,20 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(music.playback_mode, "list_loop")
 
     def test_controller_choose_music_folder_updates_service_and_settings(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            settings_path = Path(tmp) / "settings.json"
-            chosen_folder = Path(tmp) / "Music"
-            chosen_folder.mkdir()
-            music = FakeMusicService()
-            controller = AppController(settings_path=settings_path, music_service=music)
-            controller._folder_picker = lambda: str(chosen_folder)
+        root = self._workspace_scratch("practical-music-folder")
+        settings_path = root / "settings.json"
+        chosen_folder = root / "Music"
+        chosen_folder.mkdir()
+        music = FakeMusicService()
+        controller = AppController(settings_path=settings_path, music_service=music)
+        controller._folder_picker = lambda: str(chosen_folder)
 
-            controller.chooseMusicFolder()
-            loaded = load_settings(settings_path)
+        controller.chooseMusicFolder()
+        loaded = load_settings(settings_path)
 
-            self.assertEqual(music.folders, [(chosen_folder, 0)])
-            self.assertEqual(loaded["musicFolder"], str(chosen_folder))
-            self.assertEqual(loaded["musicCurrentIndex"], 0)
+        self.assertEqual(music.folders, [(chosen_folder, 0)])
+        self.assertEqual(loaded["musicFolder"], str(chosen_folder))
+        self.assertEqual(loaded["musicCurrentIndex"], 0)
 
     def test_controller_emits_music_changed_when_service_position_changes(self):
         music = FakeMusicService()
@@ -616,33 +633,33 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("未找到音乐文件", controller.logText)
 
     def test_settings_round_trip_preserves_task_queue(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            data = default_settings()
-            data["taskQueue"] = {
-                "version": 1,
-                "tasks": [{
-                    "id": "task-1",
-                    "name": "测试任务",
-                    "action": "lock",
-                    "forceClose": False,
-                    "triggerType": "countdown",
-                    "triggerConfig": {"seconds": 60},
-                    "repeatRule": "once",
-                    "enabled": True,
-                    "status": "pending",
-                    "createdOrder": 1,
-                    "nextRunAt": None,
-                    "lastRunAt": None,
-                    "lastError": "",
-                }],
-            }
+        root = self._workspace_scratch("practical-settings-queue")
+        path = root / "settings.json"
+        data = default_settings()
+        data["taskQueue"] = {
+            "version": 1,
+            "tasks": [{
+                "id": "task-1",
+                "name": "测试任务",
+                "action": "lock",
+                "forceClose": False,
+                "triggerType": "countdown",
+                "triggerConfig": {"seconds": 60},
+                "repeatRule": "once",
+                "enabled": True,
+                "status": "pending",
+                "createdOrder": 1,
+                "nextRunAt": None,
+                "lastRunAt": None,
+                "lastError": "",
+            }],
+        }
 
-            save_settings(data, path)
-            loaded = load_settings(path)
+        save_settings(data, path)
+        loaded = load_settings(path)
 
-            self.assertEqual(loaded["taskQueue"]["version"], 1)
-            self.assertEqual(loaded["taskQueue"]["tasks"][0]["id"], "task-1")
+        self.assertEqual(loaded["taskQueue"]["version"], 1)
+        self.assertEqual(loaded["taskQueue"]["tasks"][0]["id"], "task-1")
 
     def test_start_countdown_adds_queue_task_instead_of_replacing_queue(self):
         controller = AppController()
@@ -672,19 +689,38 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller._scheduler.get_task(controller._scheduler.tasks[0].id).next_run_at = controller._now()
         controller._on_tick()
 
-        self.assertIn("[dryRun] Would execute: shutdown force=False", controller.logText)
-        self.assertIn("completed", controller.queueText)
+        self.assertIn("安全验证：将执行 shutdown（强制关闭：关闭）", controller.logText)
+        self.assertNotIn("[dryRun]", controller.logText)
+        self.assertIn("已完成", controller.queueText)
+        self.assertNotIn("completed", controller.queueText)
+
+    def test_dry_run_execution_uses_app_log_without_console_output(self):
+        controller = AppController()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            controller.executeNow()
+
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("安全验证：将执行", controller.logText)
+
+    def test_clear_logs_keeps_status_copy_localized(self):
+        controller = AppController()
+        controller.clearLogs()
+
+        self.assertIn("就绪 · 日志已清空", controller.logText)
+        self.assertNotIn("READY", controller.logText)
 
     def test_queue_persists_when_controller_uses_settings_path(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            first = AppController(settings_path=path)
-            first.startCountdown(0, 1, 0)
+        root = self._workspace_scratch("practical-queue-persist")
+        path = root / "settings.json"
+        first = AppController(settings_path=path)
+        first.startCountdown(0, 1, 0)
 
-            second = AppController(settings_path=path)
+        second = AppController(settings_path=path)
 
-            self.assertEqual(second.queueTaskCount, 1)
-            self.assertIn("倒计时", second.queueText)
+        self.assertEqual(second.queueTaskCount, 1)
+        self.assertIn("倒计时", second.queueText)
 
     def test_queue_task_can_be_disabled_enabled_and_deleted(self):
         controller = AppController()
@@ -798,46 +834,46 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(controller.queueTaskCount, 0)
 
     def test_controller_saves_settings_when_persisted_properties_change(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            controller = AppController(settings_path=path)
+        root = self._workspace_scratch("practical-controller-save")
+        path = root / "settings.json"
+        controller = AppController(settings_path=path)
 
-            controller.selectedAction = "sleep"
-            controller.scriptEnabled = True
-            controller.scriptPath = "C:/scripts/demo.bat"
-            controller.networkDownloadThresholdKbps = 8.0
+        controller.selectedAction = "sleep"
+        controller.scriptEnabled = True
+        controller.scriptPath = "C:/scripts/demo.bat"
+        controller.networkDownloadThresholdKbps = 8.0
 
-            loaded = load_settings(path)
-            self.assertEqual(loaded["selectedAction"], "sleep")
-            self.assertTrue(loaded["scriptEnabled"])
-            self.assertEqual(loaded["scriptPath"], "C:/scripts/demo.bat")
-            self.assertEqual(loaded["networkDownloadThresholdKbps"], 8.0)
+        loaded = load_settings(path)
+        self.assertEqual(loaded["selectedAction"], "sleep")
+        self.assertTrue(loaded["scriptEnabled"])
+        self.assertEqual(loaded["scriptPath"], "C:/scripts/demo.bat")
+        self.assertEqual(loaded["networkDownloadThresholdKbps"], 8.0)
 
     def test_controller_falls_back_from_non_finite_persisted_numbers(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            path.write_text(
-                """
-                {
-                  "scriptTimeoutSeconds": Infinity,
-                  "processPollSeconds": Infinity,
-                  "networkDownloadThresholdKbps": NaN,
-                  "networkUploadThresholdKbps": Infinity,
-                  "networkIdleSeconds": Infinity,
-                  "networkPollSeconds": Infinity
-                }
-                """,
-                encoding="utf-8",
-            )
+        root = self._workspace_scratch("practical-nonfinite-settings")
+        path = root / "settings.json"
+        path.write_text(
+            """
+            {
+              "scriptTimeoutSeconds": Infinity,
+              "processPollSeconds": Infinity,
+              "networkDownloadThresholdKbps": NaN,
+              "networkUploadThresholdKbps": Infinity,
+              "networkIdleSeconds": Infinity,
+              "networkPollSeconds": Infinity
+            }
+            """,
+            encoding="utf-8",
+        )
 
-            controller = AppController(settings_path=path)
+        controller = AppController(settings_path=path)
 
-            self.assertEqual(controller.scriptTimeoutSeconds, 10)
-            self.assertEqual(controller.processPollSeconds, 5)
-            self.assertEqual(controller.networkDownloadThresholdKbps, 10.0)
-            self.assertEqual(controller.networkUploadThresholdKbps, 10.0)
-            self.assertEqual(controller.networkIdleSeconds, 60)
-            self.assertEqual(controller.networkPollSeconds, 3)
+        self.assertEqual(controller.scriptTimeoutSeconds, 10)
+        self.assertEqual(controller.processPollSeconds, 5)
+        self.assertEqual(controller.networkDownloadThresholdKbps, 10.0)
+        self.assertEqual(controller.networkUploadThresholdKbps, 10.0)
+        self.assertEqual(controller.networkIdleSeconds, 60)
+        self.assertEqual(controller.networkPollSeconds, 3)
 
     def test_compute_speed_reports_kbps_delta(self):
         previous = NetworkSample(True, received_bytes=1024, sent_bytes=2048, monotonic_seconds=10.0)
@@ -856,7 +892,42 @@ class PracticalEnhancementsTest(unittest.TestCase):
         speed = compute_speed(previous, current)
 
         self.assertFalse(speed.available)
-        self.assertIn("reset", speed.message)
+        self.assertIn("网络计数已重置", speed.message)
+        self.assertNotIn("reset", speed.message)
+
+    def test_network_reader_nonzero_without_output_uses_chinese_error(self):
+        class Completed:
+            returncode = 3
+            stdout = ""
+            stderr = ""
+
+        original_run = network_service.subprocess.run
+        try:
+            network_service.subprocess.run = lambda *args, **kwargs: Completed()
+            sample = NetworkReader().sample()
+        finally:
+            network_service.subprocess.run = original_run
+
+        self.assertFalse(sample.available)
+        self.assertIn("网络计数命令退出码 3", sample.message)
+        self.assertNotIn("netstat failed", sample.message)
+
+    def test_network_reader_parse_failure_uses_chinese_error(self):
+        class Completed:
+            returncode = 0
+            stdout = "No counters here"
+            stderr = ""
+
+        original_run = network_service.subprocess.run
+        try:
+            network_service.subprocess.run = lambda *args, **kwargs: Completed()
+            sample = NetworkReader().sample()
+        finally:
+            network_service.subprocess.run = original_run
+
+        self.assertFalse(sample.available)
+        self.assertIn("无法读取网络计数", sample.message)
+        self.assertNotIn("network counters unavailable", sample.message)
 
     def test_network_idle_trigger_fires_after_sustained_low_speed(self):
         samples = [
@@ -876,7 +947,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertFalse(controller.networkTriggerActive)
         self.assertIn("网络闲置触发", controller.logText)
-        self.assertIn("[dryRun] Would execute", controller.logText)
+        self.assertIn("安全验证：将执行", controller.logText)
+        self.assertNotIn("[dryRun]", controller.logText)
 
     def test_network_busy_sample_resets_idle_accumulation(self):
         samples = [
@@ -904,22 +976,54 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller.startNetworkTrigger()
 
         self.assertFalse(controller.networkTriggerActive)
-        self.assertIn("network unavailable", controller.networkTriggerStatus)
+        self.assertIn("网络不可用", controller.networkTriggerStatus)
+        self.assertNotIn("network unavailable", controller.networkTriggerStatus)
+        self.assertNotIn("network unavailable", controller.logText)
         self.assertNotIn("[dryRun] Would execute", controller.logText)
+        self.assertNotIn("安全验证：将执行", controller.logText)
+
+    def test_network_unavailable_without_message_uses_chinese_fallback(self):
+        controller = AppController(network_reader=FakeNetworkReader([
+            NetworkSample(False, message=""),
+        ]))
+
+        controller.startNetworkTrigger()
+
+        self.assertFalse(controller.networkTriggerActive)
+        self.assertIn("网络不可用", controller.networkTriggerStatus)
+        self.assertIn("网络监控未启动：网络不可用", controller.logText)
+        self.assertNotIn("network unavailable", controller.networkTriggerStatus)
+        self.assertNotIn("network unavailable", controller.logText)
+
+    def test_network_poll_unavailable_without_message_uses_chinese_fallback(self):
+        samples = [
+            NetworkSample(True, received_bytes=1, sent_bytes=1, monotonic_seconds=1.0),
+            NetworkSample(False, message="", monotonic_seconds=2.0),
+        ]
+        controller = AppController(network_reader=FakeNetworkReader(samples))
+
+        controller.startNetworkTrigger()
+        controller._poll_network_trigger()
+
+        self.assertFalse(controller.networkTriggerActive)
+        self.assertIn("网络不可用", controller.networkTriggerStatus)
+        self.assertIn("网络监控已停止：网络不可用", controller.logText)
+        self.assertNotIn("network unavailable", controller.networkTriggerStatus)
+        self.assertNotIn("network unavailable", controller.logText)
 
     def test_clear_and_export_logs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            controller = AppController(log_export_path=Path(tmp) / "logs.txt")
-            controller.applyTaskTemplate("shutdown_15")
+        root = self._workspace_scratch("practical-clear-export-logs")
+        controller = AppController(log_export_path=root / "logs.txt")
+        controller.applyTaskTemplate("shutdown_15")
 
-            controller.exportLogs()
-            exported = Path(tmp) / "logs.txt"
-            self.assertTrue(exported.exists())
-            self.assertIn("15 分钟后关机", exported.read_text(encoding="utf-8"))
+        controller.exportLogs()
+        exported = root / "logs.txt"
+        self.assertTrue(exported.exists())
+        self.assertIn("15 分钟后关机", exported.read_text(encoding="utf-8"))
 
-            controller.clearLogs()
-            self.assertNotIn("15 分钟后关机", controller.logText)
-            self.assertIn("日志已清空", controller.logText)
+        controller.clearLogs()
+        self.assertNotIn("15 分钟后关机", controller.logText)
+        self.assertIn("日志已清空", controller.logText)
 
     def test_log_summary_reports_recent_activity_and_failure(self):
         controller = AppController()
@@ -931,7 +1035,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertIn("3", controller.logSummaryText)
         self.assertIn("power boom", controller.logSummaryText)
-        self.assertIn("Log summary", controller.diagnosticText)
+        self.assertIn("日志摘要", controller.diagnosticText)
 
     def test_log_category_summary_counts_info_warning_and_errors(self):
         controller = AppController()
@@ -942,24 +1046,25 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller._add_log("警告：脚本路径可能不可用")
         controller._add_log("电源动作执行失败：系统拒绝")
 
-        self.assertIn("info=", controller.logCategorySummaryText)
-        self.assertIn("warning=2", controller.logCategorySummaryText)
-        self.assertIn("error=2", controller.logCategorySummaryText)
-        self.assertIn("Log categories", controller.diagnosticText)
+        self.assertIn("信息=", controller.logCategorySummaryText)
+        self.assertIn("警告=2", controller.logCategorySummaryText)
+        self.assertIn("错误=2", controller.logCategorySummaryText)
+        self.assertIn("日志分类", controller.diagnosticText)
+        self.assertNotIn("Log categories", controller.diagnosticText)
 
     def test_script_path_validation_and_open_folder(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            script = Path(tmp) / "demo.bat"
-            script.write_text("echo demo", encoding="utf-8")
-            opened = []
-            controller = AppController(open_folder=lambda path: opened.append(Path(path)))
-            controller.scriptPath = str(script)
+        root = self._workspace_scratch("practical-script-open-folder")
+        script = root / "demo.bat"
+        script.write_text("echo demo", encoding="utf-8")
+        opened = []
+        controller = AppController(open_folder=lambda path: opened.append(Path(path)))
+        controller.scriptPath = str(script)
 
-            controller.validateScriptPath()
-            controller.openScriptFolder()
+        controller.validateScriptPath()
+        controller.openScriptFolder()
 
-            self.assertIn("脚本路径有效", controller.logText)
-            self.assertEqual(opened, [script.parent])
+        self.assertIn("脚本路径有效", controller.logText)
+        self.assertEqual(opened, [script.parent])
 
     def test_starting_new_countdown_adds_another_queue_task(self):
         controller = AppController()
@@ -1007,53 +1112,53 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertIn("已阻止电源动作", controller.logText)
 
     def test_live_script_missing_path_blocks_power_without_running_script(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            controller = AppController()
-            missing_script = Path(tmp) / "missing-before-shutdown.bat"
-            power_calls = []
-            controller.dryRun = False
-            controller.scriptEnabled = True
-            controller.scriptPath = str(missing_script)
-            controller._script_runner = lambda path, timeout: self.fail("script runner should not be called")
-            controller._power_executor = lambda action, force: power_calls.append((action, force))
+        root = self._workspace_scratch("practical-missing-live-script")
+        controller = AppController()
+        missing_script = root / "missing-before-shutdown.bat"
+        power_calls = []
+        controller.dryRun = False
+        controller.scriptEnabled = True
+        controller.scriptPath = str(missing_script)
+        controller._script_runner = lambda path, timeout: self.fail("script runner should not be called")
+        controller._power_executor = lambda action, force: power_calls.append((action, force))
 
-            controller.executeNow()
+        controller.executeNow()
 
-            self.assertEqual(power_calls, [])
-            self.assertIn("脚本路径不存在", controller.logText)
-            self.assertIn("已阻止电源动作", controller.logText)
+        self.assertEqual(power_calls, [])
+        self.assertIn("脚本路径不存在", controller.logText)
+        self.assertIn("已阻止电源动作", controller.logText)
 
     def test_live_test_script_uses_same_missing_path_preflight(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            controller = AppController()
-            missing_script = Path(tmp) / "missing-test-script.bat"
-            controller.dryRun = False
-            controller.scriptEnabled = True
-            controller.scriptPath = str(missing_script)
-            controller._script_runner = lambda path, timeout: self.fail("script runner should not be called")
+        root = self._workspace_scratch("practical-missing-test-script")
+        controller = AppController()
+        missing_script = root / "missing-test-script.bat"
+        controller.dryRun = False
+        controller.scriptEnabled = True
+        controller.scriptPath = str(missing_script)
+        controller._script_runner = lambda path, timeout: self.fail("script runner should not be called")
 
-            controller.testScript()
+        controller.testScript()
 
-            self.assertIn("脚本路径不存在", controller.logText)
+        self.assertIn("脚本路径不存在", controller.logText)
 
     def test_live_script_runner_receives_normalized_path(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            script = Path(tmp) / "before-shutdown.bat"
-            script.write_text("echo ok", encoding="utf-8")
-            calls = []
-            controller = AppController()
-            controller.dryRun = False
-            controller.scriptEnabled = True
-            controller.scriptPath = f"  {script}  "
-            controller._script_runner = lambda path, timeout: calls.append(path) or type("Result", (), {
-                "ok": True,
-                "message": "脚本执行成功",
-            })()
-            controller._power_executor = lambda action, force: None
+        root = self._workspace_scratch("practical-script-runner")
+        script = root / "before-shutdown.bat"
+        script.write_text("echo ok", encoding="utf-8")
+        calls = []
+        controller = AppController()
+        controller.dryRun = False
+        controller.scriptEnabled = True
+        controller.scriptPath = f"  {script}  "
+        controller._script_runner = lambda path, timeout: calls.append(path) or type("Result", (), {
+            "ok": True,
+            "message": "脚本执行成功",
+        })()
+        controller._power_executor = lambda action, force: None
 
-            controller.executeNow()
+        controller.executeNow()
 
-            self.assertEqual(calls, [str(script)])
+        self.assertEqual(calls, [str(script)])
 
     def test_power_executor_exception_is_logged_without_propagating(self):
         controller = AppController()
@@ -1169,6 +1274,24 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertIn("tasklist unavailable", controller._last_process_check_error)
 
+    def test_tasklist_nonzero_without_output_uses_chinese_error(self):
+        controller = AppController()
+
+        class Completed:
+            returncode = 7
+            stdout = ""
+            stderr = ""
+
+        original_run = subprocess.run
+        try:
+            subprocess.run = lambda *args, **kwargs: Completed()
+            self.assertFalse(controller._check_process_running("demo.exe"))
+        finally:
+            subprocess.run = original_run
+
+        self.assertIn("进程列表命令退出码 7", controller._last_process_check_error)
+        self.assertNotIn("tasklist exited", controller._last_process_check_error)
+
     def test_process_trigger_keeps_original_process_name_while_active(self):
         controller = AppController()
         power_calls = []
@@ -1191,27 +1314,27 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertEqual(seen_names, ["demo.exe", "demo.exe"])
 
     def test_controller_restarts_scheduler_timer_for_loaded_pending_tasks(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            first = AppController(settings_path=path)
-            first.startCountdown(0, 1, 0)
+        root = self._workspace_scratch("practical-loaded-pending")
+        path = root / "settings.json"
+        first = AppController(settings_path=path)
+        first.startCountdown(0, 1, 0)
 
-            second = AppController(settings_path=path)
+        second = AppController(settings_path=path)
 
-            self.assertTrue(second._timer.isActive())
+        self.assertTrue(second._timer.isActive())
 
     def test_controller_does_not_restart_scheduler_timer_for_loaded_completed_tasks(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "settings.json"
-            first = AppController(settings_path=path)
-            first.startCountdown(0, 1, 0)
-            task_id = first._scheduler.tasks[0].id
-            first._scheduler.mark_executed(task_id, success=True)
-            first._save_settings()
+        root = self._workspace_scratch("practical-loaded-completed")
+        path = root / "settings.json"
+        first = AppController(settings_path=path)
+        first.startCountdown(0, 1, 0)
+        task_id = first._scheduler.tasks[0].id
+        first._scheduler.mark_executed(task_id, success=True)
+        first._save_settings()
 
-            second = AppController(settings_path=path)
+        second = AppController(settings_path=path)
 
-            self.assertFalse(second._timer.isActive())
+        self.assertFalse(second._timer.isActive())
 
     def test_due_queue_task_records_failed_power_action(self):
         controller = AppController()
@@ -1224,7 +1347,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller._on_tick()
 
-        self.assertIn("failed", controller.queueText)
+        self.assertIn("失败", controller.queueText)
+        self.assertNotIn("failed", controller.queueText)
         self.assertIn("系统拒绝或命令返回失败", controller.queueText)
 
     def test_due_queue_task_records_failed_power_action_exception(self):
@@ -1242,7 +1366,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller._on_tick()
 
-        self.assertIn("failed", controller.queueText)
+        self.assertIn("失败", controller.queueText)
+        self.assertNotIn("failed", controller.queueText)
         self.assertIn("power boom", controller.queueText)
 
     def test_queue_summary_reports_empty_failed_and_completed_states(self):
@@ -1260,7 +1385,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller._on_tick()
 
         self.assertIn("1", controller.queueSummaryText)
-        self.assertIn("Queue summary", controller.diagnosticText)
+        self.assertIn("队列摘要", controller.diagnosticText)
+        self.assertNotIn("Queue summary", controller.diagnosticText)
 
         controller.deleteQueueTask(failed_task.id)
         controller.dryRun = True
@@ -1271,7 +1397,28 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller._on_tick()
 
         self.assertIn("1", controller.queueSummaryText)
-        self.assertIn("completed", controller.queueText)
+        self.assertIn("已完成", controller.queueText)
+        self.assertNotIn("completed", controller.queueText)
+
+    def test_queue_summary_uses_localized_fallback_for_unknown_statuses(self):
+        class FakeQueueRowsScheduler:
+            def __init__(self, rows):
+                self._rows = rows
+
+            def rows(self):
+                return list(self._rows)
+
+        controller = AppController()
+        controller._scheduler = FakeQueueRowsScheduler([
+            {"status": "legacy_state", "lastError": ""},
+            {"lastError": ""},
+        ])
+
+        summary = controller.getQueueSummaryText()
+
+        self.assertIn("未知状态 2", summary)
+        self.assertNotIn("legacy_state", summary)
+        self.assertNotIn("unknown", summary)
 
     def test_diagnostic_text_includes_key_runtime_state(self):
         controller = AppController()
@@ -1281,13 +1428,18 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         diagnostics = controller.diagnosticText
 
-        self.assertIn("定时关机助手 3.2", diagnostics)
-        self.assertIn("Dry-run: True", diagnostics)
-        self.assertIn("Action: sleep", diagnostics)
-        self.assertIn("Script enabled: True", diagnostics)
-        self.assertIn("Process trigger", diagnostics)
-        self.assertIn("Network trigger", diagnostics)
-        self.assertIn("Idle trigger", diagnostics)
+        self.assertIn("定时关机助手 3.2 诊断信息", diagnostics)
+        self.assertIn("安全验证：开启", diagnostics)
+        self.assertNotIn("Dry-run", diagnostics)
+        self.assertNotIn("Diagnostics", diagnostics)
+        self.assertIn("动作：sleep（睡眠）", diagnostics)
+        self.assertIn("脚本启用：是", diagnostics)
+        self.assertIn("进程触发器", diagnostics)
+        self.assertIn("网络触发器", diagnostics)
+        self.assertIn("空闲触发器", diagnostics)
+        self.assertNotIn("Action:", diagnostics)
+        self.assertNotIn("Script enabled", diagnostics)
+        self.assertNotIn("Process trigger", diagnostics)
 
     def test_safety_and_trigger_health_summaries_are_visible_in_diagnostics(self):
         controller = AppController()
@@ -1295,40 +1447,45 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller.scriptPath = "C:/demo.bat"
         controller.closeAppsBeforeAction = True
 
-        self.assertIn("Dry-run", controller.safetySummaryText)
-        self.assertIn("script=on", controller.safetySummaryText)
-        self.assertIn("closeApps=on", controller.safetySummaryText)
-        self.assertIn("process=", controller.triggerHealthSummaryText)
-        self.assertIn("network=", controller.triggerHealthSummaryText)
-        self.assertIn("idle=", controller.triggerHealthSummaryText)
-        self.assertIn("Safety summary", controller.diagnosticText)
-        self.assertIn("Trigger health", controller.diagnosticText)
+        self.assertIn("安全摘要", controller.safetySummaryText)
+        self.assertIn("模式=安全验证", controller.safetySummaryText)
+        self.assertNotIn("Dry-run", controller.safetySummaryText)
+        self.assertNotIn("Safety summary", controller.safetySummaryText)
+        self.assertIn("脚本=开启", controller.safetySummaryText)
+        self.assertIn("关机前关闭应用=开启", controller.safetySummaryText)
+        self.assertIn("触发器状态", controller.triggerHealthSummaryText)
+        self.assertIn("进程=空闲", controller.triggerHealthSummaryText)
+        self.assertIn("网络=空闲", controller.triggerHealthSummaryText)
+        self.assertIn("空闲=空闲", controller.triggerHealthSummaryText)
+        self.assertIn("安全摘要", controller.diagnosticText)
+        self.assertIn("触发器状态", controller.diagnosticText)
+        self.assertNotIn("Trigger health", controller.diagnosticText)
 
     def test_export_logs_includes_diagnostics_header(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "logs.txt"
-            controller = AppController(log_export_path=target)
-            controller.applyTaskTemplate("shutdown_15")
+        root = self._workspace_scratch("practical-export-logs")
+        target = root / "logs.txt"
+        controller = AppController(log_export_path=target)
+        controller.applyTaskTemplate("shutdown_15")
 
-            controller.exportLogs()
-            exported = target.read_text(encoding="utf-8")
+        controller.exportLogs()
+        exported = target.read_text(encoding="utf-8")
 
-            self.assertIn("=== Diagnostics ===", exported)
-            self.assertIn("定时关机助手 3.2", exported)
-            self.assertIn("=== Recent Logs ===", exported)
-            self.assertIn("15 分钟后关机", exported)
+        self.assertIn("=== 诊断信息 ===", exported)
+        self.assertIn("定时关机助手 3.2", exported)
+        self.assertIn("=== 最近日志 ===", exported)
+        self.assertIn("15 分钟后关机", exported)
 
     def test_export_diagnostics_writes_neighbor_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            log_target = Path(tmp) / "logs.txt"
-            controller = AppController(log_export_path=log_target)
+        root = self._workspace_scratch("practical-export-diagnostics")
+        log_target = root / "logs.txt"
+        controller = AppController(log_export_path=log_target)
 
-            controller.exportDiagnostics()
-            diagnostics_target = Path(tmp) / "logs-diagnostics.txt"
+        controller.exportDiagnostics()
+        diagnostics_target = root / "logs-diagnostics.txt"
 
-            self.assertTrue(diagnostics_target.exists())
-            self.assertIn("定时关机助手 3.2", diagnostics_target.read_text(encoding="utf-8"))
-            self.assertIn("诊断已导出", controller.logText)
+        self.assertTrue(diagnostics_target.exists())
+        self.assertIn("定时关机助手 3.2", diagnostics_target.read_text(encoding="utf-8"))
+        self.assertIn("诊断已导出", controller.logText)
 
     def test_request_dry_run_change_logs_live_mode_warning(self):
         controller = AppController()
@@ -1342,7 +1499,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
         controller.requestDryRunChange(True)
 
         self.assertTrue(controller.dryRun)
-        self.assertIn("Dry-run 已开启", controller.logText)
+        self.assertIn("安全验证已开启", controller.logText)
+        self.assertNotIn("Dry-run", controller.logText)
 
     def test_power_action_in_progress_blocks_safety_setting_changes(self):
         controller = AppController()
@@ -1365,25 +1523,29 @@ class PracticalEnhancementsTest(unittest.TestCase):
     def test_power_action_step_summary_explains_current_execution_stage(self):
         controller = AppController()
 
-        self.assertIn("Ready", controller.powerActionStepSummaryText)
+        self.assertIn("就绪", controller.powerActionStepSummaryText)
+        self.assertNotIn("Ready", controller.powerActionStepSummaryText)
 
         with controller._power_action_lock:
             controller._power_action_in_progress = True
-            controller._power_action_progress_text = "closing apps"
+            controller._power_action_progress_text = "正在关闭应用"
             controller._close_apps_skip_event = object()
 
-        self.assertIn("closing apps", controller.powerActionStepSummaryText)
-        self.assertIn("Skip available", controller.powerActionStepSummaryText)
-        self.assertIn("Power action progress", controller.diagnosticText)
+        self.assertIn("正在关闭应用", controller.powerActionStepSummaryText)
+        self.assertIn("可跳过等待", controller.powerActionStepSummaryText)
+        self.assertIn("电源动作进度", controller.diagnosticText)
+        self.assertNotIn("Skip available", controller.powerActionStepSummaryText)
 
     def test_copy_diagnostics_records_text_for_support(self):
         controller = AppController()
 
         controller.copyDiagnostics()
 
-        self.assertIn("Diagnostics", controller.lastCopiedText)
-        self.assertIn("Dry-run", controller.lastCopiedText)
-        self.assertIn("Diagnostics copied", controller.logText)
+        self.assertIn("诊断信息", controller.lastCopiedText)
+        self.assertIn("安全验证", controller.lastCopiedText)
+        self.assertNotIn("Dry-run", controller.lastCopiedText)
+        self.assertNotIn("Diagnostics", controller.lastCopiedText)
+        self.assertIn("诊断已复制", controller.logText)
 
     def test_copy_diagnostics_writes_clipboard_and_reports_length(self):
         copied = []
@@ -1393,6 +1555,10 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertEqual(copied, [controller.lastCopiedText])
         self.assertIn(str(len(controller.lastCopiedText)), controller.copyStatusText)
+        self.assertIn("已复制", controller.copyStatusText)
+        self.assertIn("字符", controller.copyStatusText)
+        self.assertNotIn("Copy", controller.copyStatusText)
+        self.assertNotIn("chars", controller.copyStatusText)
 
     def test_log_filter_text_can_show_warnings_and_errors(self):
         controller = AppController()
@@ -1420,11 +1586,15 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller.runHealthCheck()
 
-        self.assertIn("Health check", controller.healthCheckText)
-        self.assertIn("script=", controller.healthCheckText)
-        self.assertIn("closeAppsService=", controller.healthCheckText)
-        self.assertIn("queue=", controller.healthCheckText)
-        self.assertIn("Health check", controller.logText)
+        self.assertIn("健康检查", controller.healthCheckText)
+        self.assertIn("脚本=", controller.healthCheckText)
+        self.assertIn("关闭应用服务=", controller.healthCheckText)
+        self.assertIn("队列=", controller.healthCheckText)
+        self.assertIn("触发器=", controller.healthCheckText)
+        self.assertIn("安全=", controller.healthCheckText)
+        self.assertNotIn("script=", controller.healthCheckText)
+        self.assertNotIn("closeAppsService=", controller.healthCheckText)
+        self.assertIn("健康检查", controller.logText)
 
     def test_failed_queue_task_can_be_retried_and_copied_for_diagnostics(self):
         controller = AppController()
@@ -1437,17 +1607,44 @@ class PracticalEnhancementsTest(unittest.TestCase):
         task.next_run_at = controller._now()
 
         controller._on_tick()
-        self.assertIn("failed", controller.queueText)
+        self.assertIn("失败", controller.queueText)
+        self.assertNotIn("failed", controller.queueText)
 
         controller.copyQueueTaskDiagnostic(task.id)
         self.assertIn(task.id, controller.lastCopiedText)
+        self.assertIn("=== 队列任务诊断 ===", controller.lastCopiedText)
         self.assertIn("failed", controller.lastCopiedText)
+        payload = json.loads(controller.lastCopiedText.split("\n", 1)[1])
+        self.assertEqual(payload.get("actionLabel"), "关机")
+        self.assertEqual(payload.get("statusLabel"), "失败")
+        self.assertEqual(payload.get("forceCloseLabel"), "关闭")
+        self.assertIn("倒计时", payload.get("triggerSummary", ""))
+        self.assertTrue(payload.get("repeatSummary"))
+        self.assertIn("队列任务诊断已复制", controller.logText)
+        self.assertNotIn("Queue Task Diagnostic", controller.lastCopiedText)
+        self.assertNotIn("Queue task diagnostic", controller.logText)
 
         controller._power_executor = lambda action, force: calls.append((action, force)) or True
         controller.retryQueueTask(task.id)
 
-        self.assertIn("completed", controller.queueText)
+        self.assertIn("队列任务重试已完成", controller.logText)
+        self.assertNotIn("Queue task retry", controller.logText)
+        self.assertNotIn("Retry queue task", controller.logText)
+        self.assertNotIn("completed:", controller.logText)
+        self.assertIn("已完成", controller.queueText)
+        self.assertNotIn("completed", controller.queueText)
         self.assertGreaterEqual(len(calls), 2)
+
+    def test_retry_queue_task_reports_pending_task_in_chinese(self):
+        controller = AppController()
+        controller.startCountdown(0, 1, 0)
+        task = controller._scheduler.tasks[0]
+
+        controller.retryQueueTask(task.id)
+
+        self.assertIn("任务未失败，无法重试", controller.logText)
+        self.assertNotIn("Task is not failed", controller.logText)
+        self.assertNotIn("retry skipped", controller.logText)
 
     def test_additional_task_templates_start_expected_actions(self):
         controller = AppController()

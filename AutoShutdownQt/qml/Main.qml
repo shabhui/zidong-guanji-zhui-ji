@@ -27,9 +27,9 @@ Window {
     readonly property var pageNames: ["总览", "定时", "任务", "智能触发", "脚本", "设置"]
 
     function statusLabel() {
-        if (controller.status === "running") return "RUNNING"
-        if (controller.status === "paused") return "PAUSED"
-        return "READY"
+        if (controller.status === "running") return "运行中"
+        if (controller.status === "paused") return "已暂停"
+        return "就绪"
     }
 
     function safeInt(value, fallback) {
@@ -76,21 +76,18 @@ Window {
 
     function formatLogCategorySummary(summary) {
         var text = String(summary || "")
-        var info = (text.match(/info=(\d+)/) || ["", "0"])[1]
-        var warning = (text.match(/warning=(\d+)/) || ["", "0"])[1]
-        var error = (text.match(/error=(\d+)/) || ["", "0"])[1]
+        var info = (text.match(/信息=(\d+)/) || ["", "0"])[1]
+        var warning = (text.match(/警告=(\d+)/) || ["", "0"])[1]
+        var error = (text.match(/错误=(\d+)/) || ["", "0"])[1]
         return "日志分类：信息 " + info + " · 警告 " + warning + " · 错误 " + error
     }
 
     function formatPowerActionStepSummary(summary) {
         var text = String(summary || "")
-        if (text === "" || text.indexOf("Ready") !== -1) {
+        if (text === "") {
             return "执行阶段：就绪 · 脚本预检：等待 · 关闭应用：等待 · 系统动作：等待"
         }
-
-        var current = (text.match(/Current: ([^|]+)/) || ["", "准备执行系统动作"])[1].trim()
-        var skipText = text.indexOf("Skip available") !== -1 ? "可跳过等待" : "等待中"
-        return "执行阶段：运行中 · 当前：" + current + " · 关闭应用：" + skipText
+        return text
     }
 
     function syncDryRunSwitchState() {
@@ -160,90 +157,26 @@ Window {
         }
     }
 
-    // Low-contrast ambient background accents.
+    // Quiet depth layers behind the work surface.
     Rectangle {
-        id: orbPurple
-        width: 430
-        height: 430
-        radius: 215
-        x: -155
-        y: -170
-        color: Theme.e5Purple
-        opacity: 0.07
-        SequentialAnimation on y {
-            loops: Animation.Infinite
-            NumberAnimation { from: -170; to: -120; duration: Theme.floatVerySlow; easing.type: Easing.InOutSine }
-            NumberAnimation { from: -120; to: -170; duration: Theme.floatVerySlow; easing.type: Easing.InOutSine }
-        }
-        SequentialAnimation on x {
-            loops: Animation.Infinite
-            NumberAnimation { from: -155; to: -105; duration: Theme.floatVerySlow + 1400; easing.type: Easing.InOutSine }
-            NumberAnimation { from: -105; to: -155; duration: Theme.floatVerySlow + 1400; easing.type: Easing.InOutSine }
-        }
-    }
-    Rectangle {
-        id: orbCyan
-        width: 360
-        height: 360
-        radius: 180
-        x: parent.width - 230
-        y: 58
+        id: panelWashTop
+        x: outerMargin
+        y: topBarHeight + 20
+        width: parent.width - outerMargin * 2
+        height: 178
+        radius: Theme.radiusXl
         color: Theme.e5Blue
-        opacity: 0.06
-        SequentialAnimation on y {
-            loops: Animation.Infinite
-            NumberAnimation { from: 58; to: 105; duration: Theme.floatVerySlow + 900; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 105; to: 58; duration: Theme.floatVerySlow + 900; easing.type: Easing.InOutSine }
-        }
+        opacity: 0.035
     }
     Rectangle {
-        id: orbPink
-        width: 380
-        height: 380
-        radius: 190
-        x: parent.width - 260
-        y: parent.height - 220
-        color: Theme.e5Pink
-        opacity: 0.05
-        SequentialAnimation on x {
-            loops: Animation.Infinite
-            NumberAnimation { from: mainWindow.width - 260; to: mainWindow.width - 310; duration: Theme.floatVerySlow + 1800; easing.type: Easing.InOutSine }
-            NumberAnimation { from: mainWindow.width - 310; to: mainWindow.width - 260; duration: Theme.floatVerySlow + 1800; easing.type: Easing.InOutSine }
-        }
-    }
-    Rectangle {
-        id: orbViolet
-        width: 260
-        height: 260
-        radius: 130
-        x: 360
-        y: parent.height - 150
-        color: Theme.e5Purple
+        id: panelWashBottom
+        x: outerMargin + navWidth + 20
+        y: parent.height - 190
+        width: parent.width - x - outerMargin
+        height: 142
+        radius: Theme.radiusXl
+        color: Theme.primary
         opacity: 0.04
-        SequentialAnimation on y {
-            loops: Animation.Infinite
-            NumberAnimation { from: mainWindow.height - 150; to: mainWindow.height - 205; duration: Theme.floatVerySlow + 2200; easing.type: Easing.InOutSine }
-            NumberAnimation { from: mainWindow.height - 205; to: mainWindow.height - 150; duration: Theme.floatVerySlow + 2200; easing.type: Easing.InOutSine }
-        }
-    }
-
-    Repeater {
-        model: 18
-        Rectangle {
-            width: index % 5 === 0 ? 3 : 2
-            height: width
-            radius: width / 2
-            x: (index * 83) % mainWindow.width
-            y: 72 + ((index * 47) % (mainWindow.height - 96))
-            color: index % 3 === 0 ? Theme.accent : (index % 3 === 1 ? Theme.primary : "#FFFFFF")
-            opacity: 0.055
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                PauseAnimation { duration: 80 * index }
-                NumberAnimation { from: 0.04; to: 0.20; duration: 1100 + index * 14; easing.type: Easing.InOutSine }
-                NumberAnimation { from: 0.20; to: 0.04; duration: 1300 + index * 12; easing.type: Easing.InOutSine }
-            }
-        }
     }
 
     NeonCard {
@@ -294,12 +227,13 @@ Window {
                 color: Theme.glassStrong
                 border.color: Theme.borderStrong
                 border.width: 1
-                Text {
-                    anchors.centerIn: parent
-                    text: "AS"
-                    color: Theme.primary
-                    font.pixelSize: 14
-                    font.weight: Font.Bold
+                Image {
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    source: "../app_icon.png"
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
                 }
             }
 
@@ -307,7 +241,7 @@ Window {
                 Layout.fillWidth: true
                 spacing: 0
                 Text {
-                    text: "AutoShutdown"
+                    text: "定时关机助手"
                     color: Theme.textPrimary
                     font.pixelSize: 18
                     font.weight: Font.DemiBold
@@ -346,7 +280,7 @@ Window {
                 Text {
                     id: dryRunText
                     anchors.centerIn: parent
-                    text: controller.dryRun ? "DRY RUN" : "LIVE MODE"
+                    text: controller.dryRun ? "安全验证" : "真实执行"
                     color: controller.dryRun ? Theme.success : Theme.danger
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -359,6 +293,9 @@ Window {
                 compact: true
                 variant: "ghost"
                 text: "音乐"
+                ToolTip.visible: hovered
+                ToolTip.delay: 400
+                ToolTip.text: "打开音乐播放器"
                 onClicked: musicPlayerWindow.show()
             }
 
@@ -368,6 +305,9 @@ Window {
                 compact: true
                 variant: "ghost"
                 text: "—"
+                ToolTip.visible: hovered
+                ToolTip.delay: 400
+                ToolTip.text: "最小化"
                 onClicked: mainWindow.showMinimized()
             }
             NeonButton {
@@ -376,6 +316,9 @@ Window {
                 compact: true
                 variant: "ghost"
                 text: mainWindow.visibility === Window.Maximized ? "❐" : "□"
+                ToolTip.visible: hovered
+                ToolTip.delay: 400
+                ToolTip.text: "最大化/还原"
                 onClicked: mainWindow.toggleMaximized()
             }
             NeonButton {
@@ -384,6 +327,9 @@ Window {
                 compact: true
                 variant: "danger"
                 text: "×"
+                ToolTip.visible: hovered
+                ToolTip.delay: 400
+                ToolTip.text: "关闭到托盘或退出"
                 onClicked: mainWindow.close()
             }
         }
@@ -407,7 +353,7 @@ Window {
             spacing: 10
 
             Text {
-                text: "NAVIGATION"
+                text: "导航"
                 color: Theme.primary
                 font.pixelSize: 11
                 font.weight: Font.Bold
@@ -420,7 +366,7 @@ Window {
                     Layout.preferredHeight: 48
                     radius: Theme.radiusMd
                     color: currentPage === index ? Theme.cardGlassActive : "transparent"
-                    border.color: currentPage === index ? Theme.e5BorderPink : "transparent"
+                    border.color: currentPage === index ? Theme.borderStrong : "transparent"
                     border.width: 1
 
                     RowLayout {
@@ -433,7 +379,7 @@ Window {
                             Layout.preferredWidth: 3
                             Layout.preferredHeight: 24
                             radius: 2
-                            color: currentPage === index ? Theme.e5Pink : "transparent"
+                            color: currentPage === index ? Theme.primary : "transparent"
                         }
                         Text {
                             Layout.fillWidth: true
@@ -469,7 +415,7 @@ Window {
                     spacing: 4
                     Text { text: "安全模式"; color: Theme.textSecondary; font.pixelSize: 12 }
                     Text {
-                        text: controller.dryRun ? "Dry-run 已开启" : "真实执行模式"
+                        text: controller.dryRun ? "安全验证已开启" : "真实执行模式"
                         color: controller.dryRun ? Theme.success : Theme.danger
                         font.pixelSize: 15
                         font.weight: Font.Bold
@@ -511,8 +457,8 @@ Window {
                     width: overviewWorkbench.overviewLeftWidth
                     height: 318
                     cardColor: Theme.dialogPanelRaised
-                    cardBorderColor: Theme.e5BorderPink
-                    activeBorderColor: Theme.e5BorderPink
+                    cardBorderColor: Theme.borderStrong
+                    activeBorderColor: Theme.borderStrong
                     radius: Theme.radiusXl
 
                     ColumnLayout {
@@ -683,12 +629,12 @@ Window {
                             columns: 3
                             rowSpacing: 6
                             columnSpacing: 8
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "SHUTDOWN" }
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "SLEEP" }
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "HIBERNATE" }
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "restart"; actionLabel: "重启"; actionSub: "RESTART" }
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "logoff"; actionLabel: "注销"; actionSub: "LOG OUT" }
-                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "lock"; actionLabel: "锁定"; actionSub: "LOCK" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "shutdown"; actionLabel: "关机"; actionSub: "模拟关机" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "sleep"; actionLabel: "睡眠"; actionSub: "进入睡眠" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "hibernate"; actionLabel: "休眠"; actionSub: "进入休眠" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "restart"; actionLabel: "重启"; actionSub: "重新启动" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "logoff"; actionLabel: "注销"; actionSub: "退出登录" }
+                            ActionTile { Layout.fillWidth: true; Layout.preferredHeight: 56; actionKey: "lock"; actionLabel: "锁定"; actionSub: "锁定屏幕" }
                         }
                     }
                 }
@@ -733,7 +679,7 @@ Window {
                         width: parent.width
                         height: 252
                         cardColor: Theme.dialogPanel
-                        cardBorderColor: Theme.e5BorderPink
+                        cardBorderColor: Theme.borderStrong
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 14
@@ -743,14 +689,14 @@ Window {
                             Text { text: "当前配置"; color: Theme.textSecondary; font.pixelSize: 11; font.weight: Font.Bold }
                             Text { text: "动作：" + controller.actionLabel; color: Theme.textSecondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
                             Text { text: "强制关闭：" + (controller.forceClose ? "开启" : "关闭"); color: Theme.textSecondary; font.pixelSize: 12 }
-                            Text { text: "执行模式：" + (controller.dryRun ? "Dry-run" : "真实执行"); color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 12; font.weight: Font.Bold }
+                            Text { text: "执行模式：" + (controller.dryRun ? "安全验证" : "真实执行"); color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 12; font.weight: Font.Bold }
                             Text { text: "下一任务"; color: Theme.textSecondary; font.pixelSize: 11; font.weight: Font.Bold }
                             Text { text: mainWindow.queueRowModel.length > 0 ? mainWindow.queueRowModel[0].name : "无排队任务"; color: Theme.textPrimary; font.pixelSize: 12; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 12
                                 Text { Layout.fillWidth: true; text: "队列数量：" + String(mainWindow.queueRowModel.length) + " 个任务"; color: Theme.warning; font.pixelSize: 12; font.weight: Font.Bold; elide: Text.ElideRight }
-                                Text { Layout.fillWidth: true; text: controller.dryRun ? "安全模式" : "LIVE MODE"; color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 12; font.weight: Font.Bold; horizontalAlignment: Text.AlignRight }
+                                Text { Layout.fillWidth: true; text: controller.dryRun ? "安全模式" : "真实执行"; color: controller.dryRun ? Theme.success : Theme.danger; font.pixelSize: 12; font.weight: Font.Bold; horizontalAlignment: Text.AlignRight }
                             }
                             Text { text: "触发器状态"; color: Theme.textSecondary; font.pixelSize: 11; font.weight: Font.Bold }
                             Text {
@@ -792,9 +738,94 @@ Window {
             anchors.fill: parent
             visible: currentPage === 1
 
-            RowLayout {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 16
+                spacing: 14
+
+                NeonCard {
+                    id: timerActionContextCard
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 76
+                    cardColor: Theme.dialogPanelRaised
+                    cardBorderColor: Theme.e5BorderSoft
+                    hoverable: false
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        spacing: 16
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text { text: "执行动作"; color: Theme.textPrimary; font.pixelSize: 16; font.weight: Font.Bold }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "当前动作：" + controller.actionLabel + " · 倒计时和指定时间会按此动作加入任务队列"
+                                color: Theme.textSecondary
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                            }
+                        }
+
+                        ComboBox {
+                            id: timerActionCombo
+                            property bool syncing: true
+                            Layout.preferredWidth: 150
+                            Layout.preferredHeight: 36
+                            enabled: !controller.powerActionInProgress
+                            model: [
+                                { label: "关机", value: "shutdown" },
+                                { label: "睡眠", value: "sleep" },
+                                { label: "休眠", value: "hibernate" },
+                                { label: "重启", value: "restart" },
+                                { label: "注销", value: "logoff" },
+                                { label: "锁定", value: "lock" }
+                            ]
+                            textRole: "label"
+                            valueRole: "value"
+
+                            function syncFromController() {
+                                syncing = true
+                                currentIndex = controller.selectedAction === "sleep" ? 1
+                                             : controller.selectedAction === "hibernate" ? 2
+                                             : controller.selectedAction === "restart" ? 3
+                                             : controller.selectedAction === "logoff" ? 4
+                                             : controller.selectedAction === "lock" ? 5
+                                             : 0
+                                syncing = false
+                            }
+
+                            contentItem: Text {
+                                text: timerActionCombo.displayText
+                                color: Theme.textPrimary
+                                font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: 10
+                                rightPadding: 26
+                                elide: Text.ElideRight
+                            }
+                            background: Rectangle {
+                                color: Theme.inputGlass
+                                radius: Theme.radiusSm
+                                border.color: timerActionCombo.enabled ? Theme.e5BorderSoft : Theme.borderSoft
+                                border.width: 1
+                            }
+                            onCurrentValueChanged: if (!syncing) controller.selectedAction = currentValue
+                            Component.onCompleted: syncFromController()
+                            Connections {
+                                target: controller
+                                function onTargetInfoChanged() { timerActionCombo.syncFromController() }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 16
 
                 NeonCard {
                     Layout.fillWidth: true
@@ -870,8 +901,9 @@ Window {
                             text: "启动定时"
                             onClicked: controller.addFixedTimeTask("固定时间任务", mainWindow.safeInt(fixedInput.hours, 23), mainWindow.safeInt(fixedInput.minutes, 0), repeatRuleCombo.currentValue)
                         }
-                        Text { text: "Dry-run 开启时只验证流程，不会真实执行系统动作。"; color: Theme.success; font.pixelSize: 13 }
+                        Text { text: "安全验证开启时只验证流程，不会真实执行系统动作。"; color: Theme.success; font.pixelSize: 13 }
                     }
+                }
                 }
             }
         }
@@ -896,12 +928,15 @@ Window {
                     bottomPadding: 20
                     RowLayout {
                         id: taskCenterColumns
-                        width: taskCenterScroll.availableWidth
+                        width: taskCenterScroll.availableWidth - taskCenterScroll.leftPadding - taskCenterScroll.rightPadding
                         spacing: 14
 
                         TaskTemplatePanel {
                             id: taskTemplateColumn
-                            Layout.preferredWidth: 330
+                            Layout.preferredWidth: 486
+                            Layout.minimumWidth: 438
+                            Layout.maximumWidth: 560
+                            Layout.fillWidth: true
                             Layout.fillHeight: true
                             powerActionStepSummaryText: mainWindow.formatPowerActionStepSummary(controller.powerActionStepSummaryText)
                             onExecuteNowRequested: confirmDialog.open()
@@ -909,14 +944,19 @@ Window {
 
                         ColumnLayout {
                             id: queueAndActivityColumn
-                            Layout.fillWidth: true
+                            Layout.preferredWidth: 292
+                            Layout.minimumWidth: 260
+                            Layout.maximumWidth: 310
+                            Layout.fillWidth: false
                             Layout.fillHeight: true
                             spacing: 10
                             TaskQueueDashboard {
                                 Layout.fillWidth: true
+                                Layout.rightMargin: 1
                                 queueRows: mainWindow.queueRowModel
                             }
                             RecentActivityPanel {
+                                Layout.rightMargin: 1
                                 categorySummaryText: mainWindow.formatLogCategorySummary(controller.logCategorySummaryText)
                             }
                         }
@@ -957,17 +997,25 @@ Window {
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap
                         }
+                        GridLayout {
+                            id: smartTriggerTopGrid
+                            Layout.fillWidth: true
+                            columns: 2
+                            rowSpacing: 14
+                            columnSpacing: 14
+
                         NeonCard {
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 1
                             Layout.preferredHeight: 206
                             cardColor: Theme.dialogPanelRaised
-                            cardBorderColor: Theme.e5BorderPink
+                            cardBorderColor: Theme.borderStrong
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 16
                                 spacing: 8
                                 Text { text: "进程退出触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                Text { text: "监控指定进程；当进程出现后再退出，会按当前电源动作执行。Dry-run 会只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                Text { text: "监控指定进程；当进程出现后再退出，会按当前电源动作执行。安全验证会只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 10
@@ -1006,19 +1054,20 @@ Window {
                         }
                         NeonCard {
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 1
                             Layout.preferredHeight: 242
                             cardColor: Theme.dialogPanelRaised
-                            cardBorderColor: Theme.e5BorderPurple
+                            cardBorderColor: Theme.e5BorderBlue
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 16
                                 spacing: 6
                                 Text { text: "网络闲置触发"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。Dry-run 下只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                Text { text: "下载/上传速度持续低于阈值后执行当前电源动作。安全验证下只记录模拟执行。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                 GridLayout {
                                     id: networkThresholdGrid
                                     Layout.fillWidth: true
-                                    columns: 2
+                                    columns: 4
                                     rowSpacing: 8
                                     columnSpacing: 8
                                     Text { text: "下载阈值"; color: Theme.textSecondary; font.pixelSize: 13 }
@@ -1072,6 +1121,7 @@ Window {
                                 Text { text: controller.networkSpeedText; color: Theme.e5Blue; font.pixelSize: 13; font.weight: Font.Bold }
                             }
                         }
+                        }
                         NeonCard {
                             id: idleTriggerPreviewSpacer
                             Layout.fillWidth: true
@@ -1083,10 +1133,17 @@ Window {
                                 anchors.margins: 18
                                 spacing: 8
                                 Text { text: "空闲自动关机"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                Text { text: "检测键鼠无操作时间；达到阈值后把任务加入队列，继续复用 Dry-run、提醒、历史和取消逻辑。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                Text { text: "检测键鼠无操作时间；达到阈值后把任务加入队列，继续复用安全验证、提醒、历史和取消逻辑。"; color: Theme.textSecondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                RowLayout {
+                                    id: idleTriggerControlRow
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 112
+                                    spacing: 18
+
                                 GridLayout {
                                     id: idleTriggerGrid
-                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 236
+                                    Layout.alignment: Qt.AlignTop
                                     columns: 2
                                     rowSpacing: 8
                                     columnSpacing: 8
@@ -1117,6 +1174,7 @@ Window {
                                     id: idleTriggerActions
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 84
+                                    Layout.alignment: Qt.AlignTop
                                     spacing: 10
                                     Text { width: 40; height: 40; verticalAlignment: Text.AlignVCenter; text: "动作"; color: Theme.textSecondary; font.pixelSize: 13 }
                                     ComboBox {
@@ -1155,6 +1213,7 @@ Window {
                                     NeonButton { width: 142; height: 40; variant: "primary"; text: "开始空闲检测"; enabled: controller.idleTriggerEnabled && !controller.idleTriggerActive; onClicked: controller.startIdleTrigger() }
                                     NeonButton { width: 142; height: 40; variant: "secondary"; text: "停止空闲检测"; enabled: controller.idleTriggerActive; onClicked: controller.stopIdleTrigger() }
                                     Text { width: parent.width; text: controller.idleTriggerStatus; color: controller.idleTriggerActive ? Theme.warning : Theme.textSecondary; font.pixelSize: 13; elide: Text.ElideRight }
+                                }
                                 }
                             }
                         }
@@ -1218,7 +1277,7 @@ Window {
                     Text { text: "执行前脚本"; color: Theme.textPrimary; font.pixelSize: 26; font.weight: Font.Bold }
                     Text {
                         Layout.fillWidth: true
-                        text: "启用后，真实执行电源动作前会先运行脚本。Dry-run 下只记录将执行的脚本，不会启动外部程序。"
+                        text: "启用后，真实执行电源动作前会先运行脚本。安全验证下只记录将执行的脚本，不会启动外部程序。"
                         color: Theme.textSecondary
                         font.pixelSize: 14
                         wrapMode: Text.WordWrap
@@ -1259,6 +1318,7 @@ Window {
                         NeonButton { width: 112; height: 40; variant: "secondary"; text: "打开目录"; onClicked: controller.openScriptFolder() }
                     }
                     NeonCard {
+                        id: scriptLogPanel
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         cardColor: Theme.dialogPanelRaised
@@ -1266,9 +1326,36 @@ Window {
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 14
-                            spacing: 6
-                            Text { text: "脚本与执行日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                            Text { Layout.fillWidth: true; Layout.fillHeight: true; text: controller.logText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; elide: Text.ElideRight }
+                            spacing: 8
+                            RowLayout {
+                                id: scriptLogStatusStrip
+                                Layout.fillWidth: true
+                                spacing: 12
+                                Text { Layout.fillWidth: true; text: "脚本与执行日志"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold; elide: Text.ElideRight }
+                                Text { text: controller.scriptEnabled ? "已启用" : "未启用"; color: controller.scriptEnabled ? Theme.success : Theme.textSecondary; font.pixelSize: 12; font.weight: Font.Bold }
+                                Text { text: "超时 " + controller.scriptTimeoutSeconds + " 秒"; color: Theme.textSecondary; font.pixelSize: 12 }
+                                Text { text: controller.scriptPath ? "路径已填写" : "路径未填写"; color: controller.scriptPath ? Theme.success : Theme.warning; font.pixelSize: 12; font.weight: Font.Bold }
+                            }
+                            Rectangle {
+                                id: scriptLogViewport
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                radius: Theme.radiusMd
+                                color: Theme.glassSoft
+                                border.color: Theme.e5BorderSoft
+                                border.width: 1
+                                clip: true
+
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    text: controller.logText
+                                    color: Theme.textSecondary
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                    elide: Text.ElideRight
+                                }
+                            }
                         }
                     }
                 }
@@ -1301,7 +1388,7 @@ Window {
                         Text {
                             Layout.fillWidth: true
                             property string diagnosticSource: controller.safetySummaryText
-                            text: "当前安全摘要：" + (controller.dryRun ? "Dry-run 验证中" : "LIVE MODE 真实执行")
+                            text: "当前安全摘要：" + (controller.dryRun ? "安全验证中" : "真实执行模式")
                                   + " · 动作：" + controller.actionLabel
                                   + " · 脚本：" + (controller.scriptEnabled ? "开启" : "关闭")
                                   + " · 优雅关闭应用：" + (controller.closeAppsBeforeAction ? "开启" : "关闭")
@@ -1309,182 +1396,228 @@ Window {
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap
                         }
-                        NeonCard {
-                            id: settingsSafetyPanel
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 286
-                            cardColor: Theme.dialogPanelRaised
-                            cardBorderColor: Theme.e5BorderPink
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
-                                Text { text: "安全执行"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "Dry-run 安全验证"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch {
-                                        id: dryRunSafetySwitch
-                                        enabled: !controller.powerActionInProgress
-                                        checked: controller.dryRun
-                                        onCheckedChanged: mainWindow.confirmLiveModeFromSwitch(checked)
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "强制关闭应用"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch {
-                                        enabled: !controller.powerActionInProgress
-                                        checked: controller.forceClose
-                                        onCheckedChanged: controller.forceClose = checked
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "关机前优雅关闭应用"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch {
-                                        enabled: !controller.powerActionInProgress
-                                        checked: controller.closeAppsBeforeAction
-                                        onCheckedChanged: controller.closeAppsBeforeAction = checked
-                                    }
-                                }
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    rowSpacing: 8
-                                    columnSpacing: 12
-                                    Text { text: "等待超时"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                    TextField {
-                                        Layout.preferredWidth: 112
-                                        enabled: controller.closeAppsBeforeAction && !controller.powerActionInProgress
-                                        text: String(controller.closeAppsTimeoutSeconds)
-                                        inputMethodHints: Qt.ImhDigitsOnly
-                                        validator: IntValidator { bottom: 1; top: 300 }
-                                        onEditingFinished: controller.closeAppsTimeoutSeconds = mainWindow.safeInt(text, 20)
-                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
-                                    }
-                                    Text { text: "预检"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                    NeonButton {
-                                        Layout.preferredWidth: 138
-                                        Layout.preferredHeight: 34
-                                        compact: true
-                                        variant: "secondary"
-                                        text: "预检关闭应用"
-                                        enabled: !controller.powerActionInProgress
-                                        onClicked: controller.previewCloseApps()
-                                    }
-                                }
-                                Text { Layout.fillWidth: true; text: "1-300 秒；预检只列出将请求关闭的窗口，不会真正关闭应用。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
-                                Text { Layout.fillWidth: true; text: "预检：" + controller.closeAppsPreviewText + " · 最近结果：" + controller.closeAppsLastResultText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
-                            }
-                        }
 
-                        NeonCard {
-                            id: settingsReminderPanel
+                        GridLayout {
+                            id: settingsPanelGrid
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 214
-                            cardColor: Theme.dialogPanelRaised
-                            cardBorderColor: Theme.e5BorderBlue
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
-                                Text { text: "提醒与通知"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "启动时自动播放音乐"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch { checked: controller.musicAutoplayEnabled; onCheckedChanged: controller.musicAutoplayEnabled = checked }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "执行前提醒"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch { checked: controller.reminderEnabled; onCheckedChanged: controller.reminderEnabled = checked }
-                                }
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    rowSpacing: 8
-                                    columnSpacing: 12
-                                    Text { text: "提醒分钟"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                    TextField {
-                                        Layout.preferredWidth: 420
-                                        text: controller.reminderMinutesCsv
-                                        placeholderText: "10,5,1"
-                                        onEditingFinished: controller.reminderMinutesCsv = text
-                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
-                                    }
-                                    Text { text: "默认延后"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                    TextField {
-                                        Layout.preferredWidth: 112
-                                        text: String(controller.snoozeMinutesValue)
-                                        inputMethodHints: Qt.ImhDigitsOnly
-                                        onEditingFinished: controller.snoozeMinutesValue = mainWindow.safeInt(text, 15)
-                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
-                                    }
-                                }
-                                Text { Layout.fillWidth: true; text: "提醒分钟用逗号分隔，例如 10,5,1；默认延后用于提醒弹窗。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
-                            }
-                        }
+                            Layout.preferredHeight: 490
+                            columns: 2
+                            rowSpacing: 14
+                            columnSpacing: 14
 
-                        NeonCard {
-                            id: settingsSystemPanel
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 206
-                            cardColor: Theme.dialogPanelRaised
-                            cardBorderColor: Theme.e5BorderSoft
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
-                                Text { text: "系统与历史"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "Windows 原生通知"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch { checked: controller.windowsNotificationsEnabled; onCheckedChanged: controller.windowsNotificationsEnabled = checked }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 16
-                                    Text { Layout.preferredWidth: 190; text: "开机自动启动"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
-                                    FluentSwitch { checked: controller.startWithWindows; onCheckedChanged: controller.startWithWindows = checked }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 12
-                                    Text { Layout.preferredWidth: 90; text: "任务历史"; color: Theme.textSecondary; font.pixelSize: 13 }
-                                    TextField {
-                                        Layout.preferredWidth: 112
-                                        text: String(controller.taskHistoryLimit)
-                                        inputMethodHints: Qt.ImhDigitsOnly
-                                        onEditingFinished: controller.taskHistoryLimit = mainWindow.safeInt(text, 500)
-                                        background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
-                                    }
-                                    Flow {
-                                        id: historyActionFlow
+                            NeonCard {
+                                id: settingsSafetyPanel
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: (settingsPanelGrid.width - settingsPanelGrid.columnSpacing) / 2
+                                Layout.preferredHeight: 286
+                                Layout.row: 0
+                                Layout.column: 0
+                                cardColor: Theme.dialogPanelRaised
+                                cardBorderColor: Theme.borderStrong
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 16
+                                    spacing: 10
+                                    Text { text: "安全执行"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 34
-                                        spacing: 8
-                                        NeonButton { width: 96; height: 34; compact: true; variant: "secondary"; text: "清空历史"; onClicked: controller.clearHistory() }
-                                        NeonButton { width: 96; height: 34; compact: true; variant: "primary"; text: "导出历史"; onClicked: controller.exportHistory() }
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "安全验证模式"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch {
+                                            id: dryRunSafetySwitch
+                                            enabled: !controller.powerActionInProgress
+                                            checked: controller.dryRun
+                                            onCheckedChanged: mainWindow.confirmLiveModeFromSwitch(checked)
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "强制关闭应用"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch {
+                                            enabled: !controller.powerActionInProgress
+                                            checked: controller.forceClose
+                                            onCheckedChanged: controller.forceClose = checked
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "关机前优雅关闭应用"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch {
+                                            enabled: !controller.powerActionInProgress
+                                            checked: controller.closeAppsBeforeAction
+                                            onCheckedChanged: controller.closeAppsBeforeAction = checked
+                                        }
+                                    }
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 2
+                                        rowSpacing: 8
+                                        columnSpacing: 12
+                                        Text { text: "等待超时"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                        TextField {
+                                            Layout.preferredWidth: 112
+                                            enabled: controller.closeAppsBeforeAction && !controller.powerActionInProgress
+                                            text: String(controller.closeAppsTimeoutSeconds)
+                                            inputMethodHints: Qt.ImhDigitsOnly
+                                            validator: IntValidator { bottom: 1; top: 300 }
+                                            onEditingFinished: controller.closeAppsTimeoutSeconds = mainWindow.safeInt(text, 20)
+                                            background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                        }
+                                        Text { text: "预检"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                        NeonButton {
+                                            Layout.preferredWidth: 138
+                                            Layout.preferredHeight: 34
+                                            compact: true
+                                            variant: "secondary"
+                                            text: "预检关闭应用"
+                                            enabled: !controller.powerActionInProgress
+                                            onClicked: controller.previewCloseApps()
+                                        }
+                                    }
+                                    Text { Layout.fillWidth: true; text: "1-300 秒；预检只列出将请求关闭的窗口，不会真正关闭应用。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
+                                    Text { Layout.fillWidth: true; text: "预检：" + controller.closeAppsPreviewText + " · 最近结果：" + controller.closeAppsLastResultText; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
+                                }
+                            }
+
+                            NeonCard {
+                                id: settingsReminderPanel
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: (settingsPanelGrid.width - settingsPanelGrid.columnSpacing) / 2
+                                Layout.preferredHeight: 206
+                                Layout.row: 0
+                                Layout.column: 1
+                                cardColor: Theme.dialogPanelRaised
+                                cardBorderColor: Theme.e5BorderBlue
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 16
+                                    spacing: 10
+                                    Text { text: "提醒与通知"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "启动时自动播放音乐"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch { checked: controller.musicAutoplayEnabled; onCheckedChanged: controller.musicAutoplayEnabled = checked }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "执行前提醒"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch { checked: controller.reminderEnabled; onCheckedChanged: controller.reminderEnabled = checked }
+                                    }
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 2
+                                        rowSpacing: 8
+                                        columnSpacing: 12
+                                        Text { text: "提醒分钟"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                        TextField {
+                                            Layout.preferredWidth: 210
+                                            text: controller.reminderMinutesCsv
+                                            placeholderText: "10,5,1"
+                                            onEditingFinished: controller.reminderMinutesCsv = text
+                                            background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                        }
+                                        Text { text: "默认延后"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                        TextField {
+                                            Layout.preferredWidth: 112
+                                            text: String(controller.snoozeMinutesValue)
+                                            inputMethodHints: Qt.ImhDigitsOnly
+                                            onEditingFinished: controller.snoozeMinutesValue = mainWindow.safeInt(text, 15)
+                                            background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                        }
+                                    }
+                                    Text { Layout.fillWidth: true; text: "提醒分钟用逗号分隔，例如 10,5,1；默认延后用于提醒弹窗。"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
+                                }
+                            }
+
+                            NeonCard {
+                                id: settingsSystemPanel
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: (settingsPanelGrid.width - settingsPanelGrid.columnSpacing) / 2
+                                Layout.preferredHeight: 190
+                                Layout.row: 1
+                                Layout.column: 1
+                                cardColor: Theme.dialogPanelRaised
+                                cardBorderColor: Theme.e5BorderSoft
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 16
+                                    spacing: 8
+                                    Text { text: "系统与历史"; color: Theme.textPrimary; font.pixelSize: 18; font.weight: Font.Bold }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "Windows 原生通知"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch { checked: controller.windowsNotificationsEnabled; onCheckedChanged: controller.windowsNotificationsEnabled = checked }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 16
+                                        Text { Layout.preferredWidth: 190; text: "开机自动启动"; color: Theme.textPrimary; font.pixelSize: 15; font.weight: Font.Bold }
+                                        FluentSwitch { checked: controller.startWithWindows; onCheckedChanged: controller.startWithWindows = checked }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 12
+                                        Text { Layout.preferredWidth: 76; text: "任务历史"; color: Theme.textSecondary; font.pixelSize: 13 }
+                                        TextField {
+                                            Layout.preferredWidth: 82
+                                            text: String(controller.taskHistoryLimit)
+                                            inputMethodHints: Qt.ImhDigitsOnly
+                                            onEditingFinished: controller.taskHistoryLimit = mainWindow.safeInt(text, 500)
+                                            background: Rectangle { color: Theme.inputGlass; radius: Theme.radiusSm; border.color: Theme.e5BorderSoft; border.width: 1 }
+                                        }
+                                        Flow {
+                                            id: historyActionFlow
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 34
+                                            spacing: 8
+                                            NeonButton { width: 78; height: 34; compact: true; variant: "secondary"; text: "清空历史"; onClicked: controller.clearHistory() }
+                                            NeonButton { width: 78; height: 34; compact: true; variant: "primary"; text: "导出历史"; onClicked: controller.exportHistory() }
+                                        }
+                                    }
+                                    Text { Layout.fillWidth: true; text: mainWindow.historyRowModel.length > 0 ? ("最近历史：" + mainWindow.historyRowModel[0].message) : "任务历史：暂无记录"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
+                                }
+                            }
+
+                            NeonCard {
+                                id: settingsLiveModeWarning
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: (settingsPanelGrid.width - settingsPanelGrid.columnSpacing) / 2
+                                Layout.preferredHeight: 190
+                                Layout.row: 1
+                                Layout.column: 0
+                                cardColor: Theme.dialogPanelRaised
+                                cardBorderColor: Theme.danger
+                                hoverable: false
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 16
+                                    spacing: 8
+
+                                    Text { text: "真实执行提醒"; color: Theme.danger; font.pixelSize: 18; font.weight: Font.Bold }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "真实执行模式会执行真实系统动作。建议验证时保持安全验证开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。"
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 3
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "托盘可用时关闭窗口会隐藏到后台；托盘不可用时关闭窗口不会继续后台运行。请使用托盘菜单“退出程序”显式退出。"
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
                                     }
                                 }
-                                Text { Layout.fillWidth: true; text: mainWindow.historyRowModel.length > 0 ? ("最近历史：" + mainWindow.historyRowModel[0].message) : "任务历史：暂无记录"; color: Theme.textSecondary; font.pixelSize: 12; wrapMode: Text.WordWrap; maximumLineCount: 2 }
                             }
-                        }
-
-                        Text {
-                            id: settingsLiveModeWarning
-                            Layout.fillWidth: true
-                            text: "LIVE MODE 会执行真实系统动作。建议验证时保持 Dry-run 开启；立即执行按钮会再次弹窗确认，倒计时和进程/网络触发到点后不会再次确认。托盘可用时关闭窗口会隐藏到后台；托盘不可用时关闭窗口不会继续后台运行。请使用托盘菜单 Quit 显式退出。"
-                            color: Theme.danger
-                            font.pixelSize: 13
-                            wrapMode: Text.WordWrap
                         }
                     }
                 }
@@ -1494,10 +1627,11 @@ Window {
 
     Window {
         id: musicPlayerWindow
+        objectName: "musicPlayerWindow"
         width: 560
-        height: 520
+        height: 560
         minimumWidth: 480
-        minimumHeight: 420
+        minimumHeight: 520
         visible: false
         title: "音乐播放器"
         color: Theme.bgDeep
@@ -1519,7 +1653,7 @@ Window {
             anchors.fill: parent
             anchors.margins: 18
             cardColor: Theme.dialogPanelRaised
-            cardBorderColor: Theme.e5BorderPink
+            cardBorderColor: Theme.borderStrong
             radius: Theme.radiusXl
 
             ColumnLayout {
@@ -1569,31 +1703,66 @@ Window {
                     font.weight: Font.Bold
                 }
 
-                ListView {
+                Rectangle {
+                    id: musicPlaylistFrame
                     Layout.fillWidth: true
                     Layout.preferredHeight: 130
+                    radius: Theme.radiusMd
+                    color: Theme.glassSoft
+                    border.color: Theme.e5BorderSoft
+                    border.width: 1
                     clip: true
-                    model: mainWindow.musicTrackModel
-                    delegate: Rectangle {
-                        width: ListView.view.width
-                        height: 34
-                        radius: 10
-                        color: controller.musicCurrentIndex === index ? Theme.cardGlassActive : "transparent"
-                        border.color: controller.musicCurrentIndex === index ? Theme.e5BorderPink : "transparent"
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            verticalAlignment: Text.AlignVCenter
-                            text: modelData.title
-                            color: controller.musicCurrentIndex === index ? Theme.textPrimary : Theme.textSecondary
-                            font.pixelSize: 13
-                            elide: Text.ElideRight
+
+                    ListView {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        clip: true
+                        model: mainWindow.musicTrackModel
+                        delegate: Rectangle {
+                            width: ListView.view.width
+                            height: 34
+                            radius: 8
+                            color: controller.musicCurrentIndex === index ? Theme.cardGlassActive : "transparent"
+                            border.color: controller.musicCurrentIndex === index ? Theme.borderStrong : "transparent"
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                verticalAlignment: Text.AlignVCenter
+                                text: modelData.title
+                                color: controller.musicCurrentIndex === index ? Theme.textPrimary : Theme.textSecondary
+                                font.pixelSize: 13
+                                elide: Text.ElideRight
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: controller.playMusicTrack(index)
+                            }
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: controller.playMusicTrack(index)
+                    }
+
+                    Item {
+                        id: musicEmptyPlaylistState
+                        anchors.fill: parent
+                        visible: mainWindow.musicTrackModel.length === 0
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "暂无歌曲"
+                                color: Theme.textPrimary
+                                font.pixelSize: 15
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "选择包含 MP3 的文件夹"
+                                color: Theme.textSecondary
+                                font.pixelSize: 12
+                            }
                         }
                     }
                 }
@@ -1718,10 +1887,10 @@ Window {
         contentItem: ColumnLayout {
             spacing: Theme.spaceMd
             Text { Layout.fillWidth: true; text: "首次启动安全说明"; color: Theme.textPrimary; font.pixelSize: 20; font.weight: Font.Bold }
-            Text { Layout.fillWidth: true; text: "Dry-run 默认开启：应用只记录将要执行的动作，不会真实关机、重启、睡眠、休眠、注销、锁定或运行脚本。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
-            Text { Layout.fillWidth: true; text: "关闭 Dry-run 后可能真实执行 Windows 电源动作，请先确认任务、触发器、脚本路径和未保存工作。"; color: Theme.danger; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "安全验证模式默认开启：应用只记录将要执行的动作，不会真实关机、重启、睡眠、休眠、注销、锁定或运行脚本。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "关闭安全验证后可能真实执行 Windows 电源动作，请先确认任务、触发器、脚本路径和未保存工作。"; color: Theme.danger; font.pixelSize: 14; wrapMode: Text.WordWrap }
             Text { Layout.fillWidth: true; text: "右下角托盘可用时，关闭窗口会隐藏到后台，倒计时、队列和触发器仍会继续。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
-            Text { Layout.fillWidth: true; text: "如需彻底退出，请右键右下角托盘图标并选择 Quit。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "如需彻底退出，请右键右下角托盘图标并选择“退出程序”。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
         }
 
         footer: Item {
@@ -1769,7 +1938,7 @@ Window {
             spacing: Theme.spaceMd
             Text { Layout.fillWidth: true; text: "将隐藏到右下角托盘"; color: Theme.textPrimary; font.pixelSize: 20; font.weight: Font.Bold }
             Text { Layout.fillWidth: true; text: "任务、倒计时和触发器仍会继续运行。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
-            Text { Layout.fillWidth: true; text: "要彻底退出，请右键右下角托盘图标选择 Quit。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
+            Text { Layout.fillWidth: true; text: "要彻底退出，请右键右下角托盘图标选择“退出程序”。"; color: Theme.textSecondary; font.pixelSize: 14; wrapMode: Text.WordWrap }
         }
 
         footer: Item {
@@ -1890,14 +2059,14 @@ Window {
             spacing: Theme.spaceMd
             Text {
                 Layout.fillWidth: true
-                text: "确认关闭 Dry-run"
+                text: "确认关闭安全验证"
                 color: Theme.textPrimary
                 font.pixelSize: 20
                 font.weight: Font.Bold
             }
             Text {
                 Layout.fillWidth: true
-                text: "关闭 Dry-run 后将进入 LIVE MODE，倒计时结束、进程退出触发、网络闲置触发和立即执行都可能执行真实系统电源动作。\n\n请确认动作、触发器、脚本路径和未保存工作。"
+                text: "关闭安全验证后将进入真实执行模式，倒计时结束、进程退出触发、网络闲置触发和立即执行都可能执行真实系统电源动作。\n\n请确认动作、触发器、脚本路径和未保存工作。"
                 color: Theme.textSecondary
                 font.pixelSize: 14
                 lineHeight: 1.16
@@ -1923,7 +2092,7 @@ Window {
                 NeonButton {
                     compact: true
                     variant: "danger"
-                    text: "进入 LIVE MODE"
+                    text: "进入真实执行模式"
                     onClicked: liveModeConfirmDialog.accept()
                 }
             }

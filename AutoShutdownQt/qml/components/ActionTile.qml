@@ -15,9 +15,9 @@ NeonCard {
     enabled: !controller.powerActionInProgress
     active: isSelected
     cardColor: isSelected ? Theme.cardGlassActive : Theme.cardGlass
-    hoverColor: isSelected ? "#66301F78" : Theme.cardGlassHover
-    cardBorderColor: isSelected ? Theme.e5BorderPink : Theme.e5BorderSoft
-    activeBorderColor: Theme.e5BorderPink
+    hoverColor: isSelected ? Theme.selectedOverlay : Theme.cardGlassHover
+    cardBorderColor: isSelected ? Theme.borderStrong : Theme.e5BorderSoft
+    activeBorderColor: Theme.borderStrong
     scale: enabled && mouseArea.containsMouse ? 1.025 : 1.0
     opacity: enabled ? 1.0 : 0.56
 
@@ -27,7 +27,7 @@ NeonCard {
         anchors.bottom: parent.bottom
         width: 4
         radius: 2
-        color: root.isSelected ? Theme.e5Pink : "transparent"
+        color: root.isSelected ? Theme.primary : "transparent"
         opacity: root.isSelected ? 1 : 0
     }
 
@@ -35,7 +35,7 @@ NeonCard {
         anchors.fill: parent
         anchors.margins: 1
         radius: parent.radius - 1
-        color: root.isSelected ? Theme.glowBlue : "transparent"
+        color: root.isSelected ? Theme.selectedOverlay : "transparent"
     }
 
     MouseArea {

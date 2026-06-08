@@ -85,7 +85,8 @@ class CloseAppsIntegrationTest(unittest.TestCase):
 
         self.assertEqual(closer.close_calls, [])  # nothing closed in dry-run
         self.assertIn("将优雅关闭 2 个应用", self.controller.logText)
-        self.assertIn("[dryRun] Would execute", self.controller.logText)
+        self.assertIn("安全验证：将执行", self.controller.logText)
+        self.assertNotIn("[dryRun]", self.controller.logText)
 
     def test_preview_close_apps_lists_windows_without_closing(self):
         closer = StaticAppCloser(_windows((1, 10, "记事本"), (2, 11, "浏览器")))
@@ -94,9 +95,21 @@ class CloseAppsIntegrationTest(unittest.TestCase):
         self.controller.previewCloseApps()
 
         self.assertEqual(closer.close_calls, [])
+        self.assertIn("2 个应用", self.controller.closeAppsPreviewText)
+        self.assertNotIn("apps", self.controller.closeAppsPreviewText)
         self.assertIn("关闭应用预检", self.controller.logText)
         self.assertIn("记事本", self.controller.logText)
         self.assertIn("浏览器", self.controller.logText)
+
+    def test_preview_close_apps_reports_empty_list_in_chinese(self):
+        closer = StaticAppCloser([])
+        self.controller._app_closer = closer
+
+        self.controller.previewCloseApps()
+
+        self.assertEqual(closer.close_calls, [])
+        self.assertIn("没有需要关闭的应用", self.controller.closeAppsPreviewText)
+        self.assertNotIn("0 apps", self.controller.closeAppsPreviewText)
 
     def test_preview_close_apps_summarizes_long_window_lists(self):
         closer = StaticAppCloser(_windows(*[
@@ -115,6 +128,8 @@ class CloseAppsIntegrationTest(unittest.TestCase):
 
         self.controller.previewCloseApps()
 
+        self.assertIn("失败", self.controller.closeAppsPreviewText)
+        self.assertNotIn("failed:", self.controller.closeAppsPreviewText)
         self.assertIn("关闭应用预检失败", self.controller.logText)
         self.assertIn("enum boom", self.controller.logText)
 
@@ -122,8 +137,14 @@ class CloseAppsIntegrationTest(unittest.TestCase):
         self.controller._app_closer = FailingListCloser()
         self.controller._close_apps_with_closer(self.controller._app_closer, 1)
 
-        self.assertIn("Close apps last result", self.controller.diagnosticText)
-        self.assertIn("available=False", self.controller.diagnosticText)
+        self.assertIn("可用：否", self.controller.closeAppsLastResultText)
+        self.assertNotIn("可用=否", self.controller.closeAppsLastResultText)
+        self.assertNotIn("available=", self.controller.closeAppsLastResultText)
+        self.assertIn("最近关闭结果", self.controller.diagnosticText)
+        self.assertIn("关闭应用服务：可用", self.controller.diagnosticText)
+        self.assertIn("可用：否", self.controller.diagnosticText)
+        self.assertNotIn("可用=否", self.controller.diagnosticText)
+        self.assertNotIn("available=False", self.controller.diagnosticText)
         self.assertIn("enum boom", self.controller.diagnosticText)
 
     def test_live_closes_apps_then_runs_power_action(self):
@@ -141,8 +162,14 @@ class CloseAppsIntegrationTest(unittest.TestCase):
         self.assertEqual(_wait_for_calls(power_calls, [("shutdown", False)]), [("shutdown", False)])
         self.assertIn("优雅关闭应用：", self.controller.logText)
         self.assertIn("已请求关闭：记事本、浏览器", self.controller.logText)
-        self.assertIn("Close apps last result", self.controller.diagnosticText)
-        self.assertIn("attempted=2", self.controller.diagnosticText)
+        self.assertIn("已请求：2", self.controller.closeAppsLastResultText)
+        self.assertIn("已关闭：2", self.controller.closeAppsLastResultText)
+        self.assertNotIn("已请求=2", self.controller.closeAppsLastResultText)
+        self.assertNotIn("attempted=", self.controller.closeAppsLastResultText)
+        self.assertIn("最近关闭结果", self.controller.diagnosticText)
+        self.assertIn("已请求：2", self.controller.diagnosticText)
+        self.assertNotIn("已请求=2", self.controller.diagnosticText)
+        self.assertNotIn("attempted=2", self.controller.diagnosticText)
 
     def test_live_close_apps_does_not_block_ui_thread(self):
         closer = AlwaysStubbornCloser(_windows((1, 10, "未保存的文档")))
@@ -359,7 +386,12 @@ class CloseAppsIntegrationTest(unittest.TestCase):
         self.assertEqual(_wait_for_calls(power_calls, [("shutdown", False)]), [("shutdown", False)])
         self.assertIn("仍未退出：未保存文档", self.controller.logText)
         self.assertIn("关闭请求失败：未保存文档", self.controller.logText)
-        self.assertIn("requestFailed=1", self.controller.diagnosticText)
+        self.assertIn("请求失败：1", self.controller.closeAppsLastResultText)
+        self.assertNotIn("请求失败=1", self.controller.closeAppsLastResultText)
+        self.assertNotIn("requestFailed=", self.controller.closeAppsLastResultText)
+        self.assertIn("请求失败：1", self.controller.diagnosticText)
+        self.assertNotIn("请求失败=1", self.controller.diagnosticText)
+        self.assertNotIn("requestFailed=1", self.controller.diagnosticText)
 
     def test_disabled_setting_never_touches_closer(self):
         closer = StaticAppCloser(_windows((1, 10, "记事本")))

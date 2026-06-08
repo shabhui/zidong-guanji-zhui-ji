@@ -17,11 +17,9 @@ QtObject {
 
     readonly property color borderSoft: "#40BDEBFF"
     readonly property color borderStrong: "#9AE6FFFF"
-    readonly property color borderPink: "#AAFF8ACF"
 
     readonly property color primary: "#79D8FF"
-    readonly property color secondary: "#B779FF"
-    readonly property color accent: "#FF8ACF"
+    readonly property color accent: "#7DFFC4"
     readonly property color success: "#7DFFC4"
     readonly property color warning: "#FFD166"
     readonly property color danger: "#FF5C8A"
@@ -32,8 +30,6 @@ QtObject {
     readonly property color e5BgA: "#080B12"
     readonly property color e5BgB: "#101827"
     readonly property color e5BgC: "#151B2A"
-    readonly property color e5Pink: "#FF7AB6"
-    readonly property color e5Purple: "#8E7CFF"
     readonly property color e5Blue: "#58C7E8"
     readonly property color e5Star: "#F7F2FF"
 
@@ -45,19 +41,12 @@ QtObject {
     readonly property color dialogPanelRaised: "#20283A"
     readonly property color dialogScrim: "#CC050716"
     readonly property color inputGlass: "#2AFFFFFF"
+    readonly property color selectedOverlay: "#1C4CC9FF"
+    readonly property color checkedTrack: "#304CC9FF"
 
     readonly property color e5BorderSoft: "#55BDEBFF"
     readonly property color e5BorderStrong: "#B44CC9FF"
-    readonly property color e5BorderPink: "#BBFF6FD8"
-    readonly property color e5BorderPurple: "#AA9B5CFF"
     readonly property color e5BorderBlue: "#AA4CC9FF"
-
-    readonly property color glowBlue: "#2458C7E8"
-    readonly property color glowPink: "#24FF7AB6"
-    readonly property color glowPurple: "#228E7CFF"
-
-    readonly property int floatVerySlow: 11200
-    readonly property int twinkleSlow: 1800
 
     readonly property real radiusSm: 6
     readonly property real radiusMd: 8
@@ -73,5 +62,4 @@ QtObject {
     readonly property int animFast: 130
     readonly property int animNormal: 240
     readonly property int animSlow: 420
-    readonly property int floatSlow: 7600
 }

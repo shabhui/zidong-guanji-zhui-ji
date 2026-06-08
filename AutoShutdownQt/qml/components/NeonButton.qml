@@ -45,7 +45,7 @@ Button {
               : root.variant === "ghost" ? "#16FFFFFF"
               : Theme.cardGlass
         border.color: !root.enabled ? Theme.e5BorderSoft
-                    : root.variant === "primary" ? Theme.e5BorderPink
+                    : root.variant === "primary" ? Theme.borderStrong
                     : root.variant === "danger" ? Theme.danger
                     : root.hovered ? Theme.e5BorderStrong
                     : Theme.e5BorderSoft
@@ -53,23 +53,13 @@ Button {
         antialiasing: true
 
         Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: Math.max(0, parent.radius - 1)
-            color: root.variant === "primary" ? Theme.glowPink
-                  : root.variant === "danger" ? "#22FF5C8A"
-                  : Theme.glowBlue
-            opacity: root.enabled && (root.hovered || root.down || root.variant === "primary") ? 0.28 : 0.08
-        }
-
-        Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: Math.max(10, parent.height * 0.42)
+            height: Math.max(8, parent.height * 0.34)
             radius: parent.radius
-            color: "#32FFFFFF"
-            opacity: root.enabled ? 0.58 : 0.18
+            color: "#28FFFFFF"
+            opacity: root.enabled ? 0.22 : 0.10
         }
     }
 

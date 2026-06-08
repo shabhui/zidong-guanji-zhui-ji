@@ -62,6 +62,17 @@ class AppController(QObject):
         "shutdown": "关机", "sleep": "睡眠", "hibernate": "休眠",
         "restart": "重启", "logoff": "注销", "lock": "锁定",
     }
+    STATUS_LABELS = {
+        "ready": "就绪",
+        "running": "运行中",
+        "paused": "已暂停",
+    }
+    LOG_FILTER_LABELS = {
+        "all": "全部",
+        "info": "信息",
+        "warning": "警告",
+        "error": "错误",
+    }
 
     def __init__(self, parent=None, settings_path=None, network_reader=None, idle_reader=None, log_export_path=None, open_folder=None, music_service=None, folder_picker=None, notification_service=None, startup_service=None, clipboard_writer=None):
         super().__init__(parent)
@@ -71,13 +82,13 @@ class AppController(QObject):
         self._power_action_in_progress = False
         self._power_action_progress_text = ""
         self._close_apps_skip_event = None
-        self._close_apps_last_preview = "(not run)"
-        self._close_apps_last_result = "(not run)"
+        self._close_apps_last_preview = "未运行"
+        self._close_apps_last_result = "未运行"
         self._last_copied_text = ""
         self._copy_status_text = ""
         self._clipboard_writer = clipboard_writer
         self._log_filter = "all"
-        self._health_check_text = "Health check: not run"
+        self._health_check_text = "健康检查：尚未运行"
         self._settings_path = settings_path
         self._persist_settings = self._should_persist_settings(settings_path)
         settings = load_settings(settings_path) if self._persist_settings else default_settings()
@@ -140,7 +151,7 @@ class AppController(QObject):
         self._idle_trigger_active = False
         self._idle_trigger_status = "未启动"
         self._idle_reader = idle_reader or WindowsIdleReader()
-        self._logs = ["READY · Dry-run 已开启" if self._dry_run else "READY · 真实执行模式"]
+        self._logs = ["就绪 · 安全验证已开启" if self._dry_run else "就绪 · 真实执行模式"]
         self._script_runner = run_script
         self._power_executor = None
         self._app_closer = None
@@ -172,6 +183,44 @@ class AppController(QObject):
         self._idle_timer.timeout.connect(self._poll_idle_trigger)
         self._tray_service = None
 
+    @staticmethod
+    def _on_off(value):
+        return "开启" if bool(value) else "关闭"
+
+    @staticmethod
+    def _yes_no(value):
+        return "是" if bool(value) else "否"
+
+    @staticmethod
+    def _availability_label(value):
+        return "可用" if bool(value) else "不可用"
+
+    @classmethod
+    def _status_label(cls, status):
+        return cls.STATUS_LABELS.get(str(status), str(status))
+
+    def _status_with_key(self):
+        return f"{self._status_label(self._status)} ({self._status})"
+
+    @staticmethod
+    def _trigger_state_label(active, enabled=False):
+        if active:
+            return "监控中"
+        if enabled:
+            return "已启用"
+        return "空闲"
+
+    @staticmethod
+    def _network_error_text(message):
+        text = str(message or "").strip()
+        labels = {
+            "network unavailable": "网络不可用",
+            "network counter reset": "网络计数已重置",
+            "network counters unavailable": "无法读取网络计数",
+            "netstat failed": "网络计数命令未成功",
+        }
+        return labels.get(text.lower(), text or "网络不可用")
+
     # --- QML Properties ---
 
     def getDryRun(self): return self._dry_run
@@ -179,7 +228,7 @@ class AppController(QObject):
         v = bool(v)
         if self._dry_run != v:
             self._dry_run = v
-            self._add_log("Dry-run 已开启" if v else "真实执行模式已开启")
+            self._add_log("安全验证已开启" if v else "真实执行模式已开启")
             self._save_settings()
             self.dryRunChanged.emit()
     dryRun = Property(bool, getDryRun, setDryRun, notify=dryRunChanged)
@@ -200,7 +249,7 @@ class AppController(QObject):
     def getSelectedAction(self): return self._selected_action
     def setSelectedAction(self, v):
         if self.powerActionInProgress:
-            self._add_log("Power action is running; selected action cannot be changed")
+            self._add_log("电源动作执行中，暂不能修改执行动作")
             return
         if v in self.POWER_ACTIONS and self._selected_action != v:
             self._selected_action = v
@@ -212,7 +261,7 @@ class AppController(QObject):
     def getForceClose(self): return self._force_close
     def setForceClose(self, v):
         if self.powerActionInProgress:
-            self._add_log("Power action is running; force close cannot be changed")
+            self._add_log("电源动作执行中，暂不能修改强制关闭设置")
             return
         v = bool(v)
         if self._force_close != v:
@@ -266,11 +315,11 @@ class AppController(QObject):
             progress_text = self._power_action_progress_text
             can_skip = self._close_apps_skip_event is not None
         if not in_progress:
-            return "Ready | Script preflight: waiting | Close apps: waiting | Power action: waiting"
+            return "就绪 | 脚本预检：等待 | 关闭应用：等待 | 系统动作：等待"
         parts = [
-            "Running",
-            f"Current: {progress_text or 'preparing power action'}",
-            "Skip available" if can_skip else "Skip unavailable",
+            "运行中",
+            f"当前：{progress_text or '准备执行系统动作'}",
+            "关闭应用：可跳过等待" if can_skip else "关闭应用：等待中",
         ]
         return " | ".join(parts)
     powerActionStepSummaryText = Property(str, getPowerActionStepSummaryText, notify=powerActionProgressChanged)
@@ -628,7 +677,7 @@ class AppController(QObject):
                 counts["error"] += 1
             else:
                 counts["info"] += 1
-        return f"Log categories: info={counts['info']} warning={counts['warning']} error={counts['error']}"
+        return f"日志分类：信息={counts['info']} 警告={counts['warning']} 错误={counts['error']}"
     logCategorySummaryText = Property(str, getLogCategorySummaryText, notify=logTextChanged)
 
     def getDiagnosticText(self):
@@ -656,7 +705,7 @@ class AppController(QObject):
         if not rows:
             return "暂无任务"
         return "\n".join(
-            f"{row['name']} · {row['triggerSummary']} · {row['repeatSummary']} · {row['status']} · {row['nextRunText']}"
+            f"{row['name']} · {row['triggerSummary']} · {row['repeatSummary']} · {row.get('statusLabel') or row['status']} · {row['nextRunText']}"
             + (f" · {row['lastError']}" if row.get("lastError") else "")
             for row in rows
         )
@@ -666,19 +715,21 @@ class AppController(QObject):
         rows = self._scheduler.rows()
         if not rows:
             return "队列摘要：暂无任务"
-        counts = {}
-        for row in rows:
-            status = str(row.get("status") or "unknown")
-            counts[status] = counts.get(status, 0) + 1
         labels = {
             "pending": "待执行",
             "active": "监控中",
             "paused": "暂停",
             "completed": "完成",
             "failed": "失败",
+            "unknown": "未知状态",
         }
+        counts = {}
+        for row in rows:
+            status = str(row.get("status") or "unknown")
+            status_key = status if status in labels else "unknown"
+            counts[status_key] = counts.get(status_key, 0) + 1
         parts = [
-            f"{labels.get(status, status)} {count}"
+            f"{labels.get(status, '未知状态')} {count}"
             for status, count in counts.items()
             if count
         ]
@@ -696,24 +747,24 @@ class AppController(QObject):
     queueRowsJson = Property(str, getQueueRowsJson, notify=taskQueueChanged)
 
     def getSafetySummaryText(self):
-        mode = "Dry-run" if self._dry_run else "LIVE"
-        script = "on" if self._script_enabled else "off"
-        close_apps = "on" if self._close_apps_before_action else "off"
-        force_close = "on" if self._force_close else "off"
+        mode = "安全验证" if self._dry_run else "真实执行"
+        script = self._on_off(self._script_enabled)
+        close_apps = self._on_off(self._close_apps_before_action)
+        force_close = self._on_off(self._force_close)
         return (
-            f"Safety summary: mode={mode} action={self._selected_action} "
-            f"script={script} closeApps={close_apps} forceClose={force_close}"
+            f"安全摘要：模式={mode} 动作={self._selected_action}（{self.actionLabel}） "
+            f"脚本={script} 关机前关闭应用={close_apps} 强制关闭={force_close}"
         )
     safetySummaryText = Property(str, getSafetySummaryText, notify=targetInfoChanged)
 
     def getTriggerHealthSummaryText(self):
-        process_state = "active" if self._process_trigger_active else "idle"
-        network_state = "active" if self._network_trigger_active else "idle"
-        idle_state = "active" if self._idle_trigger_active else ("enabled" if self._idle_trigger_enabled else "idle")
+        process_state = self._trigger_state_label(self._process_trigger_active)
+        network_state = self._trigger_state_label(self._network_trigger_active)
+        idle_state = self._trigger_state_label(self._idle_trigger_active, self._idle_trigger_enabled)
         return (
-            f"Trigger health: process={process_state} ({self._process_trigger_status}); "
-            f"network={network_state} ({self._network_trigger_status}); "
-            f"idle={idle_state} ({self._idle_trigger_status})"
+            f"触发器状态：进程={process_state}（{self._process_trigger_status}）；"
+            f"网络={network_state}（{self._network_trigger_status}）；"
+            f"空闲={idle_state}（{self._idle_trigger_status}）"
         )
     triggerHealthSummaryText = Property(str, getTriggerHealthSummaryText, notify=processTriggerChanged)
 
@@ -735,7 +786,7 @@ class AppController(QObject):
 
     @Slot(str, result=str)
     def taskSourceLabel(self, source):
-        return TASK_SOURCE_LABELS.get(str(source), str(source))
+        return TASK_SOURCE_LABELS.get(str(source or ""), "未知来源")
 
     @Slot(result=bool)
     def minimizeToTray(self):
@@ -870,40 +921,52 @@ class AppController(QObject):
         except KeyError:
             self._add_log(f"任务不存在：{task_id}")
             return
-        self._add_log(f"Dry-run 检查：{task.name} -> {task.action} force={task.force_close}")
+        force_text = "开启" if task.force_close else "关闭"
+        self._add_log(f"安全检查：{task.name} -> {task.action}（强制关闭：{force_text}）")
 
     @Slot(str)
     def copyQueueTaskDiagnostic(self, task_id):
         try:
             task = self._scheduler.get_task(task_id)
         except KeyError:
-            self._add_log(f"Task not found: {task_id}")
+            self._add_log(f"任务不存在：{task_id}")
             return
         payload = {
             "id": task.id,
             "name": task.name,
             "action": task.action,
+            "actionLabel": self.ACTION_LABELS.get(task.action, task.action),
             "forceClose": task.force_close,
+            "forceCloseLabel": "开启" if task.force_close else "关闭",
             "triggerType": task.trigger_type.value,
+            "triggerSummary": task.trigger_summary(),
             "repeatRule": task.repeat_rule.value,
+            "repeatSummary": task.repeat_summary(),
             "enabled": task.enabled,
             "status": task.status.value,
+            "statusLabel": {
+                "pending": "待执行",
+                "active": "监控中",
+                "paused": "已暂停",
+                "completed": "已完成",
+                "failed": "失败",
+            }.get(task.status.value, "未知状态"),
             "nextRunAt": task.next_run_at.isoformat() if task.next_run_at else None,
             "lastRunAt": task.last_run_at.isoformat() if task.last_run_at else None,
             "lastError": task.last_error,
         }
-        self._copy_text("=== Queue Task Diagnostic ===\n" + json.dumps(payload, ensure_ascii=False, indent=2))
-        self._add_log(f"Queue task diagnostic copied: {task.id}")
+        self._copy_text("=== 队列任务诊断 ===\n" + json.dumps(payload, ensure_ascii=False, indent=2))
+        self._add_log(f"队列任务诊断已复制：{task.id}")
 
     @Slot(str)
     def retryQueueTask(self, task_id):
         try:
             task = self._scheduler.get_task(task_id)
         except KeyError:
-            self._add_log(f"Task not found: {task_id}")
+            self._add_log(f"任务不存在：{task_id}")
             return
         if task.status.value != "failed":
-            self._add_log(f"Task is not failed; retry skipped: {task.name}")
+            self._add_log(f"任务未失败，无法重试：{task.name}")
             return
         previous_action = self._selected_action
         previous_force_close = self._force_close
@@ -916,18 +979,18 @@ class AppController(QObject):
                 self._now(),
                 success,
                 error,
-                log_prefix="Queue task retry",
+                log_prefix="队列任务重试",
             )
 
         try:
             result = self._execute_with_script(
-                f"Retry queue task: {task.name}",
+                f"重试队列任务：{task.name}",
                 completion=mark_retry_executed,
                 source="queue-retry",
                 task_id=task.id,
             )
             if result is None:
-                self._add_log(f"Retry started asynchronously: {task.name}")
+                self._add_log(f"队列任务重试已开始：{task.name}")
                 return
             success, error = result
             mark_retry_executed(success, error)
@@ -963,7 +1026,7 @@ class AppController(QObject):
     @Slot(bool)
     def requestDryRunChange(self, enabled):
         if self.powerActionInProgress:
-            self._add_log("Power action is running; Dry-run cannot be changed")
+            self._add_log("电源动作执行中，暂不能切换安全验证")
             return
         self.dryRun = bool(enabled)
         if not self._dry_run:
@@ -1143,7 +1206,7 @@ class AppController(QObject):
             self._add_log("执行前脚本未启用")
             return
         if self._dry_run:
-            self._add_log(f"Dry-run：将执行脚本 {self._script_path or '(未设置路径)'}")
+            self._add_log(f"安全验证：将执行脚本 {self._script_path or '(未设置路径)'}")
             return
         script_path = self._validate_script_before_real_execution()
         if not script_path:
@@ -1209,7 +1272,7 @@ class AppController(QObject):
         self._network_idle_elapsed = 0.0
         self._network_speed_text = "下载 0.0 KB/s · 上传 0.0 KB/s"
         if not sample.available:
-            message = sample.message or "network unavailable"
+            message = self._network_error_text(sample.message)
             self._network_trigger_active = False
             self._network_trigger_status = message
             self._add_log(f"网络监控未启动：{message}")
@@ -1281,7 +1344,7 @@ class AppController(QObject):
 
     @Slot()
     def clearLogs(self):
-        self._logs = ["READY · 日志已清空"]
+        self._logs = ["就绪 · 日志已清空"]
         self.logTextChanged.emit()
 
     @Slot()
@@ -1290,7 +1353,7 @@ class AppController(QObject):
         try:
             target = target.expanduser()
             target.parent.mkdir(parents=True, exist_ok=True)
-            content = "=== Diagnostics ===\n" + self._diagnostic_text() + "\n\n=== Recent Logs ===\n" + "\n".join(self._logs) + "\n"
+            content = "=== 诊断信息 ===\n" + self._diagnostic_text() + "\n\n=== 最近日志 ===\n" + "\n".join(self._logs) + "\n"
             target.write_text(content, encoding="utf-8")
         except Exception as exc:
             self._add_log(f"日志导出失败：{exc}")
@@ -1312,26 +1375,26 @@ class AppController(QObject):
     @Slot()
     def copyDiagnostics(self):
         self._copy_text(self._diagnostic_text())
-        self._add_log("Diagnostics copied")
+        self._add_log("诊断已复制")
 
     @Slot(str)
     def setLogFilter(self, value):
         value = str(value or "all").lower()
         self._log_filter = value if value in ("all", "info", "warning", "error") else "all"
-        self._add_log(f"Log filter changed: {self._log_filter}")
+        self._add_log(f"日志筛选：{self.LOG_FILTER_LABELS.get(self._log_filter, self._log_filter)}")
 
     @Slot()
     def runHealthCheck(self):
-        script_state = "disabled"
+        script_state = "未启用"
         if self._script_enabled:
-            script_state = "ok" if self._normalize_script_path_for_execution() else "invalid"
+            script_state = "正常" if self._normalize_script_path_for_execution() else "无效"
         parts = [
-            "Health check",
-            f"script={script_state}",
-            f"closeAppsService={'available' if self._close_apps_service_available() else 'unavailable'}",
-            f"queue={self.queueSummaryText}",
-            f"triggers={self.triggerHealthSummaryText}",
-            f"safety={self.safetySummaryText}",
+            "健康检查",
+            f"脚本={script_state}",
+            f"关闭应用服务={self._availability_label(self._close_apps_service_available())}",
+            f"队列={self.queueSummaryText}",
+            f"触发器={self.triggerHealthSummaryText}",
+            f"安全={self.safetySummaryText}",
         ]
         self._health_check_text = " | ".join(parts)
         self._add_log(self._health_check_text)
@@ -1407,17 +1470,17 @@ class AppController(QObject):
             closer = self._get_app_closer()
             windows = list(closer.list_app_windows())
         except Exception as exc:
-            self._close_apps_last_preview = f"failed: {exc}"
+            self._close_apps_last_preview = f"失败：{exc}"
             self._add_log(f"关闭应用预检失败：{exc}")
             self.closeAppsChanged.emit()
             return
         if not windows:
-            self._close_apps_last_preview = "0 apps"
+            self._close_apps_last_preview = "没有需要关闭的应用"
             self._add_log("关闭应用预检：没有需要优雅关闭的应用")
             self.closeAppsChanged.emit()
             return
         names = self._summarize_titles(w.title for w in windows)
-        self._close_apps_last_preview = f"{len(windows)} apps: {names}"
+        self._close_apps_last_preview = f"{len(windows)} 个应用：{names}"
         self._add_log(f"关闭应用预检：将请求关闭 {len(windows)} 个应用：{names}")
         self.closeAppsChanged.emit()
 
@@ -1461,7 +1524,7 @@ class AppController(QObject):
                 return
 
     def _show_execution_reminder(self, minute):
-        mode_text = "Dry-run：到点只记录将要执行的动作，不会真实执行。" if self._dry_run else "真实执行：到点会执行系统动作，请确认未保存工作。"
+        mode_text = "安全验证：到点只记录将要执行的动作，不会真实执行。" if self._dry_run else "真实执行：到点会执行系统动作，请确认未保存工作。"
         self._reminder_dialog_title = "执行前提醒"
         self._reminder_dialog_body = f"{self.actionLabel} 将在 {self.remainingText} 后执行。\n{mode_text}"
         self._reminder_dialog_snooze_text = f"延后 {self._snooze_minutes_value} 分钟"
@@ -1527,7 +1590,8 @@ class AppController(QObject):
         self._save_settings()
         self.taskQueueChanged.emit()
         if log_prefix:
-            self._add_log(f"{log_prefix} {'completed' if success else 'failed'}: {task.name}")
+            result_text = "已完成" if success else "失败"
+            self._add_log(f"{log_prefix}{result_text}：{task.name}")
 
     def _execute_task(self, task, now):
         previous_action = self._selected_action
@@ -1581,7 +1645,7 @@ class AppController(QObject):
         context = self._power_action_context(reason, completion, source=source, task_id=task_id)
         if self._script_enabled:
             if self._dry_run:
-                self._add_log(f"Dry-run：将执行脚本 {self._script_path or '(未设置路径)'}")
+                self._add_log(f"安全验证：将执行脚本 {self._script_path or '(未设置路径)'}")
             else:
                 script_path = self._validate_script_before_real_execution()
                 if not script_path:
@@ -1593,10 +1657,10 @@ class AppController(QObject):
                     return False, result.message
         if self._dry_run:
             self._maybe_close_apps(context.action)
-            message = f"[dryRun] Would execute: {context.action} force={context.force_close}"
-            print(message)
+            force_text = "开启" if context.force_close else "关闭"
+            message = f"安全验证：将执行 {context.action}（强制关闭：{force_text}）"
             self._add_log(message)
-            self._record_history("dry-run", context.action, context.reason, "", f"Dry-run：{message}")
+            self._record_history("dry-run", context.action, context.reason, "", message)
             return True, ""
         if not self._begin_power_action():
             error = "已有电源动作正在执行"
@@ -1672,7 +1736,7 @@ class AppController(QObject):
         current = self._network_reader.sample()
         speed = compute_speed(self._network_previous_sample, current)
         if not speed.available:
-            message = speed.message or current.message or "network unavailable"
+            message = self._network_error_text(speed.message or current.message)
             self._network_timer.stop()
             self._network_trigger_active = False
             self._network_trigger_status = message
@@ -1745,30 +1809,30 @@ class AppController(QObject):
 
     def _diagnostic_text(self):
         return "\n".join([
-            "定时关机助手 3.2 Diagnostics",
-            f"Dry-run: {self._dry_run}",
-            f"Status: {self._status}",
-            f"Remaining seconds: {self._remaining_seconds}",
-            f"Target info: {self._target_time_str or '(none)'}",
-            f"Action: {self._selected_action} ({self.actionLabel})",
-            f"Force close: {self._force_close}",
-            f"Close apps before action: {self._close_apps_before_action} (timeout {self._close_apps_timeout_seconds}s)",
-            f"Close apps service: available={self._close_apps_service_available()}, cached={self._app_closer is not None}",
-            f"Close apps preview: {self._close_apps_last_preview}",
-            f"Close apps last result: {self._close_apps_last_result}",
-            f"Power action in progress: {self.powerActionInProgress}",
-            f"Power action progress: {self.powerActionProgressText or '(none)'}",
-            f"Safety summary: {self.safetySummaryText}",
-            f"Trigger health: {self.triggerHealthSummaryText}",
-            f"Queue summary: {self.queueSummaryText}",
-            f"Log summary: {self.logSummaryText}",
-            f"Log categories: {self.logCategorySummaryText}",
-            f"Script enabled: {self._script_enabled}",
-            f"Script path: {self._script_path or '(empty)'}",
-            f"Script timeout seconds: {self._script_timeout_seconds}",
-            f"Process trigger: active={self._process_trigger_active}, name={self._process_name or '(empty)'}, target={self._process_target_name or '(none)'}, status={self._process_trigger_status}",
-            f"Network trigger: active={self._network_trigger_active}, down<{self._network_download_threshold_kbps} KB/s, up<{self._network_upload_threshold_kbps} KB/s, idle={self._network_idle_seconds}s, poll={self._network_poll_seconds}s, status={self._network_trigger_status}, speed={self._network_speed_text}",
-            f"Idle trigger: enabled={self._idle_trigger_enabled}, active={self._idle_trigger_active}, minutes={self._idle_minutes}, poll={self._idle_poll_seconds}s, action={self._idle_action}, status={self._idle_trigger_status}",
+            "定时关机助手 3.2 诊断信息",
+            f"安全验证：{'开启' if self._dry_run else '关闭'}",
+            f"状态：{self._status_with_key()}",
+            f"剩余秒数：{self._remaining_seconds}",
+            f"目标信息：{self._target_time_str or '无'}",
+            f"动作：{self._selected_action}（{self.actionLabel}）",
+            f"强制关闭：{self._on_off(self._force_close)}",
+            f"关机前关闭应用：{self._on_off(self._close_apps_before_action)}（超时 {self._close_apps_timeout_seconds} 秒）",
+            f"关闭应用服务：{self._availability_label(self._close_apps_service_available())}，已缓存={self._yes_no(self._app_closer is not None)}",
+            f"关闭应用预览：{self._close_apps_last_preview}",
+            f"最近关闭结果：{self._close_apps_last_result}",
+            f"电源动作进行中：{self._yes_no(self.powerActionInProgress)}",
+            f"电源动作进度：{self.powerActionProgressText or '无'}",
+            self.safetySummaryText,
+            self.triggerHealthSummaryText,
+            f"队列摘要：{self.queueSummaryText}",
+            f"日志摘要：{self.logSummaryText}",
+            self.logCategorySummaryText,
+            f"脚本启用：{self._yes_no(self._script_enabled)}",
+            f"脚本路径：{self._script_path or '空'}",
+            f"脚本超时秒数：{self._script_timeout_seconds}",
+            f"进程触发器：监控={self._yes_no(self._process_trigger_active)}，进程={self._process_name or '空'}，目标={self._process_target_name or '无'}，状态={self._process_trigger_status}",
+            f"网络触发器：监控={self._yes_no(self._network_trigger_active)}，下载<{self._network_download_threshold_kbps} KB/s，上传<{self._network_upload_threshold_kbps} KB/s，闲置={self._network_idle_seconds} 秒，轮询={self._network_poll_seconds} 秒，状态={self._network_trigger_status}，速度={self._network_speed_text}",
+            f"空闲触发器：启用={self._yes_no(self._idle_trigger_enabled)}，监控={self._yes_no(self._idle_trigger_active)}，分钟={self._idle_minutes}，轮询={self._idle_poll_seconds} 秒，动作={self._idle_action}，状态={self._idle_trigger_status}",
         ])
 
     def _execute_power_action(self):
@@ -1847,17 +1911,11 @@ class AppController(QObject):
             from app_close_service import close_user_apps
             result = close_user_apps(closer, timeout_seconds, should_stop=should_stop)
         except Exception as exc:
-            self._close_apps_last_result = f"failed: {exc}"
+            self._close_apps_last_result = f"失败：{exc}"
             self._log_from_any_thread(f"优雅关闭应用失败：{exc}")
             self._invoke_on_controller_thread(self.closeAppsChanged.emit)
             return
-        self._close_apps_last_result = (
-            f"available={result.available}, attempted={result.attempted}, "
-            f"closed={result.closed}, remaining={result.remaining}, "
-            f"requestFailed={len(getattr(result, 'request_failed_titles', []) or [])}, "
-            f"cancelled={result.cancelled}, "
-            f"message={result.message}"
-        )
+        self._close_apps_last_result = self._format_close_apps_result(result)
         self._invoke_on_controller_thread(self.closeAppsChanged.emit)
         self._log_from_any_thread(f"优雅关闭应用：{result.message}")
         requested_titles = list(getattr(result, "requested_titles", []) or [])
@@ -1869,6 +1927,15 @@ class AppController(QObject):
         remaining_titles = list(getattr(result, "remaining_titles", []) or [])
         if remaining_titles:
             self._log_from_any_thread(f"仍未退出：{self._summarize_titles(remaining_titles)}")
+
+    def _format_close_apps_result(self, result):
+        request_failed = len(getattr(result, "request_failed_titles", []) or [])
+        return (
+            f"可用：{self._yes_no(result.available)} · 已请求：{result.attempted} · "
+            f"已关闭：{result.closed} · 仍在运行：{result.remaining} · "
+            f"请求失败：{request_failed} · 已取消：{self._yes_no(result.cancelled)} · "
+            f"结果：{result.message}"
+        )
 
     def _summarize_titles(self, titles, limit=8):
         clean_titles = [str(title) for title in titles if str(title)]
@@ -1946,7 +2013,7 @@ class AppController(QObject):
         """Gracefully ask running apps to close before a session-ending action.
 
         Mirrors a normal manual shutdown (apps get a chance to save). Honors
-        dry-run: only logs the apps that *would* be closed, never closes them.
+        安全验证模式只记录将要关闭的应用，不会真正关闭它们。
         """
         action = self._selected_action if action is None else action
         if not self._close_apps_before_action or not self._close_apps_supported(action):
@@ -1960,14 +2027,14 @@ class AppController(QObject):
             try:
                 windows = list(closer.list_app_windows())
             except Exception as exc:
-                self._add_log(f"Dry-run：枚举待关闭应用失败：{exc}")
+                self._add_log(f"安全验证：枚举待关闭应用失败：{exc}")
                 return
             if not windows:
-                self._add_log("Dry-run：没有需要优雅关闭的应用")
+                self._add_log("安全验证：没有需要优雅关闭的应用")
                 return
             names = "、".join(w.title for w in windows[:8])
             suffix = " 等" if len(windows) > 8 else ""
-            self._add_log(f"Dry-run：将优雅关闭 {len(windows)} 个应用：{names}{suffix}")
+            self._add_log(f"安全验证：将优雅关闭 {len(windows)} 个应用：{names}{suffix}")
             return
         self._close_apps_with_closer(closer, self._close_apps_timeout_seconds)
 
@@ -1995,7 +2062,11 @@ class AppController(QObject):
             self._last_process_check_error = exception_text(exc)
             return False
         if completed.returncode != 0:
-            message = (completed.stderr or completed.stdout or f"tasklist exited with {completed.returncode}").strip()
+            message = (
+                completed.stderr
+                or completed.stdout
+                or f"进程列表命令退出码 {completed.returncode}"
+            ).strip()
             self._last_process_check_error = message
             return False
         return any(line.lower().startswith(f'"{clean_name}"') for line in completed.stdout.splitlines())
@@ -2040,8 +2111,8 @@ class AppController(QObject):
     def _copy_text(self, text):
         self._last_copied_text = str(text or "")
         clipboard_ok = self._write_clipboard_text(self._last_copied_text)
-        status = "copied" if clipboard_ok else "prepared"
-        self._copy_status_text = f"Copy {status}: {len(self._last_copied_text)} chars"
+        status = "已复制" if clipboard_ok else "已准备"
+        self._copy_status_text = f"{status}：{len(self._last_copied_text)} 个字符"
         self.logTextChanged.emit()
 
     def _write_clipboard_text(self, text):

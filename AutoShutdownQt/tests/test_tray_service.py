@@ -96,7 +96,25 @@ class TrayServiceTest(unittest.TestCase):
         available = service.setup()
 
         self.assertFalse(available)
-        self.assertIn("tray unavailable", messages[0])
+        self.assertIn("托盘不可用", messages[0])
+        self.assertNotIn("tray unavailable", messages[0])
+
+    def test_unavailable_tray_logs_chinese_when_factory_raises(self):
+        window = FakeWindow()
+        controller = FakeController()
+        messages = []
+        service = TrayService(
+            controller,
+            window,
+            tray_factory=lambda: (_ for _ in ()).throw(RuntimeError("boom")),
+            logger=messages.append,
+        )
+
+        available = service.setup()
+
+        self.assertFalse(available)
+        self.assertIn("托盘不可用：boom", messages[0])
+        self.assertNotIn("tray unavailable", messages[0])
 
     def test_quit_app_marks_window_for_explicit_quit_when_property_exists(self):
         window = FakeWindow()
@@ -130,7 +148,8 @@ class TrayServiceTest(unittest.TestCase):
     def test_minimize_to_tray_keeps_window_visible_when_tray_unavailable(self):
         window = FakeWindow()
         controller = FakeController()
-        service = TrayService(controller, window, tray_factory=lambda: None)
+        messages = []
+        service = TrayService(controller, window, tray_factory=lambda: None, logger=messages.append)
         service.setup()
 
         minimized = service.minimize_to_tray()
@@ -138,6 +157,8 @@ class TrayServiceTest(unittest.TestCase):
         self.assertFalse(minimized)
         self.assertTrue(window.visible)
         self.assertEqual(window.hide_calls, 0)
+        self.assertIn("最小化到托盘已跳过：托盘不可用", messages[-1])
+        self.assertNotIn("minimize to tray", messages[-1])
 
     def test_double_clicking_tray_icon_shows_hidden_window(self):
         window = FakeWindow()

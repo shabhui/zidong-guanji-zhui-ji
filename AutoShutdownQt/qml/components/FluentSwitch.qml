@@ -9,7 +9,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 14
-        color: root.checked ? Theme.glowBlue : Theme.inputGlass
+        color: root.checked ? Theme.checkedTrack : Theme.inputGlass
         border.color: root.checked ? Theme.e5BorderStrong : Theme.e5BorderSoft
         border.width: 1
 

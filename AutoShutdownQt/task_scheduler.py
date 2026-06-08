@@ -73,7 +73,7 @@ class TaskScheduler:
         executed_at = executed_at or self._now_provider()
         task = self.get_task(task_id)
         task.last_run_at = executed_at
-        task.last_error = "" if success else str(error or "execution failed")
+        task.last_error = "" if success else str(error or "执行失败")
         if not success:
             task.status = TaskStatus.FAILED
             task.next_run_at = None
@@ -98,7 +98,7 @@ class TaskScheduler:
                 task = ScheduledTask.from_dict(entry)
                 self._normalize_loaded_task(task)
             except Exception as exc:
-                self._diagnostic_logger(f"invalid saved task ignored: {exc}")
+                self._diagnostic_logger(f"已忽略无效任务：{self._diagnostic_error_text(exc)}")
                 continue
             self._tasks.append(task)
             max_order = max(max_order, task.created_order)
@@ -116,10 +116,37 @@ class TaskScheduler:
             "repeatRule": task.repeat_rule.value,
             "repeatSummary": task.repeat_summary(),
             "status": task.status.value,
+            "statusLabel": self._status_label(task.status),
             "enabled": task.enabled,
             "nextRunText": task.next_run_text(),
             "lastError": task.last_error,
         } for task in self._tasks]
+
+    def _status_label(self, status):
+        return {
+            TaskStatus.PENDING: "待执行",
+            TaskStatus.ACTIVE: "监控中",
+            TaskStatus.PAUSED: "已暂停",
+            TaskStatus.COMPLETED: "已完成",
+            TaskStatus.FAILED: "失败",
+        }.get(status, str(status))
+
+    def _diagnostic_error_text(self, exc):
+        text = str(exc)
+        replacements = (
+            ("invalid action: ", "动作无效："),
+            ("invalid triggerType: ", "触发类型无效："),
+            ("invalid repeatRule: ", "重复规则无效："),
+            ("invalid status: ", "状态无效："),
+            ("task entry must be an object", "任务条目不是有效对象"),
+            ("only fixed_time tasks can repeat", "仅固定时间任务支持重复"),
+        )
+        for source, label in replacements:
+            if text.startswith(source):
+                return label + text[len(source):]
+            if text == source:
+                return label
+        return text or "原因未知"
 
     def _normalize_loaded_task(self, task):
         if not task.enabled:

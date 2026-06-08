@@ -150,10 +150,10 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
             ),
         },
         "safetyNotes": [
-            "Dry-run is enabled by default.",
-            "Live mode can execute real Windows power actions.",
-            "Task queues and tray background scheduling are local-only features.",
-            "The portable exe is not code signed.",
+            "默认开启安全验证模式。",
+            "真实执行模式会调用 Windows 电源动作。",
+            "任务队列与托盘后台调度仅保存在本机。",
+            "便携版 exe 暂未进行代码签名。",
         ],
     }
     target = bundle / "release-manifest.json"
@@ -228,44 +228,44 @@ def create_sha256sums(artifact_paths=ZIP_PATH, target_path=SHA256SUMS_PATH):
 def create_release_checklist(target_path=RELEASE_CHECKLIST_PATH):
     target = Path(target_path)
     target.write_text(
-        f"# 定时关机助手 {VERSION} Release Checklist\n\n"
-        "- [ ] Launch app with Dry-run enabled by default.\n"
-        "- [ ] Verify Command Center safety strip shows dry-run/live state, action, tray, and queue count.\n"
-        "- [ ] Verify Queue health remains readable with empty and populated queues.\n"
-        "- [ ] Verify configurable execution reminders are visible in Settings.\n"
-        "- [ ] Verify a one-minute countdown shows the execution reminder dialog.\n"
-        "- [ ] Verify the reminder dialog distinguishes Dry-run from real execution mode.\n"
-        "- [ ] Verify default snooze extends the queued task and does not duplicate reminders.\n"
-        "- [ ] Verify each queued task gets its own reminder threshold.\n"
-        "- [ ] Verify Task Queue Dashboard empty and populated states.\n"
-        "- [ ] Verify Recent activity shows logs and export/clear controls.\n"
-        "- [ ] Verify Windows native notification fallback does not hide the in-app reminder.\n"
-        "- [ ] Verify first-run safety guide appears once on a fresh config.\n"
-        "- [ ] Verify first close-to-tray action shows the tray background hint once.\n"
-        "- [ ] Verify LIVE MODE warning copy is visible before immediate execution.\n"
-        "- [ ] Verify task history records create, snooze, cancel, and Dry-run execution events.\n"
-        "- [ ] Verify task history clear and JSON export controls.\n"
-        "- [ ] Verify startup option writes/removes the current-user Run entry.\n"
-        "- [ ] Verify close button hides the window only when the right-bottom tray icon is visible.\n"
-        "- [ ] Verify double-clicking the tray icon restores the window and tray menu Quit exits.\n"
-        "- [ ] Verify idle auto-shutdown can be configured with idle minutes, poll seconds, and action.\n"
-        "- [ ] Verify idle queue task appears and can be cancelled before execution.\n"
-        "- [ ] Verify gracefully close apps before shutdown can be enabled with a 1-300 second timeout.\n"
-        "- [ ] Verify close-apps preflight lists candidate windows without closing them.\n"
-        "- [ ] Verify Dry-run close-apps preview lists apps without closing them.\n"
-        "- [ ] Verify Live close-apps validation only runs with throwaway apps and does not leave duplicate power actions pending.\n"
-        "- [ ] Verify exported diagnostics include close-apps status, preview, and last result.\n"
-        "- [ ] Verify safety summary is visible in Settings and changes with Dry-run, script, close-apps, and force-close settings.\n"
-        "- [ ] Verify trigger health summary shows process, network, and idle trigger states.\n"
-        "- [ ] Verify log category summary counts info, warning, and error entries in Recent activity.\n"
-        "- [ ] Verify Copy diagnostics writes to clipboard when available and shows copied character count.\n"
-        "- [ ] Verify log filters switch between all, warning, and error logs without clearing logs.\n"
-        "- [ ] Verify one-click health check reports script, close-apps service, queue, trigger, and safety state.\n"
-        "- [ ] Verify failed queue task retry can rerun a failed task without creating a duplicate row.\n"
-        "- [ ] Verify copy queue task diagnostics records the failed task id, status, and last error.\n"
-        "- [ ] Run real window smoke test with AUTOSHUTDOWNQT_REAL_WINDOW_SMOKE=1 before publishing.\n"
-        "- [ ] Do not execute real shutdown, restart, sleep, hibernate, logoff, or lock during validation.\n"
-        "- [ ] Publish SHA256SUMS.txt next to the zip and installer.\n",
+        f"# 定时关机助手 {VERSION} 发布检查清单\n\n"
+        "- [ ] 启动应用后确认默认开启安全验证模式。\n"
+        "- [ ] 验证指挥中心安全状态条展示安全验证/真实执行状态、当前动作、托盘状态和队列数量。\n"
+        "- [ ] 验证队列健康在空队列和有任务时都保持清晰可读。\n"
+        "- [ ] 验证设置页可见并可配置执行前提醒。\n"
+        "- [ ] 验证 1 分钟倒计时会显示执行前提醒弹窗。\n"
+        "- [ ] 验证提醒弹窗能区分安全验证模式和真实执行模式。\n"
+        "- [ ] 验证默认延后会延长当前队列任务且不会重复提醒。\n"
+        "- [ ] 验证每个队列任务都有独立提醒阈值。\n"
+        "- [ ] 验证任务队列面板的空状态和有任务状态。\n"
+        "- [ ] 验证最近活动展示日志以及导出、清空控件。\n"
+        "- [ ] 验证 Windows 原生通知兜底不会遮蔽应用内提醒。\n"
+        "- [ ] 验证全新配置下首次启动安全说明只出现一次。\n"
+        "- [ ] 验证首次关闭到托盘会显示后台运行提示且只出现一次。\n"
+        "- [ ] 验证真实执行模式下立即执行前的风险提示清晰可见。\n"
+        "- [ ] 验证任务历史记录创建、延后、取消和安全验证执行事件。\n"
+        "- [ ] 验证任务历史支持清空和 JSON 导出。\n"
+        "- [ ] 验证开机启动选项会写入或移除当前用户 Run 项。\n"
+        "- [ ] 验证右下角托盘图标可见时关闭按钮只隐藏窗口。\n"
+        "- [ ] 验证双击托盘图标可恢复窗口，托盘菜单“退出程序”可彻底退出。\n"
+        "- [ ] 验证空闲自动关机可配置空闲分钟、轮询秒数和动作。\n"
+        "- [ ] 验证空闲队列任务出现后可在执行前取消。\n"
+        "- [ ] 验证关机前优雅关闭应用可开启，并支持 1-300 秒等待超时。\n"
+        "- [ ] 验证关闭应用预检会列出候选窗口且不会关闭它们。\n"
+        "- [ ] 验证安全验证下的关闭应用预览只列出应用，不真正关闭。\n"
+        "- [ ] 验证真实执行关闭应用验证只使用可丢弃应用，且不会留下重复电源动作。\n"
+        "- [ ] 验证导出的诊断信息包含关闭应用状态、预览和最近结果。\n"
+        "- [ ] 验证安全摘要在设置页可见，并会随安全验证、脚本、关闭应用和强制关闭设置变化。\n"
+        "- [ ] 验证触发器状态展示进程、网络和空闲触发器状态。\n"
+        "- [ ] 验证日志分类统计最近活动中的信息、警告和错误记录。\n"
+        "- [ ] 验证复制诊断写入剪贴板并显示复制字符数。\n"
+        "- [ ] 验证日志筛选可在全部、警告和错误之间切换且不会清空日志。\n"
+        "- [ ] 验证一键健康检查报告脚本、关闭应用服务、队列、触发器和安全状态。\n"
+        "- [ ] 验证失败队列任务重试可以重新运行失败任务且不创建重复行。\n"
+        "- [ ] 验证复制队列任务诊断会记录失败任务 id、状态和最近错误。\n"
+        "- [ ] 发布前使用 AUTOSHUTDOWNQT_REAL_WINDOW_SMOKE=1 运行真实窗口冒烟测试。\n"
+        "- [ ] 验证期间不要执行真实的关机、重启、睡眠、休眠、注销或锁定。\n"
+        "- [ ] 将 SHA256SUMS.txt 与 zip 和安装器一起发布。\n",
         encoding="utf-8",
     )
     return target

@@ -34,10 +34,20 @@ spaces/
 # Local tool caches and one-off backups (never commit)
 .codegraph/
 .reasonix/
+.codex_pydeps/
+.codex-marketplace-test/
+.tmp/
+test-tmp/
 *.bundle
 
 # Generated design artifacts
 canvas-image-image-*.png
+
+# Local UI screenshots and visual regression captures
+AutoShutdownQt/screenshots/
+AutoShutdownQt/ui_screenshots/
+AutoShutdownQt/ui_page*.png
+AutoShutdownQt/ui_overview.png
 
 # IDE/user files
 .vs/
