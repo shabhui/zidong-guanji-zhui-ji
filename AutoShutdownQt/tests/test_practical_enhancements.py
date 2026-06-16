@@ -703,7 +703,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         self.assertIn("安全验证：将执行 shutdown（强制关闭：关闭）", controller.logText)
         self.assertNotIn("[dryRun]", controller.logText)
-        self.assertIn("已完成", controller.queueText)
+        self.assertEqual(controller.queueTaskCount, 0)
+        self.assertEqual(json.loads(controller.queueRowsJson), [])
         self.assertNotIn("completed", controller.queueText)
 
     def test_dry_run_execution_uses_app_log_without_console_output(self):
@@ -1484,7 +1485,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertNotIn("failed", controller.queueText)
         self.assertIn("power boom", controller.queueText)
 
-    def test_queue_summary_reports_empty_failed_and_completed_states(self):
+    def test_queue_summary_reports_empty_failed_and_successfully_removed_once_states(self):
         controller = AppController()
 
         self.assertTrue(controller.queueSummaryText)
@@ -1510,8 +1511,8 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         controller._on_tick()
 
-        self.assertIn("1", controller.queueSummaryText)
-        self.assertIn("已完成", controller.queueText)
+        self.assertEqual(controller.queueTaskCount, 0)
+        self.assertEqual(json.loads(controller.queueRowsJson), [])
         self.assertNotIn("completed", controller.queueText)
 
     def test_queue_summary_uses_localized_fallback_for_unknown_statuses(self):
@@ -1745,7 +1746,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.assertNotIn("Queue task retry", controller.logText)
         self.assertNotIn("Retry queue task", controller.logText)
         self.assertNotIn("completed:", controller.logText)
-        self.assertIn("已完成", controller.queueText)
+        self.assertEqual(controller.queueTaskCount, 0)
         self.assertNotIn("completed", controller.queueText)
         self.assertGreaterEqual(len(calls), 2)
 

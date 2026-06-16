@@ -80,6 +80,7 @@ class TaskScheduler:
         elif task.repeat_rule == RepeatRule.ONCE:
             task.status = TaskStatus.COMPLETED
             task.next_run_at = None
+            self.remove_task(task.id)
         else:
             task.status = TaskStatus.PENDING
             self._schedule_next_run(task, executed_at + timedelta(seconds=1))
@@ -99,6 +100,8 @@ class TaskScheduler:
                 self._normalize_loaded_task(task)
             except Exception as exc:
                 self._diagnostic_logger(f"已忽略无效任务：{self._diagnostic_error_text(exc)}")
+                continue
+            if task.status == TaskStatus.COMPLETED and task.repeat_rule == RepeatRule.ONCE:
                 continue
             self._tasks.append(task)
             max_order = max(max_order, task.created_order)

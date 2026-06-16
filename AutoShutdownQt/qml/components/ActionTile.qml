@@ -4,7 +4,7 @@ import ".."
 
 NeonCard {
     id: root
-    implicitHeight: 78
+    implicitHeight: 74
     hoverable: true
 
     property string actionKey: ""
@@ -18,14 +18,14 @@ NeonCard {
     hoverColor: isSelected ? Theme.selectedOverlay : Theme.cardGlassHover
     cardBorderColor: isSelected ? Theme.borderStrong : Theme.e5BorderSoft
     activeBorderColor: Theme.borderStrong
-    scale: enabled && mouseArea.containsMouse ? 1.025 : 1.0
+    scale: enabled && mouseArea.containsMouse ? 1.006 : 1.0
     opacity: enabled ? 1.0 : 0.56
 
     Rectangle {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 4
+        width: 3
         radius: 2
         color: root.isSelected ? Theme.primary : "transparent"
         opacity: root.isSelected ? 1 : 0
@@ -36,6 +36,7 @@ NeonCard {
         anchors.margins: 1
         radius: parent.radius - 1
         color: root.isSelected ? Theme.selectedOverlay : "transparent"
+        opacity: root.isSelected ? 0.72 : 0
     }
 
     MouseArea {
@@ -55,7 +56,7 @@ NeonCard {
             text: actionLabel
             color: root.isSelected ? Theme.textPrimary : Theme.textSecondary
             font.pixelSize: 16
-            font.weight: Font.Bold
+            font.weight: Font.DemiBold
             fontSizeMode: Text.HorizontalFit
             minimumPixelSize: 11
             maximumLineCount: 1

@@ -12,7 +12,7 @@ from task_scheduler import TaskScheduler
 
 
 class TaskSchedulerTest(unittest.TestCase):
-    def test_countdown_task_gets_next_run_and_completes_after_due(self):
+    def test_once_countdown_task_is_removed_after_successful_execution(self):
         now = datetime(2026, 6, 3, 12, 0, 0)
         scheduler = TaskScheduler(now_provider=lambda: now)
 
@@ -24,8 +24,9 @@ class TaskSchedulerTest(unittest.TestCase):
 
         scheduler.mark_executed(task.id, now + timedelta(seconds=10), success=True)
 
-        self.assertEqual(scheduler.get_task(task.id).status, TaskStatus.COMPLETED)
-        self.assertIsNone(scheduler.get_task(task.id).next_run_at)
+        self.assertEqual(scheduler.tasks, [])
+        with self.assertRaises(KeyError):
+            scheduler.get_task(task.id)
 
     def test_fixed_time_daily_reschedules_to_next_valid_day(self):
         now = datetime(2026, 6, 3, 23, 30, 0)
@@ -133,7 +134,7 @@ class TaskSchedulerTest(unittest.TestCase):
         self.assertEqual(row["lastError"], "执行失败")
         self.assertNotIn("execution failed", row["lastError"])
 
-    def test_load_clears_completed_task_next_run_time(self):
+    def test_load_prunes_completed_once_tasks(self):
         task_data = ScheduledTask.create("done", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 60}, RepeatRule.ONCE, 1).to_dict()
         task_data["status"] = TaskStatus.COMPLETED.value
         task_data["nextRunAt"] = datetime(2026, 6, 3, 12, 10, 0).isoformat()
@@ -141,7 +142,7 @@ class TaskSchedulerTest(unittest.TestCase):
 
         scheduler.load_from_settings({"version": 1, "tasks": [task_data]})
 
-        self.assertIsNone(scheduler.tasks[0].next_run_at)
+        self.assertEqual(scheduler.tasks, [])
 
     def test_load_ignores_invalid_entries_with_diagnostics(self):
         diagnostics = []

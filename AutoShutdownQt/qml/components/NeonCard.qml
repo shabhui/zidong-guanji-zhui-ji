@@ -14,9 +14,9 @@ Rectangle {
     color: active ? Theme.cardGlassActive : (hoverHandler.hovered && hoverable ? hoverColor : cardColor)
     radius: Theme.radiusLg
     border.color: active ? activeBorderColor : (hoverHandler.hovered && hoverable ? Theme.e5BorderStrong : cardBorderColor)
-    border.width: active ? 2 : 1
+    border.width: 1
     antialiasing: true
-    scale: hoverHandler.hovered && hoverable ? 1.008 : 1.0
+    scale: hoverHandler.hovered && hoverable ? 1.004 : 1.0
 
     // Soft top highlight, kept restrained so solid panels stay readable.
     Rectangle {
@@ -25,8 +25,8 @@ Rectangle {
         anchors.top: parent.top
         height: Math.max(22, parent.height * 0.18)
         radius: parent.radius
-        color: "#24FFFFFF"
-        opacity: 0.18
+        color: "#20FFFFFF"
+        opacity: 0.13
     }
 
     HoverHandler {

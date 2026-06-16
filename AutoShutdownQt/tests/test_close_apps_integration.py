@@ -40,6 +40,15 @@ def _wait_for_queue_status(controller, expected_status, timeout=2):
     return _queue_statuses(controller)
 
 
+def _wait_for_empty_queue(controller, timeout=2):
+    deadline = time.monotonic() + timeout
+    while _queue_statuses(controller) and time.monotonic() < deadline:
+        QCoreApplication.processEvents()
+        time.sleep(0.02)
+    QCoreApplication.processEvents()
+    return _queue_statuses(controller)
+
+
 def _queue_statuses(controller):
     return [row["status"] for row in json.loads(controller.queueRowsJson)]
 
@@ -220,7 +229,7 @@ class CloseAppsIntegrationTest(unittest.TestCase):
 
         self.assertNotIn("completed", _queue_statuses(self.controller))
         self.assertEqual(_wait_for_calls(power_calls, [("shutdown", False)]), [("shutdown", False)])
-        self.assertIn("completed", _queue_statuses(self.controller))
+        self.assertEqual(_wait_for_empty_queue(self.controller), [])
 
     def test_retry_failed_async_queue_task_marks_executed_after_power_action_finishes(self):
         initial_calls = []
@@ -262,8 +271,7 @@ class CloseAppsIntegrationTest(unittest.TestCase):
         self.assertNotIn("completed", _queue_statuses(self.controller))
 
         release_power_action.set()
-        self.assertIn("completed", _wait_for_queue_status(self.controller, "completed"))
-        self.assertIn("completed", _queue_statuses(self.controller))
+        self.assertEqual(_wait_for_empty_queue(self.controller), [])
 
     def test_power_action_in_progress_property_toggles_around_async_close(self):
         closer = AlwaysStubbornCloser(_windows((1, 10, "未保存的文档")))

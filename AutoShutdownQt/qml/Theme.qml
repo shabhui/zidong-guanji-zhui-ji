@@ -2,56 +2,56 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property color bgDeep: "#070B12"
-    readonly property color bgNight: "#101826"
-    readonly property color bgViolet: "#151B2A"
+    readonly property color bgDeep: "#090D14"
+    readonly property color bgNight: "#111827"
+    readonly property color bgViolet: "#171D2A"
     readonly property color bgPanel: bgNight
 
-    readonly property color glassBase: "#2EFFFFFF"
-    readonly property color glassSoft: "#1FFFFFFF"
-    readonly property color glassStrong: "#3DFFFFFF"
-    readonly property color glassHover: "#4AFFFFFF"
+    readonly property color glassBase: "#24FFFFFF"
+    readonly property color glassSoft: "#16FFFFFF"
+    readonly property color glassStrong: "#32FFFFFF"
+    readonly property color glassHover: "#3BFFFFFF"
     readonly property color surfaceGlass: glassBase
     readonly property color surfaceStrong: glassStrong
     readonly property color surfaceHover: glassHover
 
-    readonly property color borderSoft: "#40BDEBFF"
-    readonly property color borderStrong: "#9AE6FFFF"
+    readonly property color borderSoft: "#2CBDEBFF"
+    readonly property color borderStrong: "#72CDEEFF"
 
-    readonly property color primary: "#79D8FF"
-    readonly property color accent: "#7DFFC4"
-    readonly property color success: "#7DFFC4"
+    readonly property color primary: "#70C8EA"
+    readonly property color accent: "#7EE1BA"
+    readonly property color success: "#7EE1BA"
     readonly property color warning: "#FFD166"
     readonly property color danger: "#FF5C8A"
 
-    readonly property color textPrimary: "#FFF7FF"
-    readonly property color textSecondary: "#D9CCF3"
+    readonly property color textPrimary: "#F7FAFF"
+    readonly property color textSecondary: "#B9C5D6"
 
     readonly property color e5BgA: "#080B12"
     readonly property color e5BgB: "#101827"
     readonly property color e5BgC: "#151B2A"
-    readonly property color e5Blue: "#58C7E8"
+    readonly property color e5Blue: "#5BBBD8"
     readonly property color e5Star: "#F7F2FF"
 
-    readonly property color shellGlass: "#D0101624"
-    readonly property color cardGlass: "#E0182232"
-    readonly property color cardGlassHover: "#F0202B3D"
-    readonly property color cardGlassActive: "#F02A3350"
-    readonly property color dialogPanel: "#181D2A"
-    readonly property color dialogPanelRaised: "#20283A"
+    readonly property color shellGlass: "#D0111722"
+    readonly property color cardGlass: "#E0182130"
+    readonly property color cardGlassHover: "#F01F2939"
+    readonly property color cardGlassActive: "#F0263348"
+    readonly property color dialogPanel: "#171D29"
+    readonly property color dialogPanelRaised: "#1E2635"
     readonly property color dialogScrim: "#CC050716"
     readonly property color inputGlass: "#2AFFFFFF"
-    readonly property color selectedOverlay: "#1C4CC9FF"
-    readonly property color checkedTrack: "#304CC9FF"
+    readonly property color selectedOverlay: "#184CC9FF"
+    readonly property color checkedTrack: "#284CC9FF"
 
-    readonly property color e5BorderSoft: "#55BDEBFF"
-    readonly property color e5BorderStrong: "#B44CC9FF"
-    readonly property color e5BorderBlue: "#AA4CC9FF"
+    readonly property color e5BorderSoft: "#34BDEBFF"
+    readonly property color e5BorderStrong: "#7E86DFFF"
+    readonly property color e5BorderBlue: "#7486DFFF"
 
-    readonly property real radiusSm: 6
-    readonly property real radiusMd: 8
-    readonly property real radiusLg: 8
-    readonly property real radiusXl: 10
+    readonly property real radiusSm: 8
+    readonly property real radiusMd: 12
+    readonly property real radiusLg: 14
+    readonly property real radiusXl: 18
 
     readonly property real spaceXs: 4
     readonly property real spaceSm: 8
@@ -59,7 +59,7 @@ QtObject {
     readonly property real spaceLg: 24
     readonly property real spaceXl: 32
 
-    readonly property int animFast: 130
-    readonly property int animNormal: 240
+    readonly property int animFast: 160
+    readonly property int animNormal: 260
     readonly property int animSlow: 420
 }
