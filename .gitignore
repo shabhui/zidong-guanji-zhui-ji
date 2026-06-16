@@ -6,16 +6,6 @@ __pycache__/
 *.py[cod]
 dist/
 *.spec
-!AutoShutdownQt/AutoShutdownQt-2.0.spec
-!AutoShutdownQt/AutoShutdownQt-2.1.spec
-!AutoShutdownQt/AutoShutdownQt-2.2.spec
-!AutoShutdownQt/AutoShutdownQt-2.3.spec
-!AutoShutdownQt/AutoShutdownQt-2.4.spec
-!AutoShutdownQt/AutoShutdownQt-2.5.spec
-!AutoShutdownQt/AutoShutdownQt-3.0.spec
-!AutoShutdownQt/AutoShutdownQt-3.0.iss
-!AutoShutdownQt/AutoShutdownQt-3.1.spec
-!AutoShutdownQt/AutoShutdownQt-3.1.iss
 !AutoShutdownQt/AutoShutdownQt-3.2.spec
 !AutoShutdownQt/AutoShutdownQt-3.2.iss
 

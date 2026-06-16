@@ -12,7 +12,7 @@ ensure_qt_modules()
 
 from PySide6.QtMultimedia import QMediaPlayer
 
-from music_service import MusicService, find_first_mp3, find_mp3_tracks, format_ms
+from music_service import MusicService, find_mp3_tracks, format_ms
 
 
 class FakePlayer:
@@ -51,27 +51,6 @@ class FakeAudioOutput:
 
 
 class MusicServiceTest(unittest.TestCase):
-    def test_find_first_mp3_returns_sorted_first_project_root_match(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "b-song.mp3").write_bytes(b"demo")
-            (root / "a-song.mp3").write_bytes(b"demo")
-            (root / "nested").mkdir()
-            (root / "nested" / "0-nested.mp3").write_bytes(b"demo")
-
-            result = find_first_mp3(root)
-
-            self.assertEqual(result, root / "a-song.mp3")
-
-    def test_find_first_mp3_returns_none_when_root_has_no_mp3(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "song.wav").write_bytes(b"demo")
-
-            result = find_first_mp3(root)
-
-            self.assertIsNone(result)
-
     def test_service_reports_unavailable_without_mp3(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MusicService(Path(tmp), player=FakePlayer(), audio_output=FakeAudioOutput())

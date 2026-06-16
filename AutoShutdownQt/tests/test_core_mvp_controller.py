@@ -12,7 +12,12 @@ ensure_qt_modules()
 
 from PySide6.QtCore import QCoreApplication
 
-from controller import AppController, ImmediateMonitorExecutor
+from controller import AppController
+
+
+class ImmediateMonitorExecutor:
+    def submit(self, work, callback):
+        callback(work())
 
 
 class CoreMvpControllerTest(unittest.TestCase):

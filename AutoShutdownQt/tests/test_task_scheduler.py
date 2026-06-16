@@ -216,6 +216,32 @@ class TaskSchedulerTest(unittest.TestCase):
         self.assertIsNone(task.next_run_at)
         self.assertEqual(task.status.value, "paused")
 
+    def test_remove_tasks_by_trigger_removes_only_matching_tasks(self):
+        now = datetime(2026, 6, 3, 12, 0, 0)
+        scheduler = TaskScheduler(now_provider=lambda: now)
+        countdown = scheduler.add_task("countdown", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 1}, RepeatRule.ONCE)
+        process = scheduler.add_task("process", "lock", False, TaskTriggerType.PROCESS_EXIT, {}, RepeatRule.ONCE)
+        idle = scheduler.add_task("idle", "lock", False, TaskTriggerType.IDLE, {}, RepeatRule.ONCE)
+
+        self.assertTrue(scheduler.remove_tasks_by_trigger(TaskTriggerType.PROCESS_EXIT))
+
+        self.assertEqual({task.id for task in scheduler.tasks}, {countdown.id, idle.id})
+        with self.assertRaises(KeyError):
+            scheduler.get_task(process.id)
+        self.assertFalse(scheduler.remove_tasks_by_trigger(TaskTriggerType.PROCESS_EXIT))
+
+    def test_clear_tasks_removes_all_tasks_and_reports_change(self):
+        now = datetime(2026, 6, 3, 12, 0, 0)
+        scheduler = TaskScheduler(now_provider=lambda: now)
+
+        self.assertFalse(scheduler.clear_tasks())
+        scheduler.add_task("countdown", "lock", False, TaskTriggerType.COUNTDOWN, {"seconds": 1}, RepeatRule.ONCE)
+        scheduler.add_task("process", "lock", False, TaskTriggerType.PROCESS_EXIT, {}, RepeatRule.ONCE)
+
+        self.assertTrue(scheduler.clear_tasks())
+        self.assertEqual(scheduler.tasks, [])
+        self.assertFalse(scheduler.clear_tasks())
+
 
 if __name__ == "__main__":
     unittest.main()

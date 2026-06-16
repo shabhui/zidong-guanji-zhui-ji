@@ -14,12 +14,15 @@ from history_service import HistoryEvent, append_history_event, clear_history, e
 from idle_service import WindowsIdleReader, format_idle_status
 from network_service import NetworkReader, compute_speed
 from music_service import NullMusicService
-from execution_reporting import exception_text
 from power_action_context import PowerActionContext
 from script_service import run_script
 from settings_service import default_settings, load_settings, log_export_path as default_log_export_path, save_settings
 from task_model import RepeatRule, TaskTriggerType
 from task_scheduler import TaskScheduler
+
+
+def exception_text(exc):
+    return str(exc) or exc.__class__.__name__
 
 
 @dataclass
@@ -43,11 +46,6 @@ class ThreadedMonitorExecutor:
             daemon=True,
         )
         worker.start()
-
-
-class ImmediateMonitorExecutor:
-    def submit(self, work, callback):
-        callback(work())
 
 
 TASK_SOURCE_LABELS = {
@@ -905,8 +903,7 @@ class AppController(QObject):
 
     @Slot()
     def cancelAllTasks(self):
-        for task in list(self._scheduler.tasks):
-            self._scheduler.remove_task(task.id)
+        self._scheduler.clear_tasks()
         self.cancel()
         self._save_settings()
         self._add_log("已取消所有任务")
@@ -1576,14 +1573,8 @@ class AppController(QObject):
             self._remaining_seconds = previous_remaining
             self._status = previous_status
 
-    def _queue_tasks_by_trigger(self, trigger_type):
-        return [task for task in self._scheduler.tasks if task.trigger_type == trigger_type]
-
     def _remove_queue_tasks_by_trigger(self, trigger_type):
-        removed = False
-        for task in self._queue_tasks_by_trigger(trigger_type):
-            removed = self._scheduler.remove_task(task.id) or removed
-        return removed
+        return self._scheduler.remove_tasks_by_trigger(trigger_type)
 
     def _stop_process_monitor_without_queue_update(self):
         self._process_timer.stop()

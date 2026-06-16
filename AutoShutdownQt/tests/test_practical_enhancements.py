@@ -17,8 +17,8 @@ ensure_qt_modules()
 
 from PySide6.QtCore import QCoreApplication
 
-from controller import AppController, ImmediateMonitorExecutor
-from idle_service import IdleSample, StaticIdleReader
+from controller import AppController
+from idle_service import IdleSample
 import network_service
 from network_service import NetworkReader, NetworkSample, compute_speed
 from settings_service import default_settings, load_settings, save_settings
@@ -32,6 +32,14 @@ class FakeIdleReader:
         if not self.samples:
             return IdleSample(False, 0, "no more samples")
         return self.samples.pop(0)
+
+
+class StaticIdleReader:
+    def __init__(self, idle_seconds):
+        self._idle_seconds = int(idle_seconds)
+
+    def sample(self):
+        return IdleSample(True, self._idle_seconds, "")
 
 
 class FakeNetworkReader:
@@ -53,6 +61,11 @@ class DelayedMonitorExecutor:
 
     def run_next(self):
         work, callback = self.jobs.pop(0)
+        callback(work())
+
+
+class ImmediateMonitorExecutor:
+    def submit(self, work, callback):
         callback(work())
 
 

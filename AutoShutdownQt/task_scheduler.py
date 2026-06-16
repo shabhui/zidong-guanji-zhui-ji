@@ -38,6 +38,17 @@ class TaskScheduler:
         self._tasks = [task for task in self._tasks if task.id != task_id]
         return len(self._tasks) != before
 
+    def remove_tasks_by_trigger(self, trigger_type):
+        before = len(self._tasks)
+        self._tasks = [task for task in self._tasks if task.trigger_type != trigger_type]
+        return len(self._tasks) != before
+
+    def clear_tasks(self):
+        if not self._tasks:
+            return False
+        self._tasks = []
+        return True
+
     def set_enabled(self, task_id, enabled):
         task = self.get_task(task_id)
         task.enabled = bool(enabled)

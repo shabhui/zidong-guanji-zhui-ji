@@ -251,11 +251,6 @@ def find_mp3_tracks(root):
         return []
 
 
-def find_first_mp3(root):
-    tracks = find_mp3_tracks(root)
-    return tracks[0] if tracks else None
-
-
 def format_ms(value):
     total_seconds = max(0, int(value) // 1000)
     hours = total_seconds // 3600

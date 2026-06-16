@@ -9,14 +9,6 @@ class IdleSample:
     message: str = ""
 
 
-class StaticIdleReader:
-    def __init__(self, idle_seconds):
-        self._idle_seconds = int(idle_seconds)
-
-    def sample(self):
-        return IdleSample(True, self._idle_seconds, "")
-
-
 class WindowsIdleReader:
     class LASTINPUTINFO(ctypes.Structure):
         _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
