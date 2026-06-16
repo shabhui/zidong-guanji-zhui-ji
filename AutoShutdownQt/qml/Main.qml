@@ -247,7 +247,7 @@ Window {
                     font.weight: Font.DemiBold
                 }
                 Text {
-                    text: "v3.2 · 安静工作台"
+                    text: "v3.2 · 清晰工作台"
                     color: Theme.textSecondary
                     font.pixelSize: 12
                 }
@@ -455,7 +455,7 @@ Window {
                     x: 0
                     y: 0
                     width: overviewWorkbench.overviewLeftWidth
-                    height: 318
+                    height: 252
                     cardColor: Theme.dialogPanelRaised
                     cardBorderColor: Theme.borderStrong
                     activeBorderColor: Theme.borderStrong
@@ -687,6 +687,8 @@ Window {
                             anchors.margins: 16
                             spacing: 8
 
+                            Text { text: "当前配置"; color: Theme.textSecondary; font.pixelSize: 11; font.weight: Font.Bold }
+
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
@@ -713,10 +715,10 @@ Window {
                                 Text { text: "强制关闭"; color: Theme.textSecondary; font.pixelSize: 11 }
                                 Text { text: controller.forceClose ? "开启" : "关闭"; color: Theme.textPrimary; font.pixelSize: 12 }
 
-                                Text { text: "队列"; color: Theme.textSecondary; font.pixelSize: 11 }
+                                Text { text: "队列数量"; color: Theme.textSecondary; font.pixelSize: 11 }
                                 Text { text: String(mainWindow.queueRowModel.length) + " 个任务"; color: mainWindow.queueRowModel.length > 0 ? Theme.warning : Theme.textSecondary; font.pixelSize: 12; font.weight: Font.DemiBold }
 
-                                Text { text: "触发器"; color: Theme.textSecondary; font.pixelSize: 11 }
+                                Text { text: "触发器状态"; color: Theme.textSecondary; font.pixelSize: 11 }
                                 Text {
                                     Layout.fillWidth: true
                                     text: (controller.processTriggerActive || controller.networkTriggerActive) ? "已启用" : "未启用"

@@ -26,7 +26,7 @@ Rectangle {
         height: Math.max(22, parent.height * 0.18)
         radius: parent.radius
         color: "#20FFFFFF"
-        opacity: 0.13
+        opacity: 0.18
     }
 
     HoverHandler {

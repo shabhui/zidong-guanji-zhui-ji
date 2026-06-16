@@ -62,7 +62,7 @@ Button {
             height: Math.max(8, parent.height * 0.34)
             radius: parent.radius
             color: "#22FFFFFF"
-            opacity: root.enabled ? 0.14 : 0.08
+            opacity: root.enabled ? 0.22 : 0.10
         }
     }
 

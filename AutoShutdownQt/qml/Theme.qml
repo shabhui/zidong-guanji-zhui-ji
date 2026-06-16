@@ -19,8 +19,8 @@ QtObject {
     readonly property color borderStrong: "#72CDEEFF"
 
     readonly property color primary: "#70C8EA"
-    readonly property color accent: "#7EE1BA"
-    readonly property color success: "#7EE1BA"
+    readonly property color accent: "#7DFFC4"
+    readonly property color success: "#7DFFC4"
     readonly property color warning: "#FFD166"
     readonly property color danger: "#FF5C8A"
 
