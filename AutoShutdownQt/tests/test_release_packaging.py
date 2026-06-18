@@ -5,6 +5,7 @@ import sys
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -380,6 +381,16 @@ class ReleasePackagingTest(unittest.TestCase):
 
         self.assertIn("定时关机助手-3.2.zip", content)
         self.assertRegex(content, r"^[0-9a-f]{64}  定时关机助手-3.2.zip")
+
+    def test_checksum_file_streams_artifacts_without_reading_all_bytes(self):
+        root = self._workspace_scratch("release-checksum-streaming")
+        archive_path = root / package_release.ZIP_PATH.name
+        archive_path.write_bytes(b"demo")
+
+        with patch.object(Path, "read_bytes", side_effect=AssertionError("use streaming checksum")):
+            sums = package_release.create_sha256sums(archive_path, root / "SHA256SUMS.txt")
+
+        self.assertRegex(sums.read_text(encoding="utf-8"), r"^[0-9a-f]{64}  ")
 
     def test_checksum_file_contains_archive_and_installer_hashes(self):
         root = self._workspace_scratch("release-checksum-archive-installer")

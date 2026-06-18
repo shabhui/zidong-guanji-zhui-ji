@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 import unittest
 
 
@@ -38,7 +37,6 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
 
     def test_quick_countdown_presets_are_two_by_two_neon_chips(self):
         main = MAIN_QML.read_text(encoding="utf-8")
-        quick_section_match = re.search(r'Text \{ text: "快捷倒计时".*?\n\s*}\n\s*</?[^\n]*', main, re.S)
         self.assertIn('Text { text: "快捷倒计时"', main)
         quick_index = main.index('Text { text: "快捷倒计时"')
         current_config_index = main.index('Text { text: "当前配置"', quick_index)
@@ -67,7 +65,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         status_panel_index = main.index("id: rightStatusPanel", power_index)
         power_section = main[power_index:status_panel_index]
 
-        self.assertIn("height: 252", main, "hero card should be compact enough for 720px windows")
+        self.assertIn("height: 300", main, "hero card should leave room for the immediate execute button")
         self.assertIn("height: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
         self.assertIn("height: parent.height - y", power_section, "overview action card should fill the remaining left column without overlapping")
         self.assertIn("anchors.margins: 14", power_section, "overview action card needs compact margins")
@@ -439,7 +437,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertNotIn("id: commandCardsRow", main)
         self.assertNotIn("id: commandCenterScroll", main)
         self.assertIn('Text { text: "快捷倒计时"', main)
-        self.assertIn('height: 252', main)
+        self.assertIn('height: 300', main)
         self.assertIn('height: 150', main)
 
     def test_overview_is_reworked_as_a_clear_workbench(self):

@@ -219,7 +219,8 @@ def create_sha256sums(artifact_paths=ZIP_PATH, target_path=SHA256SUMS_PATH):
     target = Path(target_path)
     lines = []
     for artifact in paths:
-        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        with artifact.open("rb") as file:
+            digest = hashlib.file_digest(file, "sha256").hexdigest()
         lines.append(f"{digest}  {artifact.name}")
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return target

@@ -455,7 +455,7 @@ Window {
                     x: 0
                     y: 0
                     width: overviewWorkbench.overviewLeftWidth
-                    height: 252
+                    height: 300
                     cardColor: Theme.dialogPanelRaised
                     cardBorderColor: Theme.borderStrong
                     activeBorderColor: Theme.borderStrong
