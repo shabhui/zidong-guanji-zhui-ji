@@ -1,3 +1,13 @@
+def _information_message_icon():
+    try:
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        message_icon = getattr(QSystemTrayIcon, "MessageIcon", QSystemTrayIcon)
+        return message_icon.Information
+    except Exception:
+        return 1
+
+
 class TrayService:
     def __init__(self, controller, window, tray_factory=None, logger=None, icon_path=None):
         self._controller = controller
@@ -34,7 +44,7 @@ class TrayService:
                 menu.addAction("取消所有任务", self.cancel_all)
                 menu.addAction("退出程序", self.quit_app)
                 tray.setContextMenu(menu)
-                tray.setToolTip("定时关机助手 3.2")
+                tray.setToolTip("定时关机助手 4.0")
                 tray.show()
                 self._tray = tray
             else:
@@ -69,7 +79,7 @@ class TrayService:
             return False
         self.hide_window()
         if hasattr(self._tray, "showMessage"):
-            self._tray.showMessage("定时关机助手", "已隐藏到右下角小图标，双击小图标可恢复窗口；右键小图标选择“退出程序”可彻底退出。", None, 3000)
+            self._tray.showMessage("定时关机助手", "已隐藏到右下角小图标，双击小图标可恢复窗口；右键小图标选择“退出程序”可彻底退出。", _information_message_icon(), 3000)
         return True
 
     def toggle_window(self):

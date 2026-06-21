@@ -1556,7 +1556,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
 
         diagnostics = controller.diagnosticText
 
-        self.assertIn("定时关机助手 3.2 诊断信息", diagnostics)
+        self.assertIn("定时关机助手 4.0 诊断信息", diagnostics)
         self.assertIn("安全验证：开启", diagnostics)
         self.assertNotIn("Dry-run", diagnostics)
         self.assertNotIn("Diagnostics", diagnostics)
@@ -1599,7 +1599,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         exported = target.read_text(encoding="utf-8")
 
         self.assertIn("=== 诊断信息 ===", exported)
-        self.assertIn("定时关机助手 3.2", exported)
+        self.assertIn("定时关机助手 4.0", exported)
         self.assertIn("=== 最近日志 ===", exported)
         self.assertIn("15 分钟后关机", exported)
 
@@ -1612,7 +1612,7 @@ class PracticalEnhancementsTest(unittest.TestCase):
         diagnostics_target = root / "logs-diagnostics.txt"
 
         self.assertTrue(diagnostics_target.exists())
-        self.assertIn("定时关机助手 3.2", diagnostics_target.read_text(encoding="utf-8"))
+        self.assertIn("定时关机助手 4.0", diagnostics_target.read_text(encoding="utf-8"))
         self.assertIn("诊断已导出", controller.logText)
 
     def test_request_dry_run_change_logs_live_mode_warning(self):

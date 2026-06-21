@@ -11,8 +11,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 APP_DIR = ROOT / "AutoShutdownQt"
 MAIN_PY = APP_DIR / "main.py"
-SPEC = APP_DIR / "AutoShutdownQt-3.2.spec"
-INNO_SCRIPT = APP_DIR / "AutoShutdownQt-3.2.iss"
+SPEC = APP_DIR / "AutoShutdownQt-4.0.spec"
+INNO_SCRIPT = APP_DIR / "AutoShutdownQt-4.0.iss"
 PACKAGE_SCRIPT = APP_DIR / "package_release.py"
 README = ROOT / "README.md"
 sys.path.insert(0, str(APP_DIR))
@@ -29,10 +29,10 @@ class ReleasePackagingTest(unittest.TestCase):
         self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
         return target
 
-    def _valid_manifest(self, archive_name="定时关机助手-3.2.zip", bundle="定时关机助手-3.2"):
+    def _valid_manifest(self, archive_name="定时关机助手-4.0.zip", bundle="定时关机助手-4.0"):
         return {
             "app": "定时关机助手",
-            "version": "3.2",
+            "version": "4.0",
             "bundle": bundle,
             "executable": "定时关机助手.exe",
             "archive": archive_name,
@@ -55,18 +55,18 @@ class ReleasePackagingTest(unittest.TestCase):
     def _write_valid_archive(self, archive_path, manifest=None):
         manifest = self._valid_manifest(archive_path.name) if manifest is None else manifest
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/定时关机助手.exe", "exe")
-            archive.writestr("定时关机助手-3.2/_internal/qml/Main.qml", "qml")
-            archive.writestr("定时关机助手-3.2/release-manifest.json", json.dumps(manifest))
-            archive.writestr("定时关机助手-3.2/demo.mp3", b"mp3")
+            archive.writestr("定时关机助手-4.0/定时关机助手.exe", "exe")
+            archive.writestr("定时关机助手-4.0/_internal/qml/Main.qml", "qml")
+            archive.writestr("定时关机助手-4.0/release-manifest.json", json.dumps(manifest))
+            archive.writestr("定时关机助手-4.0/demo.mp3", b"mp3")
     def test_main_declares_final_2_5_version(self):
         main = MAIN_PY.read_text(encoding="utf-8")
-        self.assertIn('app.setApplicationVersion("3.2")', main)
+        self.assertIn('app.setApplicationVersion("4.0")', main)
         self.assertNotIn("3.0-preview", main)
 
     def test_pyinstaller_spec_includes_qml_and_runtime_modules(self):
         spec = SPEC.read_text(encoding="utf-8")
-        self.assertIn("定时关机助手-3.2", spec)
+        self.assertIn("定时关机助手-4.0", spec)
         self.assertIn("main.py", spec)
         self.assertIn("qml", spec)
         self.assertIn("controller", spec)
@@ -102,7 +102,7 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_gitignore_allows_release_spec_to_be_committed(self):
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
-        self.assertIn("!AutoShutdownQt/AutoShutdownQt-3.2.spec", gitignore)
+        self.assertIn("!AutoShutdownQt/AutoShutdownQt-4.0.spec", gitignore)
 
     def test_gitignore_excludes_local_runtime_and_visual_test_outputs(self):
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
@@ -121,10 +121,10 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_release_script_builds_versioned_zip_from_spec(self):
         script = PACKAGE_SCRIPT.read_text(encoding="utf-8")
-        self.assertEqual(package_release.VERSION, "3.2")
-        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-3.2.spec")
-        self.assertEqual(package_release.APP_BUNDLE_DIR.name, "定时关机助手-3.2")
-        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-3.2.zip")
+        self.assertEqual(package_release.VERSION, "4.0")
+        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-4.0.spec")
+        self.assertEqual(package_release.APP_BUNDLE_DIR.name, "定时关机助手-4.0")
+        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-4.0.zip")
         self.assertIn("PyInstaller", script)
         self.assertIn("zipfile", script)
         self.assertIn("validate_zip_contents", script)
@@ -193,7 +193,7 @@ class ReleasePackagingTest(unittest.TestCase):
         archive_path = root / package_release.ZIP_PATH.name
         self._write_valid_archive(archive_path)
         with zipfile.ZipFile(archive_path, "a") as archive:
-            archive.writestr("定时关机助手-3.2/_internal/PySide6/Qt6WebEngineCore.dll", b"web")
+            archive.writestr("定时关机助手-4.0/_internal/PySide6/Qt6WebEngineCore.dll", b"web")
 
         with self.assertRaisesRegex(RuntimeError, "unused Qt payload"):
             package_release.validate_zip_contents(archive_path)
@@ -203,8 +203,8 @@ class ReleasePackagingTest(unittest.TestCase):
         archive_path = root / package_release.ZIP_PATH.name
         self._write_valid_archive(archive_path)
         with zipfile.ZipFile(archive_path, "a") as archive:
-            archive.writestr("定时关机助手-3.2/_internal/PySide6/Qt6Quick.dll", b"quick")
-            archive.writestr("定时关机助手-3.2/_internal/PySide6/qml/QtQuick/Controls/qmldir", b"controls")
+            archive.writestr("定时关机助手-4.0/_internal/PySide6/Qt6Quick.dll", b"quick")
+            archive.writestr("定时关机助手-4.0/_internal/PySide6/qml/QtQuick/Controls/qmldir", b"controls")
 
         self.assertTrue(package_release.validate_zip_contents(archive_path))
 
@@ -213,9 +213,9 @@ class ReleasePackagingTest(unittest.TestCase):
         archive_path = root / package_release.ZIP_PATH.name
         manifest = self._valid_manifest(archive_path.name)
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/定时关机助手.exe", "exe")
-            archive.writestr("定时关机助手-3.2/_internal/qml/Main.qml", "qml")
-            archive.writestr("定时关机助手-3.2/release-manifest.json", json.dumps(manifest))
+            archive.writestr("定时关机助手-4.0/定时关机助手.exe", "exe")
+            archive.writestr("定时关机助手-4.0/_internal/qml/Main.qml", "qml")
+            archive.writestr("定时关机助手-4.0/release-manifest.json", json.dumps(manifest))
 
         with self.assertRaisesRegex(RuntimeError, "music"):
             package_release.validate_zip_contents(archive_path)
@@ -279,7 +279,7 @@ class ReleasePackagingTest(unittest.TestCase):
         root = self._workspace_scratch("release-missing-exe")
         archive_path = root / package_release.ZIP_PATH.name
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/_internal/qml/Main.qml", "qml")
+            archive.writestr("定时关机助手-4.0/_internal/qml/Main.qml", "qml")
 
         with self.assertRaisesRegex(RuntimeError, "定时关机助手.exe"):
             package_release.validate_zip_contents(archive_path)
@@ -288,8 +288,8 @@ class ReleasePackagingTest(unittest.TestCase):
         root = self._workspace_scratch("release-missing-qml")
         archive_path = root / package_release.ZIP_PATH.name
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/定时关机助手.exe", "exe")
-            archive.writestr("定时关机助手-3.2/release-manifest.json", json.dumps(self._valid_manifest(archive_path.name)))
+            archive.writestr("定时关机助手-4.0/定时关机助手.exe", "exe")
+            archive.writestr("定时关机助手-4.0/release-manifest.json", json.dumps(self._valid_manifest(archive_path.name)))
 
         with self.assertRaisesRegex(RuntimeError, "QML"):
             package_release.validate_zip_contents(archive_path)
@@ -298,9 +298,9 @@ class ReleasePackagingTest(unittest.TestCase):
         root = self._workspace_scratch("release-missing-main-qml")
         archive_path = root / package_release.ZIP_PATH.name
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/定时关机助手.exe", "exe")
-            archive.writestr("定时关机助手-3.2/_internal/qml/Theme.qml", "qml")
-            archive.writestr("定时关机助手-3.2/release-manifest.json", json.dumps(self._valid_manifest(archive_path.name)))
+            archive.writestr("定时关机助手-4.0/定时关机助手.exe", "exe")
+            archive.writestr("定时关机助手-4.0/_internal/qml/Theme.qml", "qml")
+            archive.writestr("定时关机助手-4.0/release-manifest.json", json.dumps(self._valid_manifest(archive_path.name)))
 
         with self.assertRaisesRegex(RuntimeError, "Main.qml"):
             package_release.validate_zip_contents(archive_path)
@@ -309,15 +309,15 @@ class ReleasePackagingTest(unittest.TestCase):
         root = self._workspace_scratch("release-missing-manifest")
         archive_path = root / package_release.ZIP_PATH.name
         with zipfile.ZipFile(archive_path, "w") as archive:
-            archive.writestr("定时关机助手-3.2/定时关机助手.exe", "exe")
-            archive.writestr("定时关机助手-3.2/_internal/qml/Main.qml", "qml")
+            archive.writestr("定时关机助手-4.0/定时关机助手.exe", "exe")
+            archive.writestr("定时关机助手-4.0/_internal/qml/Main.qml", "qml")
 
         with self.assertRaisesRegex(RuntimeError, "release-manifest.json"):
             package_release.validate_zip_contents(archive_path)
 
     def test_release_manifest_records_version_and_safety_notes(self):
         root = self._workspace_scratch("release-manifest-records")
-        bundle = root / "定时关机助手-3.2"
+        bundle = root / "定时关机助手-4.0"
         (bundle / "_internal" / "qml").mkdir(parents=True)
         (bundle / "定时关机助手.exe").write_text("exe", encoding="utf-8")
         (bundle / "_internal" / "qml" / "Main.qml").write_text("qml", encoding="utf-8")
@@ -325,7 +325,7 @@ class ReleasePackagingTest(unittest.TestCase):
         manifest_path = package_release.create_release_manifest(bundle)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["version"], "3.2")
+        self.assertEqual(manifest["version"], "4.0")
         self.assertEqual(manifest["executable"], "定时关机助手.exe")
         self.assertTrue(manifest["checks"]["mainQmlPresent"])
         self.assertTrue(manifest["checks"]["appCloseServiceHiddenImport"])
@@ -338,12 +338,12 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertNotIn("Dry-run", safety_notes)
 
     def test_release_notes_document_portable_safety_mode_and_unsigned_status(self):
-        notes = (ROOT / "RELEASE_NOTES_v3.2.md").read_text(encoding="utf-8")
+        notes = (ROOT / "RELEASE_NOTES_v4.0.md").read_text(encoding="utf-8")
         self.assertIn("安全验证", notes)
         self.assertNotIn("Dry-run", notes)
         self.assertIn("便携版", notes)
         self.assertIn("未做代码签名", notes)
-        self.assertIn("dist/定时关机助手-3.2.zip", notes)
+        self.assertIn("dist/定时关机助手-4.0.zip", notes)
 
     def test_readme_current_release_status_mentions_main_not_old_feature_branch(self):
         readme = README.read_text(encoding="utf-8")
@@ -360,14 +360,14 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_main_declares_final_2_1_version(self):
         main = MAIN_PY.read_text(encoding="utf-8")
-        self.assertIn('app.setApplicationVersion("3.2")', main)
+        self.assertIn('app.setApplicationVersion("4.0")', main)
 
     def test_release_script_builds_2_1_checksum_and_checklist(self):
         script = PACKAGE_SCRIPT.read_text(encoding="utf-8")
-        self.assertEqual(package_release.VERSION, "3.2")
-        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-3.2.zip")
+        self.assertEqual(package_release.VERSION, "4.0")
+        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-4.0.zip")
         self.assertEqual(package_release.SHA256SUMS_PATH.name, "SHA256SUMS.txt")
-        self.assertEqual(package_release.RELEASE_CHECKLIST_PATH.name, "release-checklist-v3.2.md")
+        self.assertEqual(package_release.RELEASE_CHECKLIST_PATH.name, "release-checklist-v4.0.md")
         self.assertIn('create_sha256sums', script)
         self.assertIn('create_release_checklist', script)
 
@@ -379,8 +379,8 @@ class ReleasePackagingTest(unittest.TestCase):
         sums = package_release.create_sha256sums(archive_path, root / "SHA256SUMS.txt")
         content = sums.read_text(encoding="utf-8")
 
-        self.assertIn("定时关机助手-3.2.zip", content)
-        self.assertRegex(content, r"^[0-9a-f]{64}  定时关机助手-3.2.zip")
+        self.assertIn("定时关机助手-4.0.zip", content)
+        self.assertRegex(content, r"^[0-9a-f]{64}  定时关机助手-4.0.zip")
 
     def test_checksum_file_streams_artifacts_without_reading_all_bytes(self):
         root = self._workspace_scratch("release-checksum-streaming")
@@ -402,13 +402,13 @@ class ReleasePackagingTest(unittest.TestCase):
         sums = package_release.create_sha256sums([archive_path, setup_path], root / "SHA256SUMS.txt")
         content = sums.read_text(encoding="utf-8")
 
-        self.assertIn("定时关机助手-3.2.zip", content)
-        self.assertIn("定时关机助手-3.2-Setup.exe", content)
+        self.assertIn("定时关机助手-4.0.zip", content)
+        self.assertIn("定时关机助手-4.0-Setup.exe", content)
         self.assertEqual(len([line for line in content.splitlines() if line]), 2)
 
     def test_release_checklist_mentions_safety_mode_and_no_real_power_actions(self):
         root = self._workspace_scratch("release-checklist-safety")
-        checklist = package_release.create_release_checklist(root / "release-checklist-v3.2.md")
+        checklist = package_release.create_release_checklist(root / "release-checklist-v4.0.md")
         content = checklist.read_text(encoding="utf-8")
 
         self.assertIn("安全验证", content)
@@ -418,17 +418,17 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertNotIn("LIVE MODE", content)
     def test_main_declares_final_2_3_version(self):
         main = MAIN_PY.read_text(encoding="utf-8")
-        self.assertIn('app.setApplicationVersion("3.2")', main)
+        self.assertIn('app.setApplicationVersion("4.0")', main)
 
     def test_release_script_builds_2_3_artifacts(self):
-        self.assertEqual(package_release.VERSION, "3.2")
-        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-3.2.spec")
-        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-3.2.zip")
-        self.assertEqual(package_release.RELEASE_CHECKLIST_PATH.name, "release-checklist-v3.2.md")
+        self.assertEqual(package_release.VERSION, "4.0")
+        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-4.0.spec")
+        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-4.0.zip")
+        self.assertEqual(package_release.RELEASE_CHECKLIST_PATH.name, "release-checklist-v4.0.md")
 
     def test_release_checklist_mentions_command_center_and_recent_activity(self):
         root = self._workspace_scratch("release-checklist-command-center")
-        checklist = package_release.create_release_checklist(root / "release-checklist-v3.2.md")
+        checklist = package_release.create_release_checklist(root / "release-checklist-v4.0.md")
         content = checklist.read_text(encoding="utf-8")
 
         self.assertIn("指挥中心", content)
@@ -436,8 +436,8 @@ class ReleasePackagingTest(unittest.TestCase):
         self.assertIn("最近活动", content)
 
     def test_release_notes_document_2_3_command_center_patch(self):
-        notes = (ROOT / "RELEASE_NOTES_v3.2.md").read_text(encoding="utf-8")
-        self.assertIn("3.2", notes)
+        notes = (ROOT / "RELEASE_NOTES_v4.0.md").read_text(encoding="utf-8")
+        self.assertIn("4.0", notes)
         self.assertIn("指挥中心", notes)
         self.assertIn("队列", notes)
         self.assertIn("托盘", notes)
@@ -445,7 +445,7 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_release_checklist_mentions_2_5_background_features(self):
         root = self._workspace_scratch("release-checklist-background")
-        checklist = package_release.create_release_checklist(root / "release-checklist-v3.2.md")
+        checklist = package_release.create_release_checklist(root / "release-checklist-v4.0.md")
         content = checklist.read_text(encoding="utf-8")
 
         self.assertIn("Windows 原生通知", content)
@@ -474,8 +474,8 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_readme_mentions_2_3_download_and_checksum(self):
         readme = README.read_text(encoding="utf-8")
-        self.assertIn("定时关机助手 3.2", readme)
-        self.assertIn("定时关机助手-3.2.zip", readme)
+        self.assertIn("定时关机助手 4.0", readme)
+        self.assertIn("定时关机助手-4.0.zip", readme)
         self.assertIn("SHA256SUMS.txt", readme)
 
     def test_readme_mentions_idle_auto_shutdown(self):
@@ -490,11 +490,11 @@ class ReleasePackagingTest(unittest.TestCase):
 
     def test_readme_github_release_instructions_use_v3_1_artifacts(self):
         readme = README.read_text(encoding="utf-8")
-        self.assertIn("`v3.2` tag", readme)
-        self.assertIn("dist/定时关机助手-3.2-Setup.exe", readme)
-        self.assertIn("dist/定时关机助手-3.2.zip", readme)
-        self.assertNotIn("AutoShutdownQt-3.2-Setup.exe", readme)
-        self.assertNotIn("AutoShutdownQt-3.2.zip", readme)
+        self.assertIn("`v4.0` tag", readme)
+        self.assertIn("dist/定时关机助手-4.0-Setup.exe", readme)
+        self.assertIn("dist/定时关机助手-4.0.zip", readme)
+        self.assertNotIn("AutoShutdownQt-4.0-Setup.exe", readme)
+        self.assertNotIn("AutoShutdownQt-4.0.zip", readme)
         self.assertNotIn("`v3.0` tag", readme)
         self.assertNotIn("dist/AutoShutdownQt-3.0-Setup.exe", readme)
         self.assertNotIn("dist/AutoShutdownQt-3.0.zip", readme)
@@ -517,13 +517,13 @@ class ReleasePackagingTest(unittest.TestCase):
 
         self.assertRegex(script, r"AppId=\{\{[0-9A-Fa-f-]{36}\}")
         self.assertIn('#define MyAppName "定时关机助手"', script)
-        self.assertIn('#define MyAppVersion "3.2"', script)
-        self.assertIn('OutputBaseFilename=定时关机助手-3.2-Setup', script)
+        self.assertIn('#define MyAppVersion "4.0"', script)
+        self.assertIn('OutputBaseFilename=定时关机助手-4.0-Setup', script)
         self.assertIn("SetupIconFile=app_icon.ico", script)
         self.assertIn("UninstallDisplayIcon", script)
         self.assertIn("ArchitecturesInstallIn64BitMode=x64compatible", script)
         self.assertNotIn("ArchitecturesInstallIn64BitMode=x64\n", script)
-        self.assertIn('Source: "..\\dist\\定时关机助手-3.2\\*"; DestDir: "{app}"', script)
+        self.assertIn('Source: "..\\dist\\定时关机助手-4.0\\*"; DestDir: "{app}"', script)
         self.assertIn('Name: "{autodesktop}\\定时关机助手"', script)
         self.assertIn('Name: "{group}\\定时关机助手"', script)
         self.assertIn('Name: "{group}\\卸载定时关机助手"', script)
@@ -532,30 +532,30 @@ class ReleasePackagingTest(unittest.TestCase):
     def test_release_script_builds_zip_and_inno_installer_artifacts(self):
         script = PACKAGE_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertEqual(package_release.VERSION, "3.2")
-        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-3.2.zip")
+        self.assertEqual(package_release.VERSION, "4.0")
+        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-4.0.zip")
         self.assertIn("LOCALAPPDATA", script)
         self.assertIn("Inno Setup 6", script)
-        self.assertEqual(package_release.INNO_SCRIPT.name, "AutoShutdownQt-3.2.iss")
-        self.assertEqual(package_release.SETUP_PATH.name, "定时关机助手-3.2-Setup.exe")
+        self.assertEqual(package_release.INNO_SCRIPT.name, "AutoShutdownQt-4.0.iss")
+        self.assertEqual(package_release.SETUP_PATH.name, "定时关机助手-4.0-Setup.exe")
         self.assertIn('build_inno_installer', script)
 
     def test_v3_1_release_metadata_uses_chinese_artifact_names(self):
         main = MAIN_PY.read_text(encoding="utf-8")
         readme = README.read_text(encoding="utf-8")
 
-        self.assertIn('app.setApplicationVersion("3.2")', main)
-        self.assertEqual(package_release.VERSION, "3.2")
-        self.assertEqual(package_release.APP_BUNDLE_NAME, "定时关机助手-3.2")
-        self.assertEqual(package_release.APP_BUNDLE_DIR.name, "定时关机助手-3.2")
-        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-3.2.zip")
-        self.assertEqual(package_release.SETUP_PATH.name, "定时关机助手-3.2-Setup.exe")
-        self.assertEqual(package_release.REQUIRED_EXE, "定时关机助手-3.2/定时关机助手.exe")
-        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-3.2.spec")
-        self.assertEqual(package_release.INNO_SCRIPT.name, "AutoShutdownQt-3.2.iss")
-        self.assertIn('定时关机助手 3.2', readme)
-        self.assertIn('定时关机助手-3.2.zip', readme)
-        self.assertIn('定时关机助手-3.2-Setup.exe', readme)
+        self.assertIn('app.setApplicationVersion("4.0")', main)
+        self.assertEqual(package_release.VERSION, "4.0")
+        self.assertEqual(package_release.APP_BUNDLE_NAME, "定时关机助手-4.0")
+        self.assertEqual(package_release.APP_BUNDLE_DIR.name, "定时关机助手-4.0")
+        self.assertEqual(package_release.ZIP_PATH.name, "定时关机助手-4.0.zip")
+        self.assertEqual(package_release.SETUP_PATH.name, "定时关机助手-4.0-Setup.exe")
+        self.assertEqual(package_release.REQUIRED_EXE, "定时关机助手-4.0/定时关机助手.exe")
+        self.assertEqual(package_release.SPEC_FILE.name, "AutoShutdownQt-4.0.spec")
+        self.assertEqual(package_release.INNO_SCRIPT.name, "AutoShutdownQt-4.0.iss")
+        self.assertIn('定时关机助手 4.0', readme)
+        self.assertIn('定时关机助手-4.0.zip', readme)
+        self.assertIn('定时关机助手-4.0-Setup.exe', readme)
 
 
 if __name__ == "__main__":

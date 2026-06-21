@@ -7,7 +7,7 @@ import subprocess
 import sys
 import zipfile
 
-VERSION = "3.2"
+VERSION = "4.0"
 APP_DISPLAY_NAME = "定时关机助手"
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR.parent

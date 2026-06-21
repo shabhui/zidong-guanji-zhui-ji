@@ -1896,7 +1896,7 @@ class AppController(QObject):
 
     def _diagnostic_text(self):
         return "\n".join([
-            "定时关机助手 3.2 诊断信息",
+            "定时关机助手 4.0 诊断信息",
             f"安全验证：{'开启' if self._dry_run else '关闭'}",
             f"状态：{self._status_with_key()}",
             f"剩余秒数：{self._remaining_seconds}",

@@ -73,5 +73,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="定时关机助手-3.2",
+    name="定时关机助手-4.0",
 )

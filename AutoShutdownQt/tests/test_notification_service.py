@@ -17,6 +17,16 @@ class FakeTray:
         self.messages.append((title, body, millisecondsTimeoutHint))
 
 
+class StrictPySideTray:
+    def __init__(self):
+        self.messages = []
+
+    def showMessage(self, *args, **kwargs):
+        if len(args) >= 3 and args[2] is None:
+            raise TypeError("wrong argument types: NoneType")
+        self.messages.append((args, kwargs))
+
+
 class NotificationServiceTest(unittest.TestCase):
     def test_show_reminder_returns_false_without_available_tray(self):
         logs = []
@@ -58,6 +68,21 @@ class NotificationServiceTest(unittest.TestCase):
         self.assertTrue(service.show_reminder("执行前提醒", "1 分钟后关机"))
 
         self.assertEqual(tray.messages, [("执行前提醒", "1 分钟后关机", 10000)])
+
+    def test_show_reminder_uses_valid_qt_tray_icon_argument(self):
+        logs = []
+        tray = StrictPySideTray()
+        tray_service = type("TrayService", (), {"available": True, "tray": tray})()
+        service = NotificationService(tray_service=tray_service, logger=logs.append)
+
+        self.assertTrue(service.show_reminder("执行前提醒", "1 分钟后关机"))
+
+        self.assertEqual(logs, [])
+        args, kwargs = tray.messages[0]
+        self.assertEqual(args[:2], ("执行前提醒", "1 分钟后关机"))
+        self.assertNotEqual(args[2], None)
+        self.assertIn(10000, args[2:])
+        self.assertEqual(kwargs, {})
 
 
 if __name__ == "__main__":

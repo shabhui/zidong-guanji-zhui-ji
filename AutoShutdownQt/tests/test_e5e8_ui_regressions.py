@@ -37,16 +37,24 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
 
     def test_quick_countdown_presets_are_two_by_two_neon_chips(self):
         main = MAIN_QML.read_text(encoding="utf-8")
-        self.assertIn('Text { text: "快捷倒计时"', main)
-        quick_index = main.index('Text { text: "快捷倒计时"')
-        current_config_index = main.index('Text { text: "当前配置"', quick_index)
+        quick_index = main.index("id: quickCountdownPanel")
+        current_config_index = main.index("id: lyricCommandBar", quick_index)
         quick_section = main[quick_index:current_config_index]
 
+        self.assertIn("id: commandShortcutRail", quick_section)
+        self.assertIn("id: quickChipRow", quick_section)
+        self.assertIn("height: overviewWorkbench.heroRowHeight", quick_section)
+        self.assertIn("cardColor: Theme.blogGlassPanel", quick_section)
         self.assertIn("GridLayout {", quick_section)
         self.assertIn("columns: 2", quick_section)
         self.assertEqual(quick_section.count("NeonButton {"), 4)
-        for label in ("15 分钟", "30 分钟", "1 小时", "2 小时"):
-            self.assertIn(f'text: "{label}"', quick_section)
+        for call in (
+            "controller.startCountdown(0, 15, 0)",
+            "controller.startCountdown(0, 30, 0)",
+            "controller.startCountdown(1, 0, 0)",
+            "controller.startCountdown(2, 0, 0)",
+        ):
+            self.assertIn(call, quick_section)
         self.assertGreaterEqual(quick_section.count("Layout.preferredHeight: 38"), 4)
 
     def test_confirm_dialog_uses_custom_neon_footer_buttons(self):
@@ -60,17 +68,17 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
 
     def test_overview_action_tiles_fit_default_window_height(self):
         main = MAIN_QML.read_text(encoding="utf-8")
-        title_index = main.index('Text { text: "电源动作"')
-        power_index = main.rindex("NeonCard {", 0, title_index)
-        status_panel_index = main.index("id: rightStatusPanel", power_index)
+        power_index = main.index("id: overviewActionPanel")
+        status_panel_index = main.index("id: overviewStatusSummary", power_index)
         power_section = main[power_index:status_panel_index]
 
-        self.assertIn("height: 300", main, "hero card should leave room for the immediate execute button")
-        self.assertIn("height: 150", main, "quick countdown row should fit chips while leaving room for action tiles")
-        self.assertIn("height: parent.height - y", power_section, "overview action card should fill the remaining left column without overlapping")
-        self.assertIn("anchors.margins: 14", power_section, "overview action card needs compact margins")
+        self.assertIn("readonly property int heroRowHeight: 190", main, "top blog-style cards should fit above the lyric strip")
+        self.assertIn("readonly property int lyricBarHeight: 70", main, "black lyric/status strip should stay compact")
+        self.assertIn("readonly property int contentRowHeight: height - contentRowY", main, "poster cards should fill the lower row")
+        self.assertIn("cardColor: Theme.blogGlassPanel", power_section, "overview action card should use the blog-style glass panel")
+        self.assertIn("anchors.margins: 14", power_section, "overview action card needs compact readable margins")
         self.assertIn("rowSpacing: 6", power_section, "overview action grid needs compact row spacing")
-        self.assertEqual(power_section.count("Layout.preferredHeight: 56"), 6, "overview action tiles need fixed compact heights")
+        self.assertEqual(power_section.count("Layout.preferredHeight: 40"), 6, "overview action tiles need fixed compact heights")
 
     def test_core_mvp_pages_are_wired_to_controller(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -122,8 +130,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         qml_source = main_and_task_queue_qml()
 
         for snippet in (
-            "定时关机助手 v3.2",
-            "v3.2 · 清晰工作台",
+            "定时关机助手 v4.0",
+            "v4.0 · 电源控制台",
             "controller.queueRowsJson",
             "JSON.parse(controller.queueRowsJson)",
             "controller.addFixedTimeTask(",
@@ -271,7 +279,8 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
         dialog = CONFIRM_DIALOG_QML.read_text(encoding="utf-8")
 
-        self.assertIn("真实执行模式：请确认未保存工作", main)
+        self.assertIn("关闭安全验证后将进入真实执行模式", main)
+        self.assertIn("请确认动作、触发器、脚本路径和未保存工作", main)
         self.assertIn("真实执行模式会真实执行当前动作", dialog)
         self.assertIn("可能导致关机、重启、睡眠、休眠、注销或锁定", dialog)
         self.assertIn("controller.dryRun ?", dialog)
@@ -279,7 +288,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
     def test_2_5_main_wires_notifications_startup_and_start_minimized(self):
         main_py = (ROOT / "AutoShutdownQt" / "main.py").read_text(encoding="utf-8")
 
-        self.assertIn('app.setApplicationVersion("3.2")', main_py)
+        self.assertIn('app.setApplicationVersion("4.0")', main_py)
         self.assertIn("from notification_service import NotificationService", main_py)
         self.assertIn("from startup_service import StartupService", main_py)
         self.assertIn("controller.notificationService = NotificationService(tray_service=tray_service", main_py)
@@ -333,24 +342,24 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         for snippet in (
-            'title: "定时关机助手 v3.2"',
+            'title: "定时关机助手 v4.0"',
             'id: rightStatusPanel',
-            '安全模式',
+            '夜间安全',
             '安全验证已开启',
             '下一任务',
             '队列数量',
-            '触发器状态',
+            '触发器：',
             '后台托盘',
             '最近活动',
         ):
             self.assertIn(snippet, main)
 
-        self.assertNotIn('定时关机助手 v3.2 · Command Center', main)
+        self.assertNotIn('定时关机助手 v4.0 · Command Center', main)
         self.assertNotIn('Text { text: "Command Center"', main)
         self.assertNotIn('Text { text: "Next task"', main)
         self.assertNotIn('Text { text: "Active triggers"', main)
         self.assertNotIn('Text { text: "Queue health"', main)
-        self.assertNotIn('v3.2 · 右侧状态栏', main)
+        self.assertNotIn('v4.0 · 右侧状态栏', main)
 
     def test_market_polish_keeps_primary_chrome_fully_localized(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -366,7 +375,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         for stale_stage_copy in ("Ready |", "Script preflight", "Current:", "Skip available", "Skip unavailable"):
             self.assertNotIn(stale_stage_copy, qml_source)
 
-        for localized_label in ("运行中", "已暂停", "就绪", "导航", "模拟关机", "进入睡眠", "进入休眠", "重新启动", "退出登录", "锁定屏幕"):
+        for localized_label in ("运行中", "已暂停", "就绪", "总览", "模拟关机", "进入睡眠", "进入休眠", "重新启动", "退出登录", "锁定屏幕"):
             self.assertIn(localized_label, qml_source)
 
         for tooltip in ("打开音乐播放器", "最小化", "最大化/还原", "关闭到托盘或退出"):
@@ -436,9 +445,9 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         self.assertNotIn("id: safetyStrip", main)
         self.assertNotIn("id: commandCardsRow", main)
         self.assertNotIn("id: commandCenterScroll", main)
-        self.assertIn('Text { text: "快捷倒计时"', main)
-        self.assertIn('height: 300', main)
-        self.assertIn('height: 150', main)
+        self.assertIn("id: quickCountdownPanel", main)
+        self.assertIn("id: lyricCommandBar", main)
+        self.assertIn("id: blogProfileCard", main)
 
     def test_overview_is_reworked_as_a_clear_workbench(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -447,18 +456,224 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         overview_section = main[overview_index:timer_index]
 
         for snippet in (
+            "id: blogHomeDashboard",
+            "id: blogProfileCard",
             "id: overviewWorkbench",
             "id: currentTaskPanel",
             "id: overviewActionPanel",
             "id: quickCountdownPanel",
             "id: overviewStatusSummary",
             "id: overviewRecentActivity",
+            "id: lyricCommandBar",
+            "id: moodModeCard",
+            "id: siteDashboardStrip",
         ):
             self.assertIn(snippet, overview_section)
 
-        self.assertIn("readonly property int overviewRightWidth: 360", overview_section)
-        self.assertNotIn("v3.2 路 鍙充晶鐘舵€佹爮", overview_section)
+        self.assertIn("readonly property int heroRowHeight: 190", overview_section)
+        self.assertIn("readonly property int lyricBarHeight: 70", overview_section)
+        self.assertIn("readonly property int contentLeftWidth: 330", overview_section)
+        self.assertNotIn("v4.0 路 鍙充晶鐘舵€佹爮", overview_section)
         self.assertNotIn("font.letterSpacing", overview_section)
+
+    def test_overview_uses_editorial_command_deck_landmarks(self):
+        theme = (QML / "Theme.qml").read_text(encoding="utf-8")
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        for token in (
+            "readonly property color blogBgA",
+            "readonly property color blogNavPanel",
+            "readonly property color blogRail",
+            "readonly property color blogShell",
+            "readonly property color blogGlassPanel",
+            "readonly property color blogLyricPanel",
+            "readonly property color blogCardBorder",
+            "readonly property color blogImageScrim",
+            "readonly property color blogAvatarRingA",
+            "readonly property color blogAvatarRingB",
+            "readonly property color heroPanel",
+            "readonly property color commandBorder",
+            "readonly property color commandWarm",
+            "readonly property color commandCool",
+            "readonly property color commandRose",
+            "readonly property color commandEmerald",
+        ):
+            self.assertIn(token, theme)
+
+        for snippet in (
+            "id: xingStyleBackground",
+            'source: "assets/blog-dashboard-bg.png"',
+            'source: "assets/blog-post-cover.png"',
+            'source: "assets/blog-banner-cover.png"',
+            "id: blogTopNavigation",
+            "id: profileAvatarFrame",
+            "id: cloudMusicBadge",
+            "id: lyricWaveBars",
+            "id: scheduleBannerCard",
+            "id: commandShortcutRail",
+            "id: quickChipRow",
+            "cardColor: Theme.blogGlassPanel",
+            "cardColor: Theme.blogLyricPanel",
+            "cardBorderColor: Theme.blogCardBorder",
+        ):
+            self.assertIn(snippet, main)
+
+    def test_overview_has_anime_motion_layer_and_mascot_assets(self):
+        theme = (QML / "Theme.qml").read_text(encoding="utf-8")
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        for asset in (
+            QML / "assets" / "anime-skyline-bg.png",
+            QML / "assets" / "anime-mascot.png",
+            QML / "assets" / "anime-task-cover.png",
+        ):
+            self.assertTrue(asset.exists(), f"{asset.name} should be a project-local anime style visual asset")
+
+        for token in (
+            "readonly property color animeSakura",
+            "readonly property color animeCyanGlow",
+            "readonly property color animeVioletGlow",
+        ):
+            self.assertIn(token, theme)
+
+        for snippet in (
+            "id: animeSkylineLayer",
+            "id: animeStarfield",
+            "id: shootingStarLayer",
+            "id: petalParticleLayer",
+            "id: mascotCharacterSprite",
+            "id: mascotHaloPulse",
+            "id: backgroundDriftAnimation",
+            "id: shootingStarTravelAnimation",
+            "id: petalFallAnimation",
+            "id: profileFloatAnimation",
+            "id: lyricWavePulseAnimation",
+            "id: mascotFloatAnimation",
+            'source: "assets/anime-skyline-bg.png"',
+            'source: "assets/anime-mascot.png"',
+            'source: "assets/anime-task-cover.png"',
+        ):
+            self.assertIn(snippet, main)
+
+        self.assertGreaterEqual(overview_section.count("Animation.Infinite"), 4)
+        self.assertGreaterEqual(main.count("Animation.Infinite"), 7)
+        self.assertNotIn("running: false", overview_section)
+
+    def test_overview_uses_feibi_desktop_animation_and_voice_assets(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+
+        for asset in (
+            QML / "assets" / "feibi" / "gifs" / "idle.gif",
+            QML / "assets" / "feibi" / "gifs" / "talk.gif",
+            QML / "assets" / "feibi" / "gifs" / "push.gif",
+            QML / "assets" / "feibi" / "gifs" / "sleep.gif",
+            QML / "assets" / "feibi" / "sounds" / "time.mp3",
+            QML / "assets" / "feibi" / "sounds" / "feibi-call.mp3",
+        ):
+            self.assertTrue(asset.exists(), f"{asset.name} should be copied from Feibi_desktop")
+
+        for snippet in (
+            "import QtMultimedia",
+            "property string feibiAction",
+            "property bool feibiPaused",
+            "property bool feibiManualMode",
+            "function playFeibiVoice",
+            "function setFeibiAction",
+            "function toggleFeibiPaused",
+            "function interactWithFeibi",
+            "id: feibiVoicePlayer",
+            "AudioOutput { id: feibiVoiceOutput",
+            "id: feibiDesktopPetSprite",
+            "AnimatedImage {",
+            'source: mainWindow.feibiAction === "talk" ? "assets/feibi/gifs/talk.gif"',
+            'mainWindow.playFeibiVoice("assets/feibi/sounds/time.mp3")',
+            'mainWindow.playFeibiVoice("assets/feibi/sounds/feibi-call.mp3")',
+            "id: feibiVoiceEqualizer",
+            "id: feibiControlDock",
+            "id: feibiPlayButton",
+            "id: feibiPauseButton",
+            "id: feibiInteractButton",
+        ):
+            self.assertIn(snippet, main)
+
+        self.assertIn("id: feibiDesktopPetSprite", overview_section)
+        self.assertIn("running: blogHomeDashboard.visible", overview_section)
+        self.assertGreaterEqual(overview_section.count("assets/feibi/gifs/"), 4)
+        self.assertGreaterEqual(overview_section.count("assets/feibi/sounds/"), 2)
+        self.assertNotIn("id: feibiLegacyActionSwitcher", overview_section)
+
+    def test_feibi_pet_is_presented_as_a_dedicated_animated_stage(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+        self.assertIn("id: feibiPetStage", overview_section)
+        pet_index = overview_section.index("id: feibiPetStage")
+        rail_index = overview_section.index("id: commandShortcutRail", pet_index)
+        pet_section = overview_section[pet_index:rail_index]
+
+        for snippet in (
+            "id: feibiPetStage",
+            "id: feibiSpeechBubble",
+            "id: feibiStageHalo",
+            "id: feibiGroundShadow",
+            "id: feibiControlDock",
+            "id: feibiStateBadge",
+            "id: feibiStagePulseAnimation",
+            "id: feibiDockFloatAnimation",
+            "anchors.bottom: feibiControlDock.top",
+            "anchors.bottomMargin: -4",
+            "opacity: mainWindow.feibiVoiceActive ? 1.0 : 0.76",
+            "text: mainWindow.feibiAction === \"talk\" ? \"菲比播报中\"",
+            "onClicked: mainWindow.playFeibiVoice(\"assets/feibi/sounds/feibi-call.mp3\")",
+            "onEntered: mainWindow.setFeibiAction(\"push\", 1600)",
+        ):
+            self.assertIn(snippet, pet_section)
+
+        self.assertNotIn("anchors.fill: parent\n                            source: mainWindow.feibiAction", pet_section)
+        self.assertNotIn("id: feibiLegacyActionSwitcher", overview_section)
+        self.assertIn('text: "播放"', pet_section)
+        self.assertIn('text: mainWindow.feibiPaused ? "继续" : "暂停"', pet_section)
+        self.assertIn('text: "互动"', pet_section)
+        self.assertGreaterEqual(pet_section.count("Animation.Infinite"), 4)
+
+    def test_feibi_pet_controls_are_meaningful_and_do_not_snap_back(self):
+        main = MAIN_QML.read_text(encoding="utf-8")
+        overview_index = main.index("// Overview page")
+        timer_index = main.index("// Timer page", overview_index)
+        overview_section = main[overview_index:timer_index]
+        pet_section = overview_section[overview_section.index("id: feibiPetStage"):overview_section.index("id: commandShortcutRail")]
+
+        for snippet in (
+            "property bool feibiPaused",
+            "property bool feibiManualMode",
+            "property int feibiInteractionStep",
+            "mainWindow.feibiPaused = false",
+            "mainWindow.feibiManualMode = true",
+            "mainWindow.setFeibiAction(actionName, 0, true)",
+            "playing: blogHomeDashboard.visible && !mainWindow.feibiPaused",
+            "running: blogHomeDashboard.visible && !mainWindow.feibiPaused",
+            "if (mainWindow.feibiPaused || mainWindow.feibiManualMode || mainWindow.feibiVoiceActive) return",
+            "mainWindow.toggleFeibiPaused()",
+            "mainWindow.interactWithFeibi()",
+        ):
+            self.assertIn(snippet, main)
+
+        self.assertEqual(pet_section.count("id: feibiPlayButton"), 1)
+        self.assertEqual(pet_section.count("id: feibiPauseButton"), 1)
+        self.assertEqual(pet_section.count("id: feibiInteractButton"), 1)
+        self.assertNotIn("mainWindow.setFeibiAction(\"push\", 1700)", overview_section)
+        self.assertNotIn("mainWindow.setFeibiAction(\"eating\", 2200)", overview_section)
+        self.assertNotIn("mainWindow.setFeibiAction(\"sleep\", 2400)", overview_section)
 
     def test_overview_uses_explicit_geometry_to_prevent_panel_overlap(self):
         main = MAIN_QML.read_text(encoding="utf-8")
@@ -467,13 +682,14 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         overview_section = main[overview_index:timer_index]
 
         self.assertIn("readonly property int overviewGap", overview_section)
-        self.assertIn("readonly property int overviewRightWidth", overview_section)
-        self.assertIn("readonly property int overviewLeftWidth", overview_section)
-        self.assertIn("width: overviewWorkbench.overviewLeftWidth", overview_section)
-        self.assertIn("x: overviewWorkbench.overviewLeftWidth + overviewWorkbench.overviewGap", overview_section)
-        self.assertIn("width: overviewWorkbench.overviewRightWidth", overview_section)
-        self.assertIn("y: quickCountdownPanel.height + overviewWorkbench.overviewGap", overview_section)
-        self.assertIn("height: parent.height - y", overview_section)
+        self.assertIn("readonly property int profileWidth", overview_section)
+        self.assertIn("readonly property int musicWidth", overview_section)
+        self.assertIn("readonly property int contentLeftWidth", overview_section)
+        self.assertIn("readonly property int contentRightWidth", overview_section)
+        self.assertIn("width: overviewWorkbench.profileWidth", overview_section)
+        self.assertIn("x: overviewWorkbench.profileWidth + overviewWorkbench.overviewGap", overview_section)
+        self.assertIn("y: overviewWorkbench.contentRowY", overview_section)
+        self.assertIn("height: overviewWorkbench.contentRowHeight", overview_section)
         self.assertNotIn("RowLayout {\n                id: overviewWorkbench", overview_section)
 
     def test_overview_cards_use_opaque_panels_to_prevent_text_bleed_through(self):
@@ -482,22 +698,24 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         timer_index = main.index("// Timer page", overview_index)
         overview_section = main[overview_index:timer_index]
 
-        self.assertGreaterEqual(overview_section.count("cardColor: Theme.dialogPanel"), 4)
-        self.assertIn("cardColor: Theme.dialogPanelRaised", overview_section)
+        self.assertGreaterEqual(overview_section.count("cardColor: Theme.blogGlassPanel"), 5)
+        self.assertIn("cardColor: Theme.blogLyricPanel", overview_section)
+        self.assertIn("color: Theme.blogImageScrim", overview_section)
+        self.assertIn("readonly property color heroPanel", (QML / "Theme.qml").read_text(encoding="utf-8"))
         self.assertNotIn("cardColor: Theme.cardGlass", overview_section)
         self.assertNotIn("active: true", overview_section)
         self.assertNotIn("breathing: true", overview_section)
 
     def test_current_task_panel_stacks_content_in_narrow_overview_column(self):
         main = MAIN_QML.read_text(encoding="utf-8")
-        panel_index = main.index("id: currentTaskPanel")
-        action_index = main.index("id: overviewActionPanel", panel_index)
+        panel_index = main.index("id: blogProfileCard")
+        action_index = main.index("id: quickCountdownPanel", panel_index)
         panel_section = main[panel_index:action_index]
 
-        self.assertIn("id: currentTaskContent", panel_section)
-        self.assertIn("id: currentTaskActions", panel_section)
+        self.assertIn("id: profileStatsRow", panel_section)
+        self.assertIn("id: profileAvatarFrame", panel_section)
         self.assertIn("GridLayout {", panel_section)
-        self.assertIn("columns: 2", panel_section)
+        self.assertIn("columns: 3", panel_section)
         self.assertNotIn("Layout.preferredWidth: 230", panel_section)
         self.assertNotIn("font.pixelSize: 70", panel_section)
 
@@ -508,10 +726,12 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         title_section = main[main.index("id: titleBar"):main.index("// Sidebar")]
         nav_section = main[main.index("id: navigationRail"):main.index("Item {\n        id: contentHost")]
 
-        self.assertIn("cardColor: Theme.dialogPanel", shell_section)
-        self.assertIn("color: Theme.dialogPanel", title_section)
-        self.assertIn("cardColor: Theme.dialogPanel", nav_section)
-        self.assertIn("color: Theme.dialogPanelRaised", nav_section)
+        self.assertIn("cardColor: Theme.blogShell", shell_section)
+        self.assertIn("color: Theme.blogNavPanel", title_section)
+        self.assertIn("id: blogTopNavigation", nav_section)
+        self.assertIn("height: 44", nav_section)
+        self.assertNotIn("width: navWidth", nav_section)
+        self.assertIn("cardColor: Theme.blogGlassPanel", nav_section)
         self.assertNotIn("cardColor: Theme.shellGlass", shell_section)
         self.assertNotIn("color: Theme.glassSoft", title_section)
         self.assertNotIn("font.letterSpacing", nav_section)
@@ -1187,7 +1407,7 @@ class E5E8ButtonRegressionTest(unittest.TestCase):
         main = MAIN_QML.read_text(encoding="utf-8")
 
         self.assertNotIn("model: 12", main)
-        background_section = main[main.index("// Quiet depth layers behind the work surface."):main.index("NeonCard {\n        id: appShell")]
+        background_section = main[main.index("// Editorial depth layers behind the work surface."):main.index("NeonCard {\n        id: appShell")]
         self.assertNotIn("SequentialAnimation on opacity", background_section)
         self.assertNotIn("SequentialAnimation on y", background_section)
         self.assertNotIn("id: orb", main)

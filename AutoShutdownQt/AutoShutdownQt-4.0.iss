@@ -1,5 +1,5 @@
 #define MyAppName "定时关机助手"
-#define MyAppVersion "3.2"
+#define MyAppVersion "4.0"
 #define MyAppPublisher "tiandao"
 #define MyAppExeName "定时关机助手.exe"
 
@@ -12,7 +12,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist
-OutputBaseFilename=定时关机助手-3.2-Setup
+OutputBaseFilename=定时关机助手-4.0-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -29,7 +29,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Name: "launchafterinstall"; Description: "安装后启动定时关机助手"; GroupDescription: "安装后操作："; Flags: unchecked
 
 [Files]
-Source: "..\dist\定时关机助手-3.2\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\定时关机助手-4.0\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\定时关机助手"; Filename: "{app}\{#MyAppExeName}"

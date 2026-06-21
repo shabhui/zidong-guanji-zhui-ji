@@ -1,17 +1,18 @@
-# 定时关机助手 3.2
+# 定时关机助手 4.0
 
-定时关机助手 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。3.2 是正式安装包版本，新增可设置的空闲自动关机，同时继续保留右下角托盘后台、Inno Setup 安装器和便携 zip。
+定时关机助手 是一个基于 **Python + PySide6/QML** 的 Windows 桌面自动电源动作工具。4.0 是二次元视觉与菲比桌宠互动增强版本，同时继续保留右下角托盘后台、Inno Setup 安装器和便携 zip。
 
-> 安全提示：定时关机助手 3.2 默认开启 **安全验证模式**。在安全验证模式下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动进入真实执行模式后，才会执行真实系统动作。
+> 安全提示：定时关机助手 4.0 默认开启 **安全验证模式**。在安全验证模式下，应用只记录“将要执行”的动作，不会真实关机、重启、注销、锁定、睡眠、休眠或运行外部脚本。只有手动进入真实执行模式后，才会执行真实系统动作。
 
 ## Current release
 
-当前版本是 **定时关机助手 3.2**，这是正式安装包版本，新增可设置的空闲自动关机，并继续支持右下角托盘后台运行、开机启动、任务历史和 Windows 原生通知。
+当前版本是 **定时关机助手 4.0**，这是正式安装包版本，重做了首页二次元视觉、菲比桌宠动画/语音和托盘通知稳定性，并继续支持右下角托盘后台运行、开机启动、任务历史和 Windows 原生通知。
 
-- 下载安装器：`定时关机助手-3.2-Setup.exe`
-- 便携版 zip：`定时关机助手-3.2.zip`
+- 下载安装器：`定时关机助手-4.0-Setup.exe`
+- 便携版 zip：`定时关机助手-4.0.zip`
 - 校验文件：`SHA256SUMS.txt`
 - 默认开启安全验证模式。
+- 首页使用二次元博客风格视觉控制台，并加入菲比桌宠播放、暂停和互动。
 - 系统托盘可用时，可为执行前提醒发送 Windows 原生通知。
 - 可查看、清空任务历史，并导出 JSON。
 - 托盘可用时，点击关闭按钮会隐藏到右下角小图标；双击小图标恢复窗口，右键选择“退出程序”才彻底退出。
@@ -57,8 +58,8 @@ AutoShutdownQt/
 ├── task_scheduler.py       # 任务队列调度
 ├── tray_service.py         # 系统托盘服务
 ├── package_release.py      # 打包脚本
-├── AutoShutdownQt-3.2.spec # PyInstaller 打包配置
-├── AutoShutdownQt-3.2.iss  # Inno Setup 安装器配置
+├── AutoShutdownQt-4.0.spec # PyInstaller 打包配置
+├── AutoShutdownQt-4.0.iss  # Inno Setup 安装器配置
 ├── qml/                    # QML 界面和组件
 └── tests/                  # 单元测试和 QML 静态回归测试
 ```
@@ -88,7 +89,7 @@ python -m unittest discover AutoShutdownQt/tests -v
 
 Note: controller/QML logic tests use `AutoShutdownQt/tests/qt_test_env.py` as a test-only fallback when PySide6 is not installed in the current Python environment. Running the real app and visual Qt checks still requires PySide6.
 
-## 打包 3.2 发布包
+## 打包 4.0 发布包
 
 先确保 PyInstaller 可用；如果要生成安装器，还需要安装 Inno Setup 并确保 `ISCC.exe` 在 PATH 中：
 
@@ -105,21 +106,21 @@ python AutoShutdownQt/package_release.py
 生成产物：
 
 ```text
-dist/定时关机助手-3.2/
-dist/定时关机助手-3.2.zip
-dist/定时关机助手-3.2-Setup.exe
+dist/定时关机助手-4.0/
+dist/定时关机助手-4.0.zip
+dist/定时关机助手-4.0-Setup.exe
 dist/SHA256SUMS.txt
-dist/release-checklist-v3.2.md
+dist/release-checklist-v4.0.md
 ```
 
 说明：
 
 - `dist/`、`build/` 和 `*.zip` 已被 `.gitignore` 忽略，不会随源码提交。
-- 3.2 同时发布安装器和便携 zip。
+- 4.0 同时发布安装器和便携 zip。
 - 当前 exe/安装器未做代码签名，Windows 首次运行时可能出现安全提示。
 - zip 内会包含 `release-manifest.json`，用于记录版本、关键文件和安全说明。
 - 根目录 `.mp3` 文件会被打进发布包。
-- 更多发布说明见 `RELEASE_NOTES_v3.2.md`。
+- 更多发布说明见 `RELEASE_NOTES_v4.0.md`。
 
 ## 安全模式说明
 
@@ -139,4 +140,4 @@ dist/release-checklist-v3.2.md
 main
 ```
 
-本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v3.2` tag，并上传 `dist/定时关机助手-3.2-Setup.exe`、`dist/定时关机助手-3.2.zip` 与 `dist/SHA256SUMS.txt`。
+本仓库提交发布配置和源码，不直接提交本地 zip 或安装器。正式 GitHub Release 使用 `v4.0` tag，并上传 `dist/定时关机助手-4.0-Setup.exe`、`dist/定时关机助手-4.0.zip` 与 `dist/SHA256SUMS.txt`。

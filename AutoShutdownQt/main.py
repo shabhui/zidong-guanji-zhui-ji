@@ -92,7 +92,7 @@ if __name__ == "__main__":
     screenshot_width, screenshot_height = _parse_screenshot_size(sys.argv)
     app = QApplication(sys.argv)
     app.setApplicationName("定时关机助手")
-    app.setApplicationVersion("3.2")
+    app.setApplicationVersion("4.0")
     app.setWindowIcon(QIcon(str(APP_ICON_PATH)))
 
     # PySide6 versions differ in QQuickStyle introspection support.

@@ -1,3 +1,13 @@
+def _information_message_icon():
+    try:
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        message_icon = getattr(QSystemTrayIcon, "MessageIcon", QSystemTrayIcon)
+        return message_icon.Information
+    except Exception:
+        return 1
+
+
 class NotificationService:
     def __init__(self, tray_service=None, logger=None):
         self._tray_service = tray_service
@@ -15,7 +25,7 @@ class NotificationService:
                 self._unavailable_logged = True
             return False
         try:
-            self._tray_service.tray.showMessage(title, body, None, 10000)
+            self._tray_service.tray.showMessage(title, body, _information_message_icon(), 10000)
         except Exception as exc:
             self._logger(f"系统通知不可用：{exc}")
             return False

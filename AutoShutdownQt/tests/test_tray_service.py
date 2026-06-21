@@ -46,6 +46,19 @@ class FakeTray:
         self.messages.append((title, body, icon, millisecondsTimeoutHint))
 
 
+class StrictPySideTray:
+    DoubleClick = 2
+
+    def __init__(self):
+        self.messages = []
+        self.activated = FakeSignal()
+
+    def showMessage(self, *args, **kwargs):
+        if len(args) >= 3 and args[2] is None:
+            raise TypeError("wrong argument types: NoneType")
+        self.messages.append((args, kwargs))
+
+
 class FakeController:
     def __init__(self):
         self.paused = False
@@ -144,6 +157,21 @@ class TrayServiceTest(unittest.TestCase):
         self.assertIn("小图标", tray.messages[0][1])
         self.assertIn("双击", tray.messages[0][1])
         self.assertIn("右键", tray.messages[0][1])
+
+    def test_minimize_to_tray_uses_valid_qt_tray_icon_argument(self):
+        window = FakeWindow()
+        controller = FakeController()
+        tray = StrictPySideTray()
+        service = TrayService(controller, window, tray_factory=lambda: tray)
+        service.setup()
+
+        self.assertTrue(service.minimize_to_tray())
+
+        args, kwargs = tray.messages[0]
+        self.assertEqual(args[0], "定时关机助手")
+        self.assertNotEqual(args[2], None)
+        self.assertIn(3000, args[2:])
+        self.assertEqual(kwargs, {})
 
     def test_minimize_to_tray_keeps_window_visible_when_tray_unavailable(self):
         window = FakeWindow()
