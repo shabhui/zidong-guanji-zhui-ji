@@ -80,6 +80,7 @@ class AppController(QObject):
     historyChanged = Signal()
     startupChanged = Signal()
     powerActionProgressChanged = Signal()
+    feibiTaskChanged = Signal()
     _workerLogRequested = Signal(str)
     _workerCallbackRequested = Signal(object)
 
@@ -732,6 +733,24 @@ class AppController(QObject):
         return len(self._scheduler.tasks)
     queueTaskCount = Property(int, getQueueTaskCount, notify=taskQueueChanged)
 
+    # --- 菲比桌宠联动：暴露最近一个待执行电源任务的实时倒计时（秒）和动作标签 ---
+    # 说明：队列型倒计时的顶层 status/remainingSeconds 算完即还原，不适合桌宠联动，
+    # 这里按需从调度器读取最近可执行任务的 next_run_at 计算，随 feibiTaskChanged（每秒）
+    # 和 taskQueueChanged（增删任务）刷新。返回 -1 表示当前没有排队的电源任务。
+    def getFeibiTaskSeconds(self):
+        task = self._next_snoozable_task()
+        if task is None or not task.next_run_at:
+            return -1
+        return max(0, int((task.next_run_at - self._now()).total_seconds()))
+    feibiTaskSeconds = Property(int, getFeibiTaskSeconds, notify=feibiTaskChanged)
+
+    def getFeibiTaskActionLabel(self):
+        task = self._next_snoozable_task()
+        if task is None:
+            return ""
+        return self.ACTION_LABELS.get(task.action, task.action)
+    feibiTaskActionLabel = Property(str, getFeibiTaskActionLabel, notify=feibiTaskChanged)
+
     def getQueueText(self):
         rows = self._scheduler.rows()
         if not rows:
@@ -789,6 +808,30 @@ class AppController(QObject):
         )
     safetySummaryText = Property(str, getSafetySummaryText, notify=targetInfoChanged)
 
+    def getDashboardTaskTitleText(self):
+        task = self._next_snoozable_task()
+        if task is None or task.next_run_at is None:
+            return "尚未安排任务"
+        remaining_seconds = max(0, math.ceil((task.next_run_at - self._now()).total_seconds()))
+        action_label = self.ACTION_LABELS.get(task.action, task.action)
+        if remaining_seconds <= 0:
+            return f"{action_label} · 即将执行"
+        return f"{action_label} · {self._format_duration(remaining_seconds)}后"
+    dashboardTaskTitleText = Property(str, getDashboardTaskTitleText, notify=feibiTaskChanged)
+
+    def getDashboardTaskDetailText(self):
+        task = self._next_snoozable_task()
+        if task is None:
+            return "从快捷倒计时、指定时间或任务模板开始"
+        return f"{task.name} · 计划 {task.next_run_text()}"
+    dashboardTaskDetailText = Property(str, getDashboardTaskDetailText, notify=feibiTaskChanged)
+
+    def getDashboardSafetyText(self):
+        if self._dry_run:
+            return "安全验证已开启 · 所有动作只验证流程"
+        return "真实执行模式 · 执行动作前请保存工作"
+    dashboardSafetyText = Property(str, getDashboardSafetyText, notify=dryRunChanged)
+
     def getTriggerHealthSummaryText(self):
         process_state = self._trigger_state_label(self._process_trigger_active)
         network_state = self._trigger_state_label(self._network_trigger_active)
@@ -838,6 +881,15 @@ class AppController(QObject):
     notificationService = property(getNotificationService, setNotificationService)
 
     # --- Slots ---
+
+    @Slot(int)
+    def startQuickCountdown(self, minutes):
+        minutes = int(minutes)
+        if minutes < 1 or minutes > 10080:
+            self._add_log("快捷倒计时时长应在 1 到 10080 分钟之间")
+            return
+        hours, remaining_minutes = divmod(minutes, 60)
+        self.startCountdown(hours, remaining_minutes, 0)
 
     @Slot(int, int, int)
     def startCountdown(self, hours, minutes, seconds):
@@ -1509,6 +1561,7 @@ class AppController(QObject):
 
     def _on_tick(self):
         now = self._now()
+        self.feibiTaskChanged.emit()
         due_tasks = self._scheduler.due_tasks(now)
         if due_tasks:
             for task in due_tasks:

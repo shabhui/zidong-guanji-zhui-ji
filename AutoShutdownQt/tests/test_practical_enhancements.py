@@ -193,6 +193,46 @@ class PracticalEnhancementsTest(unittest.TestCase):
         self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
         return target
 
+    def test_quick_countdown_converts_minutes_and_preserves_selected_action(self):
+        controller = AppController()
+        controller.selectedAction = "sleep"
+
+        controller.startQuickCountdown(90)
+
+        rows = json.loads(controller.queueRowsJson)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["action"], "sleep")
+        self.assertIn("1 小时 30 分钟", rows[0]["name"])
+
+    def test_quick_countdown_rejects_out_of_range_minutes(self):
+        controller = AppController()
+
+        controller.startQuickCountdown(0)
+        controller.startQuickCountdown(10081)
+
+        self.assertEqual(controller.queueTaskCount, 0)
+        self.assertIn("快捷倒计时时长应在 1 到 10080 分钟之间", controller.logText)
+
+    def test_dashboard_summary_describes_the_next_task_in_user_language(self):
+        controller = AppController()
+        self.assertEqual(controller.dashboardTaskTitleText, "尚未安排任务")
+        self.assertIn("快捷倒计时", controller.dashboardTaskDetailText)
+
+        controller.selectedAction = "sleep"
+        controller.startQuickCountdown(30)
+
+        self.assertIn("睡眠", controller.dashboardTaskTitleText)
+        self.assertIn("30 分钟后", controller.dashboardTaskTitleText)
+        self.assertIn("倒计时 30 分钟", controller.dashboardTaskDetailText)
+
+    def test_dashboard_safety_text_is_concise_and_mode_specific(self):
+        controller = AppController()
+        self.assertEqual(controller.dashboardSafetyText, "安全验证已开启 · 所有动作只验证流程")
+
+        controller.requestDryRunChange(False)
+
+        self.assertEqual(controller.dashboardSafetyText, "真实执行模式 · 执行动作前请保存工作")
+
     def test_settings_round_trip_merges_defaults(self):
         root = self._workspace_scratch("practical-settings-merge")
         path = root / "settings.json"

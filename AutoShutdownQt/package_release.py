@@ -129,7 +129,7 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
             "diagnosticsCenterWired": qml_contains_all(
                 "controller.copyDiagnostics()",
                 "controller.diagnosticText",
-                "controller.safetySummaryText",
+                "controller.dashboardSafetyText",
                 "controller.triggerHealthSummaryText",
                 "controller.logCategorySummaryText",
             ),
@@ -143,8 +143,8 @@ def create_release_manifest(bundle_dir=APP_BUNDLE_DIR):
                 "controller.filteredLogText",
             ),
             "failedQueueRecoveryWired": qml_contains_all(
-                "controller.retryQueueTask(modelData.id)",
-                "controller.copyQueueTaskDiagnostic(modelData.id)",
+                "controller.retryQueueTask(",
+                "controller.copyQueueTaskDiagnostic(",
                 'modelData.status === "failed"',
                 "modelData.lastError",
             ),

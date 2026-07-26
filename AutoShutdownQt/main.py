@@ -64,6 +64,15 @@ def _parse_screenshot_size(argv):
     return parse_optional_int("--ui-width"), parse_optional_int("--ui-height")
 
 
+def _configure_screenshot_font_directory(screenshot_path):
+    if screenshot_path is None:
+        return
+
+    fonts_directory = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+    if fonts_directory.is_dir():
+        os.environ["QT_QPA_FONTDIR"] = str(fonts_directory)
+
+
 def _screenshot_settings_path(screenshot_path):
     return Path(os.devnull) if screenshot_path is not None else None
 
@@ -87,6 +96,7 @@ class ScreenshotStartupService:
 
 if __name__ == "__main__":
     screenshot_path = _parse_screenshot_path(sys.argv)
+    _configure_screenshot_font_directory(screenshot_path)
     screenshot_page = _parse_screenshot_page(sys.argv)
     screenshot_target = _parse_screenshot_target(sys.argv)
     screenshot_width, screenshot_height = _parse_screenshot_size(sys.argv)
