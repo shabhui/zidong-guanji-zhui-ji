@@ -1,50 +1,25 @@
-# Build outputs
-[Bb]in/
-[Oo]bj/
-build/
+# Python
 __pycache__/
 *.py[cod]
+
+# Build outputs
+build/
 dist/
 *.spec
-!AutoShutdownQt/AutoShutdownQt-4.0.spec
-!AutoShutdownQt/AutoShutdownQt-4.0.iss
-
-# Publish artifacts
-[Pp]ublish/
 *.zip
 
-# Local agent settings
+# Local agent settings and caches
 .superpowers/
-
-# Claude Code agent worktrees and local overrides (machine-specific, never commit)
 .claude/worktrees/
 .claude/settings.local.json
-spaces/
-
-# Local tool caches and one-off backups (never commit)
-.codegraph/
-.reasonix/
-.codex_pydeps/
-.codex-marketplace-test/
 .tmp/
 test-tmp/
-*.bundle
-
-# Generated design artifacts
-canvas-image-image-*.png
-
-# Local UI screenshots and visual regression captures
-AutoShutdownQt/screenshots/
-AutoShutdownQt/ui_screenshots/
-AutoShutdownQt/ui_page*.png
-AutoShutdownQt/ui_overview.png
 
 # IDE/user files
 .vs/
 .vscode/
 .idea/
 *.user
-*.suo
 
 # OS files
 .DS_Store
